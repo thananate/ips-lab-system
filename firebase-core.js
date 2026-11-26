@@ -1,5 +1,5 @@
 // =========================================================================
-// IPS LAB SYSTEM - SHARED FIREBASE CORE & AUTH GUARD (ENGLISH VERSION)
+// IPS LAB SYSTEM - SHARED FIREBASE CORE & DYNAMIC LABS GUARD
 // =========================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyCRotp0yrhYGc8zctl1Yo7Fknxz0AJnEZU",
@@ -17,8 +17,12 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+const DEFAULT_LABS = ['Primary', 'Physics', 'Chemistry', 'Biology', 'Mathematics Resource'];
+
 window.IPS = {
   user: null,
+  labs: [...DEFAULT_LABS],
+  labDocs: [],
   equipments: [],
   requests: [],
   movements: [],
@@ -26,16 +30,24 @@ window.IPS = {
   users: []
 };
 
-// Get allowed labs: Super Admin, Admin, and Lab Staff access all 4 labs.
-// Teachers only access the labs explicitly checked in User Management.
+// Get all active laboratory names dynamically
+function getAllLabNames() {
+  return (window.IPS.labs && window.IPS.labs.length > 0) ? window.IPS.labs : DEFAULT_LABS;
+}
+
+// Get allowed labs: Super Admin, Admin, and Lab Staff access all labs.
+// Teachers access labs checked in User Management (supports both user[labName] and user.allowedLabs).
 function getUserAllowedLabs(user) {
+  const allLabs = getAllLabNames();
   if (!user) return [];
   if (['Super Admin', 'Admin', 'Lab Staff'].includes(user.role)) {
-    return ['Primary', 'Physics', 'Chemistry', 'Biology'];
+    return allLabs;
   }
   const labs = [];
-  ['Primary', 'Physics', 'Chemistry', 'Biology'].forEach(l => {
-    if (user[l] === true || user[l] === 'true' || user[l] === 'Yes' || user[l] === '1') {
+  allLabs.forEach(l => {
+    const inArray = Array.isArray(user.allowedLabs) && user.allowedLabs.includes(l);
+    const inProp = user[l] === true || user[l] === 'true' || user[l] === 'Yes' || user[l] === '1';
+    if (inArray || inProp) {
       labs.push(l);
     }
   });
@@ -43,7 +55,6 @@ function getUserAllowedLabs(user) {
 }
 
 // Helper: Determine if item is consumable/chemical (deducted permanently on approval)
-// Items with an Expiry Date or legacy Consumable/Chemical type are treated as non-returnable stock.
 function isConsumableOrChemical(eq) {
   if (!eq) return false;
   if (eq.expiryDate && eq.expiryDate.trim() !== '') return true;
@@ -107,6 +118,7 @@ async function addStockMovement(equipmentId, equipmentName, lab, action, qty, no
 function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
   const user = window.IPS.user;
   const role = user.role;
+  const allLabs = getAllLabNames();
   const allowedLabs = getUserAllowedLabs(user);
 
   const menus = [
@@ -116,7 +128,7 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
     { href: 'stock.html', id: 'stock', label: 'Inventory & Stock', icon: 'boxes', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
     { href: 'purchase.html', id: 'purchase', label: 'Procurement (Purchase)', icon: 'shopping-cart', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
     { href: 'report.html', id: 'report', label: 'Analytics & Reports', icon: 'bar-chart-3', roles: ['Admin', 'Super Admin'] },
-    { href: 'admin.html', id: 'admin', label: 'User Management', icon: 'users', roles: ['Super Admin'] }
+    { href: 'admin.html', id: 'admin', label: 'User & Lab Management', icon: 'users', roles: ['Super Admin'] }
   ];
 
   const navLinks = menus.filter(m => m.roles.includes(role)).map(m => {
@@ -131,8 +143,8 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
 
   const sidebarEl = document.getElementById('sharedSidebar');
   if (sidebarEl) {
-    const labDisplay = allowedLabs.length === 4
-      ? 'Access: All 4 Labs'
+    const labDisplay = allowedLabs.length === allLabs.length
+      ? `Access: All ${allLabs.length} Labs`
       : (allowedLabs.length > 0 ? 'Lab: ' + allowedLabs.join(', ') : 'No Lab Assigned Yet');
 
     sidebarEl.innerHTML = `
@@ -185,6 +197,20 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
   }
 }
 
+// Seed default labs if Firestore 'labs' collection is empty
+async function ensureDefaultLabsSeeded() {
+  const snap = await db.collection('labs').get();
+  if (snap.empty) {
+    for (let i = 0; i < DEFAULT_LABS.length; i++) {
+      await db.collection('labs').add({
+        name: DEFAULT_LABS[i],
+        order: i + 1,
+        createdAt: new Date().toISOString().slice(0, 10)
+      });
+    }
+  }
+}
+
 // Page Bootloader & Real-time Firestore Sync
 function initIPSPage({ activePage, title, subtitle, allowedRoles = null, requireLogin = true, onReady }) {
   auth.onAuthStateChanged(async (firebaseUser) => {
@@ -197,13 +223,15 @@ function initIPSPage({ activePage, title, subtitle, allowedRoles = null, require
       return;
     }
 
+    await ensureDefaultLabsSeeded();
+
     const userDoc = await db.collection('user').doc(firebaseUser.uid).get();
     let profile = {
       uid: firebaseUser.uid,
       email: firebaseUser.email,
       name: firebaseUser.email.split('@')[0],
       role: 'Teacher',
-      Primary: false, Physics: false, Chemistry: false, Biology: false
+      allowedLabs: []
     };
     if (userDoc.exists) {
       profile = { ...profile, ...userDoc.data(), uid: firebaseUser.uid };
@@ -223,17 +251,24 @@ function initIPSPage({ activePage, title, subtitle, allowedRoles = null, require
     }
 
     window.IPS.user = profile;
-    renderSharedLayout(activePage, title, subtitle);
-    if (window.lucide) lucide.createIcons();
 
     let loadedCount = 0;
     const checkInitialLoad = () => {
       loadedCount++;
-      if (loadedCount >= 4 && onReady) {
-        onReady(profile);
+      if (loadedCount >= 5) {
+        renderSharedLayout(activePage, title, subtitle);
+        if (onReady) onReady(profile);
         if (window.lucide) lucide.createIcons();
       }
     };
+
+    db.collection('labs').orderBy('order', 'asc').onSnapshot(snap => {
+      window.IPS.labDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      window.IPS.labs = window.IPS.labDocs.length > 0
+        ? window.IPS.labDocs.map(l => l.name)
+        : [...DEFAULT_LABS];
+      checkInitialLoad();
+    });
 
     db.collection('equipments').onSnapshot(snap => {
       window.IPS.equipments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -253,7 +288,7 @@ function initIPSPage({ activePage, title, subtitle, allowedRoles = null, require
     });
     db.collection('user').onSnapshot(snap => {
       window.IPS.users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
-      if (loadedCount >= 4 && onReady) onReady(profile);
+      if (loadedCount >= 5 && onReady) onReady(profile);
     });
   });
 }
