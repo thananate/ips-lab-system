@@ -42,11 +42,20 @@ function getUserAllowedLabs(user) {
   return labs;
 }
 
+// Helper: Determine if item is consumable/chemical (deducted permanently on approval)
+// Items with an Expiry Date or legacy Consumable/Chemical type are treated as non-returnable stock.
+function isConsumableOrChemical(eq) {
+  if (!eq) return false;
+  if (eq.expiryDate && eq.expiryDate.trim() !== '') return true;
+  if (['Consumable', 'Chemical'].includes(eq.type)) return true;
+  return false;
+}
+
 // Time-Slot Overlap Prevention Engine
 function getAvailableForTimeSlot(eqDocId, targetDate, startTime, endTime, excludeReqId = null) {
   const eq = window.IPS.equipments.find(e => e.id === eqDocId);
   if (!eq) return 0;
-  if (eq.type === 'Consumable' || eq.type === 'Chemical') return Number(eq.available || 0);
+  if (isConsumableOrChemical(eq)) return Number(eq.available || 0);
 
   const maxUsable = Number(eq.total || 0) - Number(eq.damaged || 0);
   if (!targetDate || !startTime || !endTime) return Number(eq.available || 0);
