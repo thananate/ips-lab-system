@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IPS Lab System | Equipment Request</title>
+  <title>IPS Lab System | Lab Staff Approval</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -23,291 +23,136 @@
     <main class="flex-1 p-4 md:p-8 space-y-6">
       <div id="sharedHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
 
-      <!-- NEW REQUISITION FORM -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="glass-card rounded-2xl p-6 lg:col-span-2 space-y-4">
-          <h3 class="font-bold text-slate-800 border-b border-slate-100 pb-3 text-sm">Create New Equipment Requisition</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Authorized Laboratory *</label>
-              <select id="reqLab" onchange="draftItems=[]; updateDropdown(); renderDraftList();" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Experiment / Class Topic *</label>
-              <input type="text" id="reqExperiment" placeholder="e.g., Acid-Base Titration Grade 11" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Usage Date *</label>
-              <input type="date" id="reqDate" onchange="updateDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Start Time *</label>
-                <input type="time" id="reqStart" value="09:00" onchange="updateDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">End Time *</label>
-                <input type="time" id="reqEnd" value="10:30" onchange="updateDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
-              </div>
-            </div>
-          </div>
-
-          <div class="p-4 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-2.5">
-            <div class="text-xs font-semibold text-indigo-900">Select Equipment / Chemical (Real-time Time-Slot & Expiry Check)</div>
-            <div class="flex flex-col sm:flex-row gap-2">
-              <select id="reqEqDropdown" onchange="showSelectedHazardPreview()" class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
-              <input type="number" id="reqEqQty" min="1" value="1" class="w-24 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
-              <button type="button" onclick="addDraftItem()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700">+ Add Item</button>
-            </div>
-            <div id="selectedHazardBox" class="hidden p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex flex-wrap items-center justify-between gap-2"></div>
-          </div>
-
-          <div id="draftList" class="space-y-2"></div>
+      <!-- FILTER & SEARCH BAR -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap gap-1.5 bg-white/80 p-1.5 rounded-2xl border border-slate-200/70">
+          <button onclick="statusFilter='All'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium bg-indigo-600 text-white" data-st="All">All Requests</button>
+          <button onclick="statusFilter='Pending'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Pending">Pending</button>
+          <button onclick="statusFilter='Approved'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Approved">Approved / Partial</button>
+          <button onclick="statusFilter='Returned'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Returned">Returned</button>
         </div>
-
-        <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
-          <div class="space-y-3">
-            <h4 class="font-bold text-slate-800 text-sm">Requisition Guidelines</h4>
-            <ul class="text-xs text-slate-500 space-y-2 bg-slate-50 p-3.5 rounded-xl list-disc list-inside">
-              <li><b>Lab Authorization:</b> You can only book laboratories assigned to your teacher profile by the Super Admin.</li>
-              <li><b>Overlap Protection:</b> System automatically deducts quantities already approved for overlapping time slots.</li>
-              <li><b>Safety & SDS Review:</b> Review hazard notes and SDS attachments before booking hazardous chemicals.</li>
-              <li><b>Cancellation Policy:</b> You can cancel a request while its status is still <i>Pending</i>.</li>
-            </ul>
-          </div>
-          <button id="submitReqBtn" onclick="submitRequest()" class="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-xs shadow-md hover:opacity-95 disabled:opacity-50">
-            Submit Equipment Request
-          </button>
-        </div>
+        <input type="text" id="searchInput" onkeyup="renderTable()" placeholder="Search ID, Teacher, Experiment..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-64" />
       </div>
 
-      <!-- MY REQUISITION HISTORY -->
-      <div class="glass-card rounded-2xl p-6 space-y-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-          <h3 class="font-bold text-slate-800 text-sm">My Request & Usage History</h3>
-          <input type="text" id="searchHistory" onkeyup="renderHistory()" placeholder="Search Request ID or Experiment..." class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs w-64" />
+      <!-- REQUESTS TABLE -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                <th class="p-3.5">Request ID</th>
+                <th class="p-3.5">Teacher & Experiment</th>
+                <th class="p-3.5">Lab</th>
+                <th class="p-3.5">Usage Schedule</th>
+                <th class="p-3.5">Status</th>
+                <th class="p-3.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="requestsTbody" class="divide-y divide-slate-100 text-xs"></tbody>
+          </table>
         </div>
-        <div id="historyContainer" class="space-y-3"></div>
       </div>
     </main>
   </div>
 
+  <!-- APPROVAL MODAL (ITEM-BY-ITEM) -->
+  <div id="approvalModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800">Review & Approve Equipment Request</h3>
+          <p id="modalMeta" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeApprovalModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div id="modalItemsContainer" class="mt-4 space-y-3"></div>
+      <div class="mt-4">
+        <label class="block text-xs font-medium text-slate-600 mb-1">Staff Remarks / Instructions</label>
+        <input type="text" id="staffRemarksInput" placeholder="Add notes for the teacher or alternative equipment details..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+      </div>
+      <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
+        <span class="text-[11px] text-slate-400">Approver name and timestamp are logged automatically.</span>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeApprovalModal()" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Close</button>
+          <button type="button" onclick="submitApproval()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow">Save Decision</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="firebase-core.js"></script>
   <script>
-    let draftItems = [];
-    document.getElementById('reqDate').value = new Date().toISOString().slice(0, 10);
+    let statusFilter = 'All';
+    let activeDocId = null;
 
     initIPSPage({
-      activePage: 'request',
-      title: 'Equipment Requisition',
-      subtitle: 'Book laboratory equipment with automatic time-slot conflict & safety checks',
-      allowedRoles: ['Teacher', 'Admin', 'Super Admin'],
-      onReady: (user) => {
-        const allowedLabs = getUserAllowedLabs(user);
-        const labSelect = document.getElementById('reqLab');
-        const submitBtn = document.getElementById('submitReqBtn');
-
-        if (allowedLabs.length === 0) {
-          labSelect.innerHTML = '<option value="">No Lab Authorized — Contact Super Admin</option>';
-          submitBtn.disabled = true;
-        } else {
-          labSelect.innerHTML = allowedLabs.map(l => `<option value="${l}">${l} Lab</option>`).join('');
-          submitBtn.disabled = false;
-        }
-
-        updateDropdown();
-        renderDraftList();
-        renderHistory();
+      activePage: 'approve',
+      title: 'Lab Staff Approval',
+      subtitle: 'Review requests item-by-item, manage partial approvals, alternatives, and returns',
+      allowedRoles: ['Lab Staff', 'Admin', 'Super Admin'],
+      onReady: () => {
+        renderTable();
       }
     });
 
-    function getExpiryAlert(expiryDate) {
-      if (!expiryDate) return null;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const exp = new Date(expiryDate);
-      const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
-      if (diffDays < 0) return { state: 'expired', tag: ` [EXPIRED: ${expiryDate}]` };
-      if (diffDays <= 60) return { state: 'soon', tag: ` [EXPIRES IN ${diffDays}d: ${expiryDate}]` };
-      return null;
-    }
-
-    function updateDropdown() {
-      const lab = document.getElementById('reqLab').value;
-      const date = document.getElementById('reqDate').value;
-      const start = document.getElementById('reqStart').value;
-      const end = document.getElementById('reqEnd').value;
-
-      if (!lab) {
-        document.getElementById('reqEqDropdown').innerHTML = '<option value="">No authorized laboratory selected</option>';
-        return;
-      }
-
-      const opts = window.IPS.equipments
-        .filter(e => e.lab === lab && e.status === 'Active')
-        .map(e => {
-          const avail = getAvailableForTimeSlot(e.id, date, start, end);
-          const expInfo = getExpiryAlert(e.expiryDate);
-          const expTag = expInfo ? expInfo.tag : '';
-          const specTag = e.spec ? ` [${e.spec}]` : '';
-          const brandTag = e.brand ? ` (${e.brand})` : '';
-          const warnTag = (e.hazardNote || e.safetyFileData || e.safetyLink) ? ' ⚠️' : '';
-          return `<option value="${e.id}">${e.name}${brandTag}${specTag} — Avail: ${avail} ${e.unit}${expTag}${warnTag}</option>`;
-        }).join('');
-      document.getElementById('reqEqDropdown').innerHTML = opts || '<option value="">No active equipment in this lab</option>';
-      showSelectedHazardPreview();
-    }
-
-    function showSelectedHazardPreview() {
-      const eqDocId = document.getElementById('reqEqDropdown').value;
-      const box = document.getElementById('selectedHazardBox');
+    function viewItemSafety(eqDocId) {
       const eq = window.IPS.equipments.find(e => e.id === eqDocId);
-      if (!eq || (!eq.hazardNote && !eq.safetyFileData && !eq.safetyLink)) {
-        box.classList.add('hidden');
-        return;
-      }
-      box.classList.remove('hidden');
-      box.innerHTML = `
-        <div><b>⚠️ Safety / Hazard Notice:</b> ${eq.hazardNote || 'Safety attachment available.'}</div>
-        ${(eq.safetyFileData || eq.safetyLink) ? `<button type="button" onclick="openSafetyPopup('${eq.id}')" class="px-2.5 py-1 rounded-lg bg-amber-600 text-white text-[11px] font-medium hover:bg-amber-700">View SDS / Attachment</button>` : ''}
-      `;
-    }
-
-    function openSafetyPopup(docId) {
-      const eq = window.IPS.equipments.find(e => e.id === docId);
       if (!eq) return;
+
       let fileHtml = '';
       if (eq.safetyFileData) {
-        fileHtml = eq.safetyFileData.startsWith('data:application/pdf')
-          ? `<iframe src="${eq.safetyFileData}" class="w-full h-80 rounded-xl border mt-3"></iframe>`
-          : `<img src="${eq.safetyFileData}" class="max-h-80 mx-auto rounded-xl border mt-3" />`;
+        if (eq.safetyFileData.startsWith('data:application/pdf')) {
+          fileHtml = `
+            <div class="mt-3">
+              <iframe src="${eq.safetyFileData}" class="w-full h-80 rounded-xl border"></iframe>
+              <a href="${eq.safetyFileData}" download="${eq.safetyFileName || 'SDS_Document.pdf'}" class="inline-block mt-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium">Download PDF</a>
+            </div>
+          `;
+        } else {
+          fileHtml = `<div class="mt-3"><img src="${eq.safetyFileData}" class="max-h-80 mx-auto rounded-xl border shadow-sm" /></div>`;
+        }
       }
+
       if (eq.safetyLink) {
-        fileHtml += `<div class="mt-3"><a href="${eq.safetyLink}" target="_blank" rel="noopener" class="inline-block px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-medium">Open SDS / Google Drive Link ↗</a></div>`;
+        fileHtml += `<div class="mt-3"><a href="${eq.safetyLink}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">Open External SDS / Drive Link ↗</a></div>`;
       }
+
       Swal.fire({
-        title: `Safety Info: ${eq.name}`,
+        title: `Safety & Hazard Info: ${eq.name} ${eq.formula ? `(${eq.formula})` : ''}`,
         width: 650,
-        html: `<div class="text-left text-xs"><div class="p-3 rounded-xl bg-amber-50 border border-amber-200">${eq.hazardNote || ''}</div>${fileHtml}</div>`,
+        html: `
+          <div class="text-left text-xs space-y-2">
+            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950">
+              <b>Warning / Handling Note:</b><br>
+              ${eq.hazardNote ? eq.hazardNote.replace(/\n/g, '<br>') : 'No specific text warning recorded.'}
+            </div>
+            ${fileHtml}
+          </div>
+        `,
         confirmButtonText: 'Close'
       });
     }
 
-    async function addDraftItem() {
-      const eqDocId = document.getElementById('reqEqDropdown').value;
-      const qty = Number(document.getElementById('reqEqQty').value);
-      const date = document.getElementById('reqDate').value;
-      const start = document.getElementById('reqStart').value;
-      const end = document.getElementById('reqEnd').value;
-
-      if (!eqDocId || qty <= 0) return;
-      const eq = window.IPS.equipments.find(e => e.id === eqDocId);
-      const avail = getAvailableForTimeSlot(eqDocId, date, start, end);
-
-      if (qty > avail) {
-        return Swal.fire('Insufficient Availability', `Only ${avail} ${eq.unit} of ${eq.name} available during ${start} - ${end}.`, 'warning');
-      }
-
-      const expInfo = getExpiryAlert(eq.expiryDate);
-      if (expInfo) {
-        const isExpired = expInfo.state === 'expired';
-        const confirmExp = await Swal.fire({
-          icon: isExpired ? 'error' : 'warning',
-          title: isExpired ? 'Expired Chemical / Item!' : 'Chemical Expiring Soon',
-          html: `<b>${eq.name}</b> (${eq.spec || ''}) has expiry date <b>${eq.expiryDate}</b>.<br>${isExpired ? 'This item is already expired. Are you sure you still want to add it?' : 'Please verify with Lab Staff before using.'}`,
-          showCancelButton: true,
-          confirmButtonText: 'Add Anyway',
-          cancelButtonText: 'Cancel'
-        });
-        if (!confirmExp.isConfirmed) return;
-      }
-
-      const exist = draftItems.find(i => i.eqDocId === eqDocId);
-      if (exist) {
-        if (exist.requestedQty + qty > avail) return Swal.fire('Limit Exceeded', 'Total requested exceeds slot availability.', 'warning');
-        exist.requestedQty += qty;
-      } else {
-        draftItems.push({
-          eqDocId: eq.id,
-          equipmentId: eq.equipmentId,
-          name: eq.name,
-          spec: eq.spec || '',
-          isConsumable: isConsumableOrChemical(eq),
-          requestedQty: qty,
-          approvedQty: 0,
-          itemStatus: 'Pending',
-          alternativeNote: ''
-        });
-      }
-      renderDraftList();
-    }
-
-    function renderDraftList() {
-      const box = document.getElementById('draftList');
-      if (draftItems.length === 0) {
-        box.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">No items added yet.</p>';
-        return;
-      }
-      box.innerHTML = draftItems.map((it, idx) => `
-        <div class="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200 text-xs">
-          <div>
-            <b>${it.name}</b>
-            ${it.spec ? `<span class="text-slate-500 ml-1">[${it.spec}]</span>` : ''}
-          </div>
-          <div class="flex items-center gap-3">
-            <span class="font-semibold text-indigo-600">Qty: ${it.requestedQty}</span>
-            <button onclick="draftItems.splice(${idx},1); renderDraftList();" class="text-rose-500 hover:underline">Remove</button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    async function submitRequest() {
-      const lab = document.getElementById('reqLab').value;
-      const experiment = document.getElementById('reqExperiment').value.trim();
-      const useDate = document.getElementById('reqDate').value;
-      const startTime = document.getElementById('reqStart').value;
-      const endTime = document.getElementById('reqEnd').value;
-
-      if (!lab) return Swal.fire('Not Authorized', 'Please contact Super Admin to assign your laboratory permissions.', 'error');
-      if (!experiment || !useDate || !startTime || !endTime || draftItems.length === 0) {
-        return Swal.fire('Incomplete Form', 'Please fill in all fields and add at least one item.', 'warning');
-      }
-      if (startTime >= endTime) {
-        return Swal.fire('Invalid Time Range', 'End time must be later than start time.', 'warning');
-      }
-
-      const reqId = 'LAB-' + String(window.IPS.requests.length + 1).padStart(3, '0');
-      await db.collection('requests').add({
-        id: reqId,
-        teacherName: window.IPS.user.name,
-        teacherEmail: window.IPS.user.email,
-        lab,
-        experiment,
-        useDate,
-        startTime,
-        endTime,
-        status: 'Pending',
-        createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
-        approvedBy: '',
-        approvalDate: '',
-        staffRemarks: '',
-        items: draftItems
+    function renderTable() {
+      document.querySelectorAll('.f-btn').forEach(btn => {
+        if (btn.dataset.st === statusFilter) {
+          btn.classList.add('bg-indigo-600', 'text-white');
+          btn.classList.remove('text-slate-600');
+        } else {
+          btn.classList.remove('bg-indigo-600', 'text-white');
+          btn.classList.add('text-slate-600');
+        }
       });
 
-      draftItems = [];
-      document.getElementById('reqExperiment').value = '';
-      renderDraftList();
-      Swal.fire('Request Submitted', `Your Request ID is ${reqId}`, 'success');
-    }
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
+      const q = (document.getElementById('searchInput').value || '').toLowerCase();
 
-    function renderHistory() {
-      const q = (document.getElementById('searchHistory').value || '').toLowerCase();
-      const isTeacher = window.IPS.user.role === 'Teacher';
       const list = window.IPS.requests.filter(r => {
-        const ownerOk = !isTeacher || r.teacherEmail === window.IPS.user.email;
-        const match = !q || (r.id || '').toLowerCase().includes(q) || (r.experiment || '').toLowerCase().includes(q);
-        return ownerOk && match;
+        const labOk = allowedLabs.includes(r.lab);
+        const stOk = statusFilter === 'All'
+          || (statusFilter === 'Approved' ? ['Approved', 'Partial'].includes(r.status) : r.status === statusFilter);
+        const searchOk = !q || (r.id || '').toLowerCase().includes(q) || (r.teacherName || '').toLowerCase().includes(q) || (r.experiment || '').toLowerCase().includes(q);
+        return labOk && stOk && searchOk;
       });
 
       const badgeMap = {
@@ -319,45 +164,182 @@
         'Returned': 'bg-indigo-100 text-indigo-700'
       };
 
-      document.getElementById('historyContainer').innerHTML = list.length === 0
-        ? '<p class="text-xs text-slate-400 text-center py-4">No requisition records found.</p>'
-        : list.slice().reverse().map(r => `
-          <div class="p-4 rounded-xl border border-slate-200 bg-white/80 space-y-2">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <span class="font-mono font-bold text-indigo-700 text-xs">${r.id}</span>
-                <span class="ml-2 px-2 py-0.5 rounded-full text-[10px] font-semibold ${badgeMap[r.status] || 'bg-slate-100'}">${r.status}</span>
-                <span class="ml-1 px-2 py-0.5 rounded bg-purple-50 text-purple-700 text-[10px]">${r.lab} Lab</span>
-                <div class="font-bold text-slate-800 text-xs mt-1">${r.experiment}</div>
-                <div class="text-[11px] text-slate-500">Date: <b>${r.useDate}</b> | Time: <b>${r.startTime} - ${r.endTime}</b></div>
-              </div>
-              ${r.status === 'Pending' ? `<button onclick="cancelReq('${r.docId}', '${r.id}')" class="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-medium">Cancel Request</button>` : ''}
-            </div>
-            <div class="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg space-y-1">
-              ${(r.items || []).map(i => `<div>• <b>${i.name}</b> ${i.spec ? `[${i.spec}]` : ''}: Requested ${i.requestedQty} | Approved: <b class="text-emerald-600">${i.approvedQty}</b> (${i.itemStatus}) ${i.alternativeNote ? `<span class="text-indigo-600">[Alt: ${i.alternativeNote}]</span>` : ''}</div>`).join('')}
-            </div>
-            ${r.approvedBy ? `<div class="text-[10px] text-slate-400">Processed by: ${r.approvedBy} (${r.approvalDate}) — Remarks: ${r.staffRemarks || '-'}</div>` : ''}
-          </div>
-        `).join('');
+      const tbody = document.getElementById('requestsTbody');
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400">No requisition records found matching your filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.slice().reverse().map(r => `
+        <tr class="hover:bg-slate-50/70">
+          <td class="p-3.5 font-mono font-bold text-indigo-700">${r.id}</td>
+          <td class="p-3.5">
+            <div class="font-semibold text-slate-800">${r.teacherName}</div>
+            <div class="text-[11px] text-slate-500">${r.experiment}</div>
+          </td>
+          <td class="p-3.5"><span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">${r.lab}</span></td>
+          <td class="p-3.5"><b>${r.useDate}</b><br><span class="text-slate-400">${r.startTime} - ${r.endTime}</span></td>
+          <td class="p-3.5"><span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeMap[r.status] || 'bg-slate-100'}">${r.status}</span></td>
+          <td class="p-3.5 text-right space-x-1.5">
+            ${['Approved', 'Partial'].includes(r.status) ? `
+              <button onclick="markReturned('${r.docId}')" class="px-3 py-1.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-medium">Mark Returned</button>
+            ` : ''}
+            ${r.status !== 'Cancelled' && r.status !== 'Returned' ? `
+              <button onclick="openApprovalModal('${r.docId}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium">Review</button>
+            ` : ''}
+          </td>
+        </tr>
+      `).join('');
     }
 
-    function cancelReq(docId, reqId) {
-      Swal.fire({
-        title: `Cancel ${reqId}?`,
-        text: 'This action will cancel your pending requisition.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Yes, Cancel'
-      }).then(async res => {
-        if (res.isConfirmed) {
-          await db.collection('requests').doc(docId).update({
-            status: 'Cancelled',
-            approvedBy: `Cancelled by ${window.IPS.user.name}`,
-            approvalDate: new Date().toISOString().slice(0, 16).replace('T', ' ')
-          });
-          Swal.fire('Cancelled', 'Your request has been cancelled.', 'success');
+    function openApprovalModal(docId) {
+      activeDocId = docId;
+      const req = window.IPS.requests.find(r => r.docId === docId);
+      document.getElementById('modalMeta').innerText = `${req.id} | Teacher: ${req.teacherName} | ${req.lab} Lab | ${req.useDate} (${req.startTime} - ${req.endTime})`;
+      document.getElementById('staffRemarksInput').value = req.staffRemarks || '';
+
+      const html = (req.items || []).map((it, idx) => {
+        const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
+        const slotAvail = getAvailableForTimeSlot(it.eqDocId, req.useDate, req.startTime, req.endTime, req.id);
+        const suggested = Math.min(it.requestedQty, slotAvail);
+        const hasHazard = eq && (eq.hazardNote || eq.safetyFileData || eq.safetyLink);
+        const isCons = eq && isConsumableOrChemical(eq);
+
+        return `
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="font-bold text-slate-800 text-sm">${it.name}</span>
+                  ${eq && eq.formula ? `<span class="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 font-mono text-[10px] font-semibold text-blue-700">${eq.formula}</span>` : ''}
+                  ${it.spec ? `<span class="text-xs text-slate-500">[${it.spec}]</span>` : ''}
+                  <span class="px-2 py-0.5 rounded text-[10px] font-medium ${isCons ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-700'}">
+                    ${isCons ? 'Consumable / Chemical' : 'Returnable Equipment'}
+                  </span>
+                  ${hasHazard ? `<button type="button" onclick="viewItemSafety('${eq.id}')" class="px-2 py-0.5 rounded bg-rose-100 text-rose-700 hover:bg-rose-200 text-[10px] font-semibold">⚠️ View SDS / Warning</button>` : ''}
+                </div>
+                <div class="text-xs text-slate-500 mt-1">
+                  Requested: <b>${it.requestedQty}</b> | Slot Available: <b class="${slotAvail < it.requestedQty ? 'text-rose-600' : 'text-emerald-600'}">${slotAvail}</b>
+                  ${eq && eq.expiryDate ? ` | Exp: <b>${eq.expiryDate}</b>` : ''}
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <select id="act_${idx}" onchange="onActChange(${idx}, ${suggested})" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white">
+                  <option value="Approved" ${slotAvail >= it.requestedQty ? 'selected' : ''}>Approve</option>
+                  <option value="Partial" ${slotAvail > 0 && slotAvail < it.requestedQty ? 'selected' : ''}>Partial Approval</option>
+                  <option value="Rejected" ${slotAvail === 0 ? 'selected' : ''}>Reject (Out of Stock)</option>
+                  <option value="Alternative">Suggest Alternative</option>
+                </select>
+                <input type="number" id="qty_${idx}" min="0" max="${slotAvail}" value="${suggested}" class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white" />
+              </div>
+            </div>
+            <input type="text" id="alt_${idx}" value="${it.alternativeNote || ''}" placeholder="Alternative equipment name or rejection reason (optional)..." class="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white" />
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('modalItemsContainer').innerHTML = html;
+      const modal = document.getElementById('approvalModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function onActChange(idx, suggested) {
+      const val = document.getElementById(`act_${idx}`).value;
+      const qInput = document.getElementById(`qty_${idx}`);
+      qInput.value = (val === 'Rejected' || val === 'Alternative') ? 0 : suggested;
+    }
+
+    function closeApprovalModal() {
+      const modal = document.getElementById('approvalModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function submitApproval() {
+      const req = window.IPS.requests.find(r => r.docId === activeDocId);
+      const items = JSON.parse(JSON.stringify(req.items || []));
+      let anyApproved = false;
+      let allApproved = true;
+
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const act = document.getElementById(`act_${i}`).value;
+        const appQty = Number(document.getElementById(`qty_${i}`).value);
+        const altNote = document.getElementById(`alt_${i}`).value.trim();
+
+        const slotAvail = getAvailableForTimeSlot(it.eqDocId, req.useDate, req.startTime, req.endTime, req.id);
+        if (appQty > slotAvail) {
+          return Swal.fire('Overlap Conflict', `Maximum available for ${it.name} in this slot is ${slotAvail}.`, 'error');
         }
+
+        const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
+        const isCons = isConsumableOrChemical(eq);
+        let curTotal = eq ? Number(eq.total || 0) : 0;
+        let curAvail = eq ? Number(eq.available || 0) : 0;
+        let curRes = eq ? Number(eq.reserved || 0) : 0;
+
+        if (it.approvedQty > 0 && eq) {
+          if (isCons) {
+            curTotal += Number(it.approvedQty);
+            curAvail += Number(it.approvedQty);
+          } else {
+            curRes = Math.max(0, curRes - Number(it.approvedQty));
+            curAvail += Number(it.approvedQty);
+          }
+        }
+
+        it.itemStatus = act;
+        it.approvedQty = appQty;
+        it.alternativeNote = altNote;
+
+        if (appQty > 0 && eq) {
+          anyApproved = true;
+          if (appQty < it.requestedQty) allApproved = false;
+
+          if (isCons) {
+            curTotal -= appQty;
+            curAvail -= appQty;
+            await db.collection('equipments').doc(eq.id).update({ total: curTotal, available: curAvail });
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Stock Out', -appQty, `Issued consumable/chemical for ${req.id}`);
+          } else {
+            curRes += appQty;
+            curAvail = Math.max(0, curAvail - appQty);
+            await db.collection('equipments').doc(eq.id).update({ reserved: curRes, available: curAvail });
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Reserved', -appQty, `Approved reservation for ${req.id}`);
+          }
+        } else {
+          allApproved = false;
+        }
+      }
+
+      const finalStatus = !anyApproved ? 'Rejected' : (allApproved ? 'Approved' : 'Partial');
+      await db.collection('requests').doc(req.docId).update({
+        items,
+        status: finalStatus,
+        approvedBy: window.IPS.user.name,
+        approvalDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        staffRemarks: document.getElementById('staffRemarksInput').value.trim()
       });
+
+      closeApprovalModal();
+      Swal.fire('Decision Saved', `Request ${req.id} updated to ${finalStatus}.`, 'success');
+    }
+
+    async function markReturned(docId) {
+      const req = window.IPS.requests.find(r => r.docId === docId);
+      for (const it of (req.items || [])) {
+        const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
+        if (it.approvedQty > 0 && eq && !isConsumableOrChemical(eq)) {
+          await db.collection('equipments').doc(eq.id).update({
+            reserved: Math.max(0, Number(eq.reserved || 0) - Number(it.approvedQty)),
+            available: Math.min(Number(eq.total) - Number(eq.damaged || 0), Number(eq.available) + Number(it.approvedQty))
+          });
+          await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Returned', it.approvedQty, `Returned from request ${req.id}`);
+        }
+      }
+      await db.collection('requests').doc(docId).update({ status: 'Returned' });
+      Swal.fire('Items Returned', 'Equipment stock has been restored.', 'success');
     }
   </script>
 </body>
