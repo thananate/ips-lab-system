@@ -92,6 +92,17 @@ async function addStockMovement(equipmentId, equipmentName, lab, action, qty, no
   });
 }
 
+// Automatically set IPS.png as browser tab Favicon on every page
+(function setIPSLogoFavicon() {
+  let link = document.querySelector("link[rel~='icon']");
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.href = 'IPS.png';
+})();
+
 // Shared Sidebar & Header Layout
 function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
   const user = window.IPS.user;
@@ -128,9 +139,7 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
       <div>
         <div class="p-5 flex items-center justify-between border-b border-slate-100">
           <a href="index.html" class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-xl flex items-center justify-center text-white shadow">
-              <i data-lucide="flask-conical" class="w-5 h-5"></i>
-            </div>
+            <img src="IPS.png" alt="IPS Lab Logo" class="w-10 h-10 object-contain rounded-xl bg-white p-0.5 shadow-sm border border-slate-100" />
             <div>
               <div class="font-bold text-slate-800 leading-tight">IPS Lab</div>
               <div class="text-[11px] text-emerald-600 font-medium">● Firebase Live</div>
