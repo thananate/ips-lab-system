@@ -23,14 +23,17 @@
     <main class="flex-1 p-4 md:p-8 space-y-6">
       <div id="sharedHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
 
-      <!-- INFO & SEARCH BAR -->
+      <!-- ACTION & SEARCH BAR -->
       <div class="glass-card rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div class="text-xs text-slate-600 flex items-center gap-2">
-          <i data-lucide="info" class="w-4 h-4 text-indigo-600 flex-shrink-0"></i>
-          <span>New accounts created via Firebase Authentication automatically appear here as <b>Teacher</b> upon first login.</span>
+          <i data-lucide="shield-check" class="w-4 h-4 text-indigo-600 flex-shrink-0"></i>
+          <span>Create user accounts directly here or allow teachers to self-register on the login page.</span>
         </div>
-        <div class="flex items-center gap-2">
-          <input type="text" id="searchUser" onkeyup="renderUsers()" placeholder="Search name, email, or role..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-64" />
+        <div class="flex flex-wrap items-center gap-2">
+          <input type="text" id="searchUser" onkeyup="renderUsers()" placeholder="Search name, email, or role..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-56" />
+          <button onclick="openCreateUserModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium shadow hover:opacity-95 flex items-center gap-1.5">
+            <i data-lucide="user-plus" class="w-4 h-4"></i> Create New User
+          </button>
         </div>
       </div>
 
@@ -60,6 +63,51 @@
     </main>
   </div>
 
+  <!-- CREATE NEW USER MODAL -->
+  <div id="createUserModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-lg font-bold text-slate-800">Create New System Account</h3>
+        <button onclick="closeCreateUserModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="createUserForm" class="mt-4 space-y-3.5">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Full Name *</label>
+          <input type="text" id="newName" required placeholder="e.g., Somchai Jaidee" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Email Address *</label>
+          <input type="email" id="newEmail" required placeholder="somchai@ips.ac.th" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Initial Password (min 6 chars) *</label>
+          <input type="password" id="newPassword" minlength="6" required placeholder="••••••••" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Assigned Role *</label>
+          <select id="newRole" onchange="document.getElementById('newLabBoxes').classList.toggle('hidden', this.value !== 'Lab Staff')" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+            <option value="Teacher">Teacher (Request & View Stock)</option>
+            <option value="Lab Staff">Lab Staff (Approve & Manage Stock)</option>
+            <option value="Admin">Admin (Full Management)</option>
+          </select>
+        </div>
+        <div id="newLabBoxes" class="hidden bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+          <div class="text-[11px] font-semibold text-slate-600">Assign Responsible Laboratories:</div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <label class="flex items-center gap-2"><input type="checkbox" id="chkPrimary" class="accent-indigo-600"> Primary Lab</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="chkPhysics" class="accent-indigo-600"> Physics Lab</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="chkChemistry" class="accent-indigo-600"> Chemistry Lab</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="chkBiology" class="accent-indigo-600"> Biology Lab</label>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeCreateUserModal()" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Create Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="firebase-core.js"></script>
   <script>
     initIPSPage({
@@ -69,6 +117,58 @@
       allowedRoles: ['Admin', 'Super Admin'],
       onReady: () => {
         renderUsers();
+      }
+    });
+
+    function openCreateUserModal() {
+      document.getElementById('createUserForm').reset();
+      document.getElementById('newLabBoxes').classList.add('hidden');
+      const m = document.getElementById('createUserModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeCreateUserModal() {
+      const m = document.getElementById('createUserModal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    // Create user via Secondary Firebase App so Admin stays logged in
+    document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('newName').value.trim();
+      const email = document.getElementById('newEmail').value.trim();
+      const password = document.getElementById('newPassword').value;
+      const role = document.getElementById('newRole').value;
+
+      Swal.fire({ title: 'Creating User Account...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      let secondaryApp = null;
+      try {
+        secondaryApp = firebase.initializeApp(firebaseConfig, 'SecondaryUserCreator_' + Date.now());
+        const cred = await secondaryApp.auth().createUserWithEmailAndPassword(email, password);
+        const newUid = cred.user.uid;
+
+        await db.collection('user').doc(newUid).set({
+          uid: newUid,
+          name,
+          email,
+          role,
+          Primary: role === 'Lab Staff' ? document.getElementById('chkPrimary').checked : '',
+          Physics: role === 'Lab Staff' ? document.getElementById('chkPhysics').checked : '',
+          Chemistry: role === 'Lab Staff' ? document.getElementById('chkChemistry').checked : '',
+          Biology: role === 'Lab Staff' ? document.getElementById('chkBiology').checked : ''
+        });
+
+        await secondaryApp.auth().signOut();
+        await secondaryApp.delete();
+
+        closeCreateUserModal();
+        Swal.fire('Account Created', `${name} (${role}) can now sign in with ${email}.`, 'success');
+      } catch (err) {
+        if (secondaryApp) await secondaryApp.delete().catch(() => {});
+        Swal.fire('Failed to Create Account', err.message, 'error');
       }
     });
 
