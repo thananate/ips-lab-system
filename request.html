@@ -30,38 +30,63 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Authorized Laboratory *</label>
-              <select id="reqLab" onchange="draftItems=[]; updateDropdown(); renderDraftList();" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
+              <select id="reqLab" onchange="onLabChanged()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Experiment / Class Topic *</label>
-              <input type="text" id="reqExperiment" placeholder="e.g., Acid-Base Titration Grade 11" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+              <input type="text" id="reqExperiment" placeholder="e.g., Heart Dissection Grade 10" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Usage Date *</label>
-              <input type="date" id="reqDate" onchange="updateDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+              <input type="date" id="reqDate" onchange="handleSmartSearch()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Start Time *</label>
-                <input type="time" id="reqStart" value="09:00" onchange="updateDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+                <input type="time" id="reqStart" value="09:00" onchange="handleSmartSearch()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">End Time *</label>
-                <input type="time" id="reqEnd" value="10:30" onchange="updateDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+                <input type="time" id="reqEnd" value="10:30" onchange="handleSmartSearch()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
               </div>
             </div>
           </div>
 
-          <div class="p-4 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-2.5">
-            <div class="text-xs font-semibold text-indigo-900">Select Equipment / Chemical (Real-time Time-Slot & Expiry Check)</div>
-            <div class="flex flex-col sm:flex-row gap-2">
-              <select id="reqEqDropdown" onchange="showSelectedHazardPreview()" class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
-              <input type="number" id="reqEqQty" min="1" value="1" class="w-24 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
-              <button type="button" onclick="addDraftItem()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700">+ Add Item</button>
+          <!-- SMART 3-CHAR SEARCH & CUSTOM ITEM INPUT -->
+          <div class="p-4 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-semibold text-indigo-900">Search Equipment or Type Custom Item (Min. 3 characters)</span>
+              <button type="button" onclick="openCustomItemModal()" class="text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 underline">
+                + Request Special / Fresh Item (Not in Stock)
+              </button>
             </div>
-            <div id="selectedHazardBox" class="hidden p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex flex-wrap items-center justify-between gap-2"></div>
+
+            <div class="relative">
+              <div class="flex items-center bg-white border border-slate-200 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 mr-2"></i>
+                <input type="text" id="eqSearchInput" onkeyup="handleSmartSearch()" onfocus="handleSmartSearch()" autocomplete="off" placeholder="Type at least 3 chars (e.g., Beak, HCl, หัวใจหมู, กบ)..." class="w-full text-xs focus:outline-none" />
+                <button type="button" onclick="clearSearchInput()" id="clearSearchBtn" class="hidden text-slate-400 hover:text-slate-600 ml-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+              </div>
+
+              <!-- AUTOCOMPLETE DROPDOWN RESULTS -->
+              <div id="searchResultsDropdown" class="hidden absolute left-0 right-0 mt-1.5 bg-white rounded-xl border border-slate-200 shadow-xl max-h-64 overflow-y-auto z-30 divide-y divide-slate-100"></div>
+            </div>
+
+            <!-- SELECTED ITEM QUANTITY BAR -->
+            <div id="selectedItemBox" class="hidden p-3 rounded-xl bg-white border border-indigo-200 space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div id="selectedItemTitle" class="text-xs font-bold text-slate-800"></div>
+                <div class="flex items-center gap-2">
+                  <label class="text-[11px] text-slate-500">Qty:</label>
+                  <input type="number" id="reqEqQty" min="1" value="1" class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold" />
+                  <button type="button" onclick="addSelectedStockItem()" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700">+ Add to List</button>
+                </div>
+              </div>
+              <div id="selectedHazardBox" class="hidden p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-950 flex flex-wrap items-center justify-between gap-2"></div>
+            </div>
           </div>
 
+          <!-- DRAFT REQUISITION LIST -->
           <div id="draftList" class="space-y-2"></div>
         </div>
 
@@ -69,9 +94,9 @@
           <div class="space-y-3">
             <h4 class="font-bold text-slate-800 text-sm">Requisition & Return Guidelines</h4>
             <ul class="text-xs text-slate-500 space-y-2 bg-slate-50 p-3.5 rounded-xl list-disc list-inside">
-              <li><b>Lab Authorization:</b> You can only book laboratories assigned to your teacher profile.</li>
-              <li><b>Overlap Protection:</b> System deducts quantities approved for overlapping time slots.</li>
-              <li><b>Post-Use Return & Breakage:</b> After completing your lab session, click <b>"Notify Return / Report Damage"</b> in your history below so Lab Staff can inspect and check in the items.</li>
+              <li><b>Quick Search:</b> Type 3+ characters to search existing lab inventory by name, formula, or SKU.</li>
+              <li><b>Special / Fresh Specimens:</b> Need items not kept in stock (e.g., pig heart, frogs, fresh leaves)? Type the name or click <b>"+ Request Special / Fresh Item"</b>.</li>
+              <li><b>Post-Use Return:</b> Click <b>"Notify Return / Report Damage"</b> in your history after class to notify Lab Staff.</li>
             </ul>
           </div>
           <button id="submitReqBtn" onclick="submitRequest()" class="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-xs shadow-md hover:opacity-95 disabled:opacity-50">
@@ -89,6 +114,42 @@
         <div id="historyContainer" class="space-y-3"></div>
       </div>
     </main>
+  </div>
+
+  <!-- CUSTOM / SPECIAL ITEM MODAL (FOR ITEMS NOT IN STOCK) -->
+  <div id="customItemModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i> Add Special / Non-Stock Item
+        </h3>
+        <button onclick="closeCustomModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="customItemForm" class="mt-4 space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Item / Specimen Name *</label>
+          <input type="text" id="custName" required placeholder="e.g., หัวใจหมู (Pig Heart), กบ (Frog), ใบชบา" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Quantity *</label>
+            <input type="number" id="custQty" min="1" value="1" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Unit *</label>
+            <input type="text" id="custUnit" required placeholder="e.g., ชิ้น, ตัว, กิโลกรัม, ชุด" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Specification / Purchase Note for Lab Staff</label>
+          <input type="text" id="custNote" placeholder="e.g., ขอแบบสดมีหลอดเลือดครบ สำหรับผ่าตัดคาบเช้า" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeCustomModal()" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700">Add Special Item</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- TEACHER RETURN / BREAKAGE REPORT MODAL -->
@@ -116,13 +177,14 @@
   <script src="firebase-core.js"></script>
   <script>
     let draftItems = [];
+    let selectedStockEqId = null;
     let activeTRetDocId = null;
     document.getElementById('reqDate').value = new Date().toISOString().slice(0, 10);
 
     initIPSPage({
       activePage: 'request',
       title: 'Equipment Requisition',
-      subtitle: 'Book laboratory equipment, check safety sheets, and report post-use returns',
+      subtitle: 'Search inventory (3+ chars), request special fresh items, and track usage',
       allowedRoles: ['Teacher', 'Admin', 'Super Admin'],
       onReady: (user) => {
         const allowedLabs = getUserAllowedLabs(user);
@@ -137,11 +199,16 @@
           submitBtn.disabled = false;
         }
 
-        updateDropdown();
         renderDraftList();
         renderHistory();
       }
     });
+
+    function onLabChanged() {
+      draftItems = [];
+      clearSearchInput();
+      renderDraftList();
+    }
 
     function getExpiryAlert(expiryDate) {
       if (!expiryDate) return null;
@@ -149,51 +216,142 @@
       today.setHours(0, 0, 0, 0);
       const exp = new Date(expiryDate);
       const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
-      if (diffDays < 0) return { state: 'expired', tag: ` [EXPIRED: ${expiryDate}]` };
-      if (diffDays <= 60) return { state: 'soon', tag: ` [EXPIRES IN ${diffDays}d: ${expiryDate}]` };
+      if (diffDays < 0) return { state: 'expired', tag: `Expired: ${expiryDate}` };
+      if (diffDays <= 60) return { state: 'soon', tag: `Expires in ${diffDays}d (${expiryDate})` };
       return null;
     }
 
-    function updateDropdown() {
+    // ==================== 3-CHARACTER SMART AUTOCOMPLETE SEARCH ====================
+    function handleSmartSearch() {
       const lab = document.getElementById('reqLab').value;
       const date = document.getElementById('reqDate').value;
       const start = document.getElementById('reqStart').value;
       const end = document.getElementById('reqEnd').value;
+      const rawQuery = document.getElementById('eqSearchInput').value.trim();
+      const q = rawQuery.toLowerCase();
+      const dropdown = document.getElementById('searchResultsDropdown');
+      const clearBtn = document.getElementById('clearSearchBtn');
+
+      clearBtn.classList.toggle('hidden', rawQuery.length === 0);
 
       if (!lab) {
-        document.getElementById('reqEqDropdown').innerHTML = '<option value="">No authorized laboratory selected</option>';
+        dropdown.classList.add('hidden');
         return;
       }
 
-      const opts = window.IPS.equipments
-        .filter(e => e.lab === lab && e.status === 'Active')
-        .map(e => {
-          const avail = getAvailableForTimeSlot(e.id, date, start, end);
-          const expInfo = getExpiryAlert(e.expiryDate);
-          const expTag = expInfo ? expInfo.tag : '';
-          const specTag = e.spec ? ` [${e.spec}]` : '';
-          const brandTag = e.brand ? ` (${e.brand})` : '';
-          const warnTag = (e.hazardNote || e.safetyFileData || e.safetyLink) ? ' ⚠️' : '';
-          return `<option value="${e.id}">${e.name}${brandTag}${specTag} — Avail: ${avail} ${e.unit}${expTag}${warnTag}</option>`;
-        }).join('');
-      document.getElementById('reqEqDropdown').innerHTML = opts || '<option value="">No active equipment in this lab</option>';
-      showSelectedHazardPreview();
-    }
-
-    function showSelectedHazardPreview() {
-      const eqDocId = document.getElementById('reqEqDropdown').value;
-      const box = document.getElementById('selectedHazardBox');
-      const eq = window.IPS.equipments.find(e => e.id === eqDocId);
-      if (!eq || (!eq.hazardNote && !eq.safetyFileData && !eq.safetyLink)) {
-        box.classList.add('hidden');
+      if (rawQuery.length < 3) {
+        if (rawQuery.length > 0) {
+          dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400">Type at least <b>3 characters</b> to search inventory or add a custom item...</div>`;
+          dropdown.classList.remove('hidden');
+        } else {
+          dropdown.classList.add('hidden');
+        }
         return;
       }
-      box.classList.remove('hidden');
-      box.innerHTML = `
-        <div><b>⚠️ Safety / Hazard Notice:</b> ${eq.hazardNote || 'Safety attachment available.'}</div>
-        ${(eq.safetyFileData || eq.safetyLink) ? `<button type="button" onclick="openSafetyPopup('${eq.id}')" class="px-2.5 py-1 rounded-lg bg-amber-600 text-white text-[11px] font-medium hover:bg-amber-700">View SDS / Attachment</button>` : ''}
+
+      const matches = window.IPS.equipments.filter(e =>
+        e.lab === lab &&
+        e.status === 'Active' &&
+        (
+          (e.name || '').toLowerCase().includes(q) ||
+          (e.formula || '').toLowerCase().includes(q) ||
+          (e.equipmentId || '').toLowerCase().includes(q) ||
+          (e.spec || '').toLowerCase().includes(q) ||
+          (e.brand || '').toLowerCase().includes(q)
+        )
+      );
+
+      let html = matches.map(e => {
+        const avail = getAvailableForTimeSlot(e.id, date, start, end);
+        const expInfo = getExpiryAlert(e.expiryDate);
+        const hasHazard = e.hazardNote || e.safetyFileData || e.safetyLink;
+
+        return `
+          <div onclick="selectStockEquipment('${e.id}')" class="p-3 hover:bg-indigo-50 cursor-pointer transition flex items-center justify-between gap-2 text-xs">
+            <div>
+              <div class="font-bold text-slate-800 flex flex-wrap items-center gap-1.5">
+                <span class="font-mono text-[10px] text-indigo-600">${e.equipmentId}</span>
+                <span>${e.name}</span>
+                ${e.formula ? `<span class="px-1.5 py-0.2 rounded bg-blue-50 border border-blue-200 font-mono text-[10px] text-blue-700">${e.formula}</span>` : ''}
+                ${hasHazard ? `<span class="text-amber-600" title="Safety Warning">⚠️</span>` : ''}
+              </div>
+              <div class="text-[11px] text-slate-500 mt-0.5">
+                ${e.spec || 'Standard'} ${e.brand ? `• ${e.brand}` : ''}
+                ${expInfo ? `<span class="ml-1.5 px-1.5 py-0.2 rounded ${expInfo.state === 'expired' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'} font-semibold">${expInfo.tag}</span>` : ''}
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <span class="px-2 py-0.5 rounded-full font-semibold text-[11px] ${avail > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                Avail: ${avail} ${e.unit}
+              </span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Always append option to add custom / non-stock item (e.g., หัวใจหมู, กบ)
+      html += `
+        <div onclick="openCustomItemModal('${rawQuery.replace(/'/g, "\\'")}')" class="p-3 bg-amber-50/80 hover:bg-amber-100/80 cursor-pointer transition flex items-center justify-between text-xs text-amber-900">
+          <div class="flex items-center gap-2">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-amber-600"></i>
+            <span>Not in stock? Request special/fresh item: <b>"${rawQuery}"</b></span>
+          </div>
+          <span class="text-[11px] font-semibold underline">Add Custom Item →</span>
+        </div>
       `;
+
+      dropdown.innerHTML = html;
+      dropdown.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
     }
+
+    function selectStockEquipment(eqDocId) {
+      selectedStockEqId = eqDocId;
+      const eq = window.IPS.equipments.find(e => e.id === eqDocId);
+      const date = document.getElementById('reqDate').value;
+      const start = document.getElementById('reqStart').value;
+      const end = document.getElementById('reqEnd').value;
+      const avail = getAvailableForTimeSlot(eqDocId, date, start, end);
+
+      document.getElementById('searchResultsDropdown').classList.add('hidden');
+      document.getElementById('eqSearchInput').value = `${eq.name}${eq.formula ? ` (${eq.formula})` : ''}`;
+      document.getElementById('clearSearchBtn').classList.remove('hidden');
+
+      document.getElementById('selectedItemTitle').innerHTML = `
+        <span class="text-indigo-700">[${eq.equipmentId}]</span> ${eq.name}
+        ${eq.spec ? `<span class="font-normal text-slate-500">[${eq.spec}]</span>` : ''}
+        <span class="ml-2 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px]">Slot Avail: ${avail} ${eq.unit}</span>
+      `;
+      document.getElementById('reqEqQty').value = 1;
+      document.getElementById('selectedItemBox').classList.remove('hidden');
+
+      const hazardBox = document.getElementById('selectedHazardBox');
+      if (eq.hazardNote || eq.safetyFileData || eq.safetyLink) {
+        hazardBox.classList.remove('hidden');
+        hazardBox.innerHTML = `
+          <div><b>⚠️ Safety Notice:</b> ${eq.hazardNote || 'Safety attachment available.'}</div>
+          ${(eq.safetyFileData || eq.safetyLink) ? `<button type="button" onclick="openSafetyPopup('${eq.id}')" class="px-2.5 py-1 rounded-lg bg-amber-600 text-white text-[10px] font-medium hover:bg-amber-700">View SDS / Attachment</button>` : ''}
+        `;
+      } else {
+        hazardBox.classList.add('hidden');
+      }
+    }
+
+    function clearSearchInput() {
+      selectedStockEqId = null;
+      document.getElementById('eqSearchInput').value = '';
+      document.getElementById('clearSearchBtn').classList.add('hidden');
+      document.getElementById('searchResultsDropdown').classList.add('hidden');
+      document.getElementById('selectedItemBox').classList.add('hidden');
+    }
+
+    document.addEventListener('click', (e) => {
+      const box = document.getElementById('searchResultsDropdown');
+      const inp = document.getElementById('eqSearchInput');
+      if (box && inp && !box.contains(e.target) && e.target !== inp) {
+        box.classList.add('hidden');
+      }
+    });
 
     function openSafetyPopup(docId) {
       const eq = window.IPS.equipments.find(e => e.id === docId);
@@ -215,16 +373,15 @@
       });
     }
 
-    async function addDraftItem() {
-      const eqDocId = document.getElementById('reqEqDropdown').value;
+    async function addSelectedStockItem() {
       const qty = Number(document.getElementById('reqEqQty').value);
       const date = document.getElementById('reqDate').value;
       const start = document.getElementById('reqStart').value;
       const end = document.getElementById('reqEnd').value;
 
-      if (!eqDocId || qty <= 0) return;
-      const eq = window.IPS.equipments.find(e => e.id === eqDocId);
-      const avail = getAvailableForTimeSlot(eqDocId, date, start, end);
+      if (!selectedStockEqId || qty <= 0) return;
+      const eq = window.IPS.equipments.find(e => e.id === selectedStockEqId);
+      const avail = getAvailableForTimeSlot(selectedStockEqId, date, start, end);
 
       if (qty > avail) {
         return Swal.fire('Insufficient Availability', `Only ${avail} ${eq.unit} of ${eq.name} available during ${start} - ${end}.`, 'warning');
@@ -244,16 +401,18 @@
         if (!confirmExp.isConfirmed) return;
       }
 
-      const exist = draftItems.find(i => i.eqDocId === eqDocId);
+      const exist = draftItems.find(i => !i.isCustom && i.eqDocId === selectedStockEqId);
       if (exist) {
         if (exist.requestedQty + qty > avail) return Swal.fire('Limit Exceeded', 'Total requested exceeds slot availability.', 'warning');
         exist.requestedQty += qty;
       } else {
         draftItems.push({
+          isCustom: false,
           eqDocId: eq.id,
           equipmentId: eq.equipmentId,
           name: eq.name,
           spec: eq.spec || '',
+          unit: eq.unit || 'pcs',
           isConsumable: isConsumableOrChemical(eq),
           requestedQty: qty,
           approvedQty: 0,
@@ -261,23 +420,68 @@
           alternativeNote: ''
         });
       }
+      clearSearchInput();
       renderDraftList();
     }
+
+    // ==================== CUSTOM / NON-STOCK ITEM MODAL ====================
+    function openCustomItemModal(prefillName = '') {
+      document.getElementById('searchResultsDropdown').classList.add('hidden');
+      document.getElementById('customItemForm').reset();
+      if (prefillName) document.getElementById('custName').value = prefillName;
+      const m = document.getElementById('customItemModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeCustomModal() {
+      const m = document.getElementById('customItemModal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    document.getElementById('customItemForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('custName').value.trim();
+      const qty = Number(document.getElementById('custQty').value);
+      const unit = document.getElementById('custUnit').value.trim();
+      const note = document.getElementById('custNote').value.trim();
+
+      draftItems.push({
+        isCustom: true,
+        eqDocId: '',
+        equipmentId: 'CUSTOM',
+        name,
+        spec: note,
+        unit,
+        isConsumable: true,
+        requestedQty: qty,
+        approvedQty: 0,
+        itemStatus: 'Pending',
+        alternativeNote: ''
+      });
+
+      closeCustomModal();
+      clearSearchInput();
+      renderDraftList();
+    });
 
     function renderDraftList() {
       const box = document.getElementById('draftList');
       if (draftItems.length === 0) {
-        box.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">No items added yet.</p>';
+        box.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">No items added yet. Search above or add a custom item.</p>';
         return;
       }
       box.innerHTML = draftItems.map((it, idx) => `
-        <div class="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200 text-xs">
+        <div class="flex items-center justify-between p-3 rounded-xl ${it.isCustom ? 'bg-amber-50/70 border-amber-200' : 'bg-white border-slate-200'} border text-xs">
           <div>
+            ${it.isCustom ? `<span class="px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 text-[10px] font-bold mr-1.5">SPECIAL / NON-STOCK</span>` : ''}
             <b>${it.name}</b>
             ${it.spec ? `<span class="text-slate-500 ml-1">[${it.spec}]</span>` : ''}
           </div>
           <div class="flex items-center gap-3">
-            <span class="font-semibold text-indigo-600">Qty: ${it.requestedQty}</span>
+            <span class="font-semibold text-indigo-600">Qty: ${it.requestedQty} ${it.unit || ''}</span>
             <button onclick="draftItems.splice(${idx},1); renderDraftList();" class="text-rose-500 hover:underline">Remove</button>
           </div>
         </div>
@@ -323,6 +527,7 @@
       Swal.fire('Request Submitted', `Your Request ID is ${reqId}`, 'success');
     }
 
+    // ==================== TEACHER POST-USE RETURN / BREAKAGE FLOW ====================
     function openTeacherReturnModal(docId) {
       activeTRetDocId = docId;
       const req = window.IPS.requests.find(r => r.docId === docId);
@@ -330,12 +535,12 @@
       document.getElementById('tRetNoteInput').value = req.teacherReturnNote || '';
 
       const html = (req.items || []).filter(it => Number(it.approvedQty) > 0).map((it, idx) => {
-        const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
-        const isCons = eq && isConsumableOrChemical(eq);
+        const eq = it.isCustom ? null : window.IPS.equipments.find(e => e.id === it.eqDocId);
+        const isCons = it.isCustom || (eq && isConsumableOrChemical(eq));
         if (isCons) {
           return `
             <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-              <span><b>${it.name}</b> (Consumable/Chemical)</span>
+              <span><b>${it.name}</b> (${it.isCustom ? 'Special / Fresh Item' : 'Consumable / Chemical'})</span>
               <span class="text-slate-400">Issued: ${it.approvedQty}</span>
             </div>
           `;
@@ -375,7 +580,7 @@
 
       for (let i = 0; i < updatedItems.length; i++) {
         if (Number(updatedItems[i].approvedQty) <= 0) continue;
-        const eq = window.IPS.equipments.find(e => e.id === updatedItems[i].eqDocId);
+        const eq = updatedItems[i].isCustom ? null : window.IPS.equipments.find(e => e.id === updatedItems[i].eqDocId);
         if (eq && !isConsumableOrChemical(eq)) {
           const dmgInput = document.getElementById(`tdmg_${appIdx}`);
           const dmgVal = dmgInput ? Number(dmgInput.value || 0) : 0;
@@ -442,7 +647,7 @@
             <div class="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg space-y-1">
               ${(r.items || []).map(i => `
                 <div>
-                  • <b>${i.name}</b> ${i.spec ? `[${i.spec}]` : ''}: Requested ${i.requestedQty} | Approved: <b class="text-emerald-600">${i.approvedQty}</b> (${i.itemStatus})
+                  • ${i.isCustom ? `<span class="px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 text-[10px] font-bold mr-1">SPECIAL</span>` : ''}<b>${i.name}</b> ${i.spec ? `[${i.spec}]` : ''}: Requested ${i.requestedQty} ${i.unit || ''} | Approved: <b class="text-emerald-600">${i.approvedQty}</b> (${i.itemStatus})
                   ${i.returnedDamagedQty > 0 ? `<span class="ml-1 text-rose-600 font-semibold">[Damaged: ${i.returnedDamagedQty}]</span>` : ''}
                   ${i.alternativeNote ? `<span class="text-indigo-600">[Alt: ${i.alternativeNote}]</span>` : ''}
                 </div>
