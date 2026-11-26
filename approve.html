@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IPS Lab System | Lab Staff Approval</title>
+  <title>IPS Lab System | Lab Staff Approval & Return Inspection</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -27,8 +27,12 @@
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap gap-1.5 bg-white/80 p-1.5 rounded-2xl border border-slate-200/70">
           <button onclick="statusFilter='All'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium bg-indigo-600 text-white" data-st="All">All Requests</button>
-          <button onclick="statusFilter='Pending'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Pending">Pending</button>
-          <button onclick="statusFilter='Approved'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Approved">Approved / Partial</button>
+          <button onclick="statusFilter='Pending'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Pending">Pending Approval</button>
+          <button onclick="statusFilter='Approved'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Approved">In Use (Approved)</button>
+          <button onclick="statusFilter='Return Pending'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center gap-1" data-st="Return Pending">
+            <span>Return Pending</span>
+            <span id="returnPendingBadge" class="hidden px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px]">0</span>
+          </button>
           <button onclick="statusFilter='Returned'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Returned">Returned</button>
         </div>
         <input type="text" id="searchInput" onkeyup="renderTable()" placeholder="Search ID, Teacher, Experiment..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-64" />
@@ -63,7 +67,7 @@
           <h3 class="text-lg font-bold text-slate-800">Review & Approve Equipment Request</h3>
           <p id="modalMeta" class="text-xs text-slate-500 mt-0.5"></p>
         </div>
-        <button onclick="closeApprovalModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <button onclick="closeModal('approvalModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <div id="modalItemsContainer" class="mt-4 space-y-3"></div>
       <div class="mt-4">
@@ -73,8 +77,41 @@
       <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
         <span class="text-[11px] text-slate-400">Approver name and timestamp are logged automatically.</span>
         <div class="flex gap-2">
-          <button type="button" onclick="closeApprovalModal()" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Close</button>
+          <button type="button" onclick="closeModal('approvalModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Close</button>
           <button type="button" onclick="submitApproval()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow">Save Decision</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RETURN & DAMAGE INSPECTION MODAL -->
+  <div id="returnModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="clipboard-check" class="w-5 h-5 text-blue-600"></i> Equipment Return & Condition Inspection
+          </h3>
+          <p id="returnModalMeta" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeModal('returnModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <!-- Teacher's Return Note Banner (if teacher submitted a return/damage report) -->
+      <div id="teacherReturnBanner" class="hidden mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950"></div>
+
+      <div id="returnItemsContainer" class="mt-4 space-y-3"></div>
+
+      <div class="mt-4">
+        <label class="block text-xs font-medium text-slate-600 mb-1">Lab Staff Inspection Remarks / Damage Details *</label>
+        <input type="text" id="returnRemarksInput" placeholder="e.g., All items returned clean, or 1 Beaker cracked during titration" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+      </div>
+
+      <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
+        <span class="text-[11px] text-slate-500">Good + Damaged + Lost must equal the Approved Qty for each item.</span>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeModal('returnModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="button" onclick="submitReturnInspection()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow">Confirm Return & Update Stock</button>
         </div>
       </div>
     </div>
@@ -87,13 +124,51 @@
 
     initIPSPage({
       activePage: 'approve',
-      title: 'Lab Staff Approval',
-      subtitle: 'Review requests item-by-item, manage partial approvals, alternatives, and returns',
+      title: 'Lab Staff Approval & Return Inspection',
+      subtitle: 'Approve requisitions, inspect returned equipment, and log damaged or lost items',
       allowedRoles: ['Lab Staff', 'Admin', 'Super Admin'],
       onReady: () => {
         renderTable();
       }
     });
+
+    function viewItemSafety(eqDocId) {
+      const eq = window.IPS.equipments.find(e => e.id === eqDocId);
+      if (!eq) return;
+
+      let fileHtml = '';
+      if (eq.safetyFileData) {
+        if (eq.safetyFileData.startsWith('data:application/pdf')) {
+          fileHtml = `
+            <div class="mt-3">
+              <iframe src="${eq.safetyFileData}" class="w-full h-80 rounded-xl border"></iframe>
+              <a href="${eq.safetyFileData}" download="${eq.safetyFileName || 'SDS_Document.pdf'}" class="inline-block mt-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium">Download PDF</a>
+            </div>
+          `;
+        } else {
+          fileHtml = `<div class="mt-3"><img src="${eq.safetyFileData}" class="max-h-80 mx-auto rounded-xl border shadow-sm" /></div>`;
+        }
+      }
+
+      if (eq.safetyLink) {
+        fileHtml += `<div class="mt-3"><a href="${eq.safetyLink}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">Open External SDS / Drive Link ↗</a></div>`;
+      }
+
+      Swal.fire({
+        title: `Safety & Hazard Info: ${eq.name} ${eq.formula ? `(${eq.formula})` : ''}`,
+        width: 650,
+        html: `
+          <div class="text-left text-xs space-y-2">
+            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950">
+              <b>Warning / Handling Note:</b><br>
+              ${eq.hazardNote ? eq.hazardNote.replace(/\n/g, '<br>') : 'No specific text warning recorded.'}
+            </div>
+            ${fileHtml}
+          </div>
+        `,
+        confirmButtonText: 'Close'
+      });
+    }
 
     function renderTable() {
       document.querySelectorAll('.f-btn').forEach(btn => {
@@ -109,6 +184,16 @@
       const allowedLabs = getUserAllowedLabs(window.IPS.user);
       const q = (document.getElementById('searchInput').value || '').toLowerCase();
 
+      // Update Return Pending count badge
+      const retPendingCount = window.IPS.requests.filter(r => allowedLabs.includes(r.lab) && r.status === 'Return Pending').length;
+      const badgeEl = document.getElementById('returnPendingBadge');
+      if (retPendingCount > 0) {
+        badgeEl.innerText = retPendingCount;
+        badgeEl.classList.remove('hidden');
+      } else {
+        badgeEl.classList.add('hidden');
+      }
+
       const list = window.IPS.requests.filter(r => {
         const labOk = allowedLabs.includes(r.lab);
         const stOk = statusFilter === 'All'
@@ -121,6 +206,7 @@
         'Pending': 'bg-amber-100 text-amber-700',
         'Approved': 'bg-emerald-100 text-emerald-700',
         'Partial': 'bg-blue-100 text-blue-700',
+        'Return Pending': 'bg-orange-100 text-orange-800 border border-orange-300',
         'Rejected': 'bg-rose-100 text-rose-700',
         'Cancelled': 'bg-slate-200 text-slate-600',
         'Returned': 'bg-indigo-100 text-indigo-700'
@@ -132,28 +218,37 @@
         return;
       }
 
-      tbody.innerHTML = list.slice().reverse().map(r => `
-        <tr class="hover:bg-slate-50/70">
-          <td class="p-3.5 font-mono font-bold text-indigo-700">${r.id}</td>
-          <td class="p-3.5">
-            <div class="font-semibold text-slate-800">${r.teacherName}</div>
-            <div class="text-[11px] text-slate-500">${r.experiment}</div>
-          </td>
-          <td class="p-3.5"><span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">${r.lab}</span></td>
-          <td class="p-3.5"><b>${r.useDate}</b><br><span class="text-slate-400">${r.startTime} - ${r.endTime}</span></td>
-          <td class="p-3.5"><span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeMap[r.status] || 'bg-slate-100'}">${r.status}</span></td>
-          <td class="p-3.5 text-right space-x-1.5">
-            ${['Approved', 'Partial'].includes(r.status) ? `
-              <button onclick="markReturned('${r.docId}')" class="px-3 py-1.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-medium">Mark Returned</button>
-            ` : ''}
-            ${r.status !== 'Cancelled' && r.status !== 'Returned' ? `
-              <button onclick="openApprovalModal('${r.docId}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium">Review</button>
-            ` : ''}
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = list.slice().reverse().map(r => {
+        const canInspectReturn = ['Approved', 'Partial', 'Return Pending'].includes(r.status);
+        const canReviewApproval = ['Pending'].includes(r.status);
+
+        return `
+          <tr class="hover:bg-slate-50/70 ${r.status === 'Return Pending' ? 'bg-orange-50/40' : ''}">
+            <td class="p-3.5 font-mono font-bold text-indigo-700">${r.id}</td>
+            <td class="p-3.5">
+              <div class="font-semibold text-slate-800">${r.teacherName}</div>
+              <div class="text-[11px] text-slate-500">${r.experiment}</div>
+              ${r.teacherReturnNote ? `<div class="text-[11px] text-orange-700 mt-0.5 font-medium">Teacher Note: "${r.teacherReturnNote}"</div>` : ''}
+            </td>
+            <td class="p-3.5"><span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">${r.lab}</span></td>
+            <td class="p-3.5"><b>${r.useDate}</b><br><span class="text-slate-400">${r.startTime} - ${r.endTime}</span></td>
+            <td class="p-3.5"><span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeMap[r.status] || 'bg-slate-100'}">${r.status}</span></td>
+            <td class="p-3.5 text-right space-x-1.5">
+              ${canInspectReturn ? `
+                <button onclick="openReturnModal('${r.docId}')" class="px-3 py-1.5 rounded-xl ${r.status === 'Return Pending' ? 'bg-orange-600 hover:bg-orange-700 animate-pulse' : 'bg-blue-600 hover:bg-blue-700'} text-white font-medium">
+                  Inspect Return
+                </button>
+              ` : ''}
+              ${canReviewApproval ? `
+                <button onclick="openApprovalModal('${r.docId}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium">Review</button>
+              ` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
+    // ==================== APPROVAL FLOW ====================
     function openApprovalModal(docId) {
       activeDocId = docId;
       const req = window.IPS.requests.find(r => r.docId === docId);
@@ -161,14 +256,29 @@
       document.getElementById('staffRemarksInput').value = req.staffRemarks || '';
 
       const html = (req.items || []).map((it, idx) => {
+        const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
         const slotAvail = getAvailableForTimeSlot(it.eqDocId, req.useDate, req.startTime, req.endTime, req.id);
         const suggested = Math.min(it.requestedQty, slotAvail);
+        const hasHazard = eq && (eq.hazardNote || eq.safetyFileData || eq.safetyLink);
+        const isCons = eq && isConsumableOrChemical(eq);
+
         return `
           <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <span class="font-bold text-slate-800 text-sm">${it.name}</span>
-                <span class="text-xs text-slate-500 ml-2">Requested: <b>${it.requestedQty}</b> | Slot Available: <b class="${slotAvail < it.requestedQty ? 'text-rose-600' : 'text-emerald-600'}">${slotAvail}</b></span>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="font-bold text-slate-800 text-sm">${it.name}</span>
+                  ${eq && eq.formula ? `<span class="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 font-mono text-[10px] font-semibold text-blue-700">${eq.formula}</span>` : ''}
+                  ${it.spec ? `<span class="text-xs text-slate-500">[${it.spec}]</span>` : ''}
+                  <span class="px-2 py-0.5 rounded text-[10px] font-medium ${isCons ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-700'}">
+                    ${isCons ? 'Consumable / Chemical' : 'Returnable Equipment'}
+                  </span>
+                  ${hasHazard ? `<button type="button" onclick="viewItemSafety('${eq.id}')" class="px-2 py-0.5 rounded bg-rose-100 text-rose-700 hover:bg-rose-200 text-[10px] font-semibold">⚠️ View SDS / Warning</button>` : ''}
+                </div>
+                <div class="text-xs text-slate-500 mt-1">
+                  Requested: <b>${it.requestedQty}</b> | Slot Available: <b class="${slotAvail < it.requestedQty ? 'text-rose-600' : 'text-emerald-600'}">${slotAvail}</b>
+                  ${eq && eq.expiryDate ? ` | Exp: <b>${eq.expiryDate}</b>` : ''}
+                </div>
               </div>
               <div class="flex items-center gap-2">
                 <select id="act_${idx}" onchange="onActChange(${idx}, ${suggested})" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white">
@@ -197,12 +307,6 @@
       qInput.value = (val === 'Rejected' || val === 'Alternative') ? 0 : suggested;
     }
 
-    function closeApprovalModal() {
-      const modal = document.getElementById('approvalModal');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    }
-
     async function submitApproval() {
       const req = window.IPS.requests.find(r => r.docId === activeDocId);
       const items = JSON.parse(JSON.stringify(req.items || []));
@@ -221,19 +325,10 @@
         }
 
         const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
-        let curTotal = Number(eq.total || 0);
-        let curAvail = Number(eq.available || 0);
-        let curRes = Number(eq.reserved || 0);
-
-        if (it.approvedQty > 0 && eq) {
-          if (eq.type === 'Consumable' || eq.type === 'Chemical') {
-            curTotal += Number(it.approvedQty);
-            curAvail += Number(it.approvedQty);
-          } else {
-            curRes = Math.max(0, curRes - Number(it.approvedQty));
-            curAvail += Number(it.approvedQty);
-          }
-        }
+        const isCons = isConsumableOrChemical(eq);
+        let curTotal = eq ? Number(eq.total || 0) : 0;
+        let curAvail = eq ? Number(eq.available || 0) : 0;
+        let curRes = eq ? Number(eq.reserved || 0) : 0;
 
         it.itemStatus = act;
         it.approvedQty = appQty;
@@ -243,11 +338,11 @@
           anyApproved = true;
           if (appQty < it.requestedQty) allApproved = false;
 
-          if (eq.type === 'Consumable' || eq.type === 'Chemical') {
+          if (isCons) {
             curTotal -= appQty;
             curAvail -= appQty;
             await db.collection('equipments').doc(eq.id).update({ total: curTotal, available: curAvail });
-            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Stock Out', -appQty, `Issued consumable for ${req.id}`);
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Stock Out', -appQty, `Issued consumable/chemical for ${req.id}`);
           } else {
             curRes += appQty;
             curAvail = Math.max(0, curAvail - appQty);
@@ -268,26 +363,168 @@
         staffRemarks: document.getElementById('staffRemarksInput').value.trim()
       });
 
-      closeApprovalModal();
+      closeModal('approvalModal');
       Swal.fire('Decision Saved', `Request ${req.id} updated to ${finalStatus}.`, 'success');
     }
 
-    async function markReturned(docId) {
+    // ==================== RETURN & DAMAGE INSPECTION FLOW ====================
+    function openReturnModal(docId) {
+      activeDocId = docId;
       const req = window.IPS.requests.find(r => r.docId === docId);
-      for (const it of (req.items || [])) {
-        if (it.approvedQty > 0 && it.type !== 'Consumable' && it.type !== 'Chemical') {
-          const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
-          if (eq) {
-            await db.collection('equipments').doc(eq.id).update({
-              reserved: Math.max(0, Number(eq.reserved || 0) - Number(it.approvedQty)),
-              available: Math.min(Number(eq.total) - Number(eq.damaged || 0), Number(eq.available) + Number(it.approvedQty))
-            });
-            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Returned', it.approvedQty, `Returned from request ${req.id}`);
-          }
+      document.getElementById('returnModalMeta').innerText = `${req.id} | Teacher: ${req.teacherName} | ${req.lab} Lab | Used on ${req.useDate}`;
+      document.getElementById('returnRemarksInput').value = req.teacherReturnNote || '';
+
+      const banner = document.getElementById('teacherReturnBanner');
+      if (req.teacherReturnNote || req.teacherReportedDamage) {
+        banner.classList.remove('hidden');
+        banner.innerHTML = `
+          <b>📢 Teacher Return / Damage Report (${req.returnSubmittedAt || 'Submitted'}):</b><br>
+          ${req.teacherReturnNote || 'Teacher notified that items have been returned.'}
+        `;
+      } else {
+        banner.classList.add('hidden');
+      }
+
+      const html = (req.items || []).filter(it => Number(it.approvedQty) > 0).map((it, idx) => {
+        const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
+        const isCons = eq && isConsumableOrChemical(eq);
+        const approved = Number(it.approvedQty);
+        const teacherDmg = Number(it.reportedDamagedQty || 0);
+        const defaultGood = isCons ? 0 : Math.max(0, approved - teacherDmg);
+
+        if (isCons) {
+          return `
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs">
+              <div>
+                <span class="font-bold text-slate-800">${it.name}</span>
+                <span class="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px]">Consumable / Chemical (Used & Deducted)</span>
+              </div>
+              <span class="text-slate-500">Issued: <b>${approved}</b> (No return required)</span>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span class="font-bold text-slate-800 text-sm">${it.name}</span>
+                ${it.spec ? `<span class="text-xs text-slate-500 ml-1">[${it.spec}]</span>` : ''}
+                <span class="ml-2 text-xs text-indigo-700 font-semibold">Approved Qty: ${approved}</span>
+              </div>
+              ${teacherDmg > 0 ? `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-700 text-[11px] font-semibold">Teacher reported ${teacherDmg} damaged</span>` : ''}
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 text-xs">
+              <div class="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                <label class="block text-[10px] font-semibold text-emerald-800 mb-1">Good / Intact (+Available)</label>
+                <input type="number" id="ret_good_${idx}" min="0" max="${approved}" value="${defaultGood}" class="w-full px-2.5 py-1 rounded border border-emerald-300 bg-white font-bold text-emerald-700" />
+              </div>
+              <div class="bg-rose-50 p-2 rounded-lg border border-rose-200">
+                <label class="block text-[10px] font-semibold text-rose-800 mb-1">Damaged / Broken (+Damaged)</label>
+                <input type="number" id="ret_dmg_${idx}" min="0" max="${approved}" value="${teacherDmg}" class="w-full px-2.5 py-1 rounded border border-rose-300 bg-white font-bold text-rose-700" />
+              </div>
+              <div class="bg-slate-100 p-2 rounded-lg border border-slate-300">
+                <label class="block text-[10px] font-semibold text-slate-700 mb-1">Lost / Missing (-Total Stock)</label>
+                <input type="number" id="ret_lost_${idx}" min="0" max="${approved}" value="0" class="w-full px-2.5 py-1 rounded border border-slate-300 bg-white font-bold text-slate-700" />
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('returnItemsContainer').innerHTML = html || '<p class="text-xs text-slate-400">No approved items to inspect.</p>';
+      if (window.lucide) lucide.createIcons();
+      const modal = document.getElementById('returnModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    async function submitReturnInspection() {
+      const req = window.IPS.requests.find(r => r.docId === activeDocId);
+      const returnRemarks = document.getElementById('returnRemarksInput').value.trim();
+      const approvedItems = (req.items || []).filter(it => Number(it.approvedQty) > 0);
+
+      // Validate counts first
+      for (let idx = 0; idx < approvedItems.length; idx++) {
+        const it = approvedItems[idx];
+        const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
+        if (!eq || isConsumableOrChemical(eq)) continue;
+
+        const goodQty = Number(document.getElementById(`ret_good_${idx}`).value || 0);
+        const dmgQty = Number(document.getElementById(`ret_dmg_${idx}`).value || 0);
+        const lostQty = Number(document.getElementById(`ret_lost_${idx}`).value || 0);
+        const approved = Number(it.approvedQty);
+
+        if (goodQty + dmgQty + lostQty !== approved) {
+          return Swal.fire(
+            'Quantity Mismatch',
+            `For <b>${it.name}</b>, Good (${goodQty}) + Damaged (${dmgQty}) + Lost (${lostQty}) must equal Approved Qty (${approved}).`,
+            'warning'
+          );
         }
       }
-      await db.collection('requests').doc(docId).update({ status: 'Returned' });
-      Swal.fire('Items Returned', 'Equipment stock has been restored.', 'success');
+
+      // Apply stock updates & immutable audit logs
+      const updatedItems = JSON.parse(JSON.stringify(req.items || []));
+      let approvedIdx = 0;
+
+      for (let i = 0; i < updatedItems.length; i++) {
+        const it = updatedItems[i];
+        if (Number(it.approvedQty) <= 0) continue;
+
+        const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
+        if (eq && !isConsumableOrChemical(eq)) {
+          const goodQty = Number(document.getElementById(`ret_good_${approvedIdx}`).value || 0);
+          const dmgQty = Number(document.getElementById(`ret_dmg_${approvedIdx}`).value || 0);
+          const lostQty = Number(document.getElementById(`ret_lost_${approvedIdx}`).value || 0);
+          const approved = Number(it.approvedQty);
+
+          it.returnedGoodQty = goodQty;
+          it.returnedDamagedQty = dmgQty;
+          it.returnedLostQty = lostQty;
+
+          const newReserved = Math.max(0, Number(eq.reserved || 0) - approved);
+          const newDamaged = Number(eq.damaged || 0) + dmgQty;
+          const newTotal = Math.max(0, Number(eq.total || 0) - lostQty);
+          const newAvailable = Math.min(newTotal - newDamaged, Number(eq.available || 0) + goodQty);
+
+          await db.collection('equipments').doc(eq.id).update({
+            total: newTotal,
+            available: newAvailable,
+            reserved: newReserved,
+            damaged: newDamaged
+          });
+
+          if (goodQty > 0) {
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Returned', goodQty, `Returned intact from ${req.id}`);
+          }
+          if (dmgQty > 0) {
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Damaged', -dmgQty, `Damaged during ${req.id}: ${returnRemarks || 'Reported on return'}`);
+          }
+          if (lostQty > 0) {
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Lost', -lostQty, `Lost during ${req.id}: ${returnRemarks || 'Missing on return'}`);
+          }
+        }
+        approvedIdx++;
+      }
+
+      await db.collection('requests').doc(req.docId).update({
+        items: updatedItems,
+        status: 'Returned',
+        returnedByStaff: window.IPS.user.name,
+        returnInspectedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        returnRemarks
+      });
+
+      closeModal('returnModal');
+      Swal.fire('Return Completed', 'Equipment condition inspected and stock balances updated.', 'success');
+    }
+
+    function closeModal(id) {
+      const m = document.getElementById(id);
+      m.classList.add('hidden');
+      m.classList.remove('flex');
     }
   </script>
 </body>
