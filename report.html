@@ -34,7 +34,7 @@
       <div class="glass-card rounded-2xl p-5 space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3 no-print">
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Report Type (10 Standard Reports)</label>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Report Type (11 Standard Reports)</label>
             <select id="reportTypeSelect" onchange="renderReport()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium">
               <option value="Equipment Inventory">1. Equipment Inventory Report</option>
               <option value="Request Report">2. Requisition / Request Report</option>
@@ -46,6 +46,7 @@
               <option value="Unavailable Report">8. Unfulfilled / Shortage Report</option>
               <option value="Teacher Usage Report">9. Teacher Usage Summary</option>
               <option value="Lab Usage Report">10. Laboratory Utilization Summary</option>
+              <option value="Expiry Report">11. Chemical & Consumable Expiry Report</option>
             </select>
           </div>
 
@@ -117,7 +118,7 @@
     initIPSPage({
       activePage: 'report',
       title: 'Analytics & Reports',
-      subtitle: 'Generate 10 specialized laboratory reports and export to Excel, CSV, or PDF',
+      subtitle: 'Generate 11 specialized laboratory reports and export to Excel, CSV, or PDF',
       allowedRoles: ['Admin', 'Super Admin'],
       onReady: () => {
         renderReport();
@@ -133,6 +134,17 @@
       return true;
     }
 
+    function getExpiryEvaluation(expiryDate) {
+      if (!expiryDate) return null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const exp = new Date(expiryDate);
+      const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) return { status: `Expired (${Math.abs(diffDays)} days ago)`, days: diffDays };
+      if (diffDays <= 60) return { status: `Expiring Soon (${diffDays} days left)`, days: diffDays };
+      return { status: `Valid (${diffDays} days left)`, days: diffDays };
+    }
+
     function getReportRows() {
       const type = document.getElementById('reportTypeSelect').value;
       const lab = document.getElementById('reportLabSelect').value;
@@ -145,6 +157,7 @@
           return window.IPS.equipments.filter(e => byLab(e.lab)).map(e => ({
             'SKU': e.equipmentId,
             'Equipment Name': e.name,
+            'Specification': e.spec || '-',
             'Lab': e.lab,
             'Type': e.type,
             'Total': e.total,
@@ -152,6 +165,7 @@
             'Reserved': e.reserved || 0,
             'Damaged': e.damaged || 0,
             'Min Stock': e.minStock,
+            'Expiry Date': e.expiryDate || '-',
             'Unit': e.unit
           }));
 
@@ -177,6 +191,7 @@
                 'Lab': r.lab,
                 'Teacher': r.teacherName,
                 'Equipment': it.name,
+                'Specification': it.spec || '-',
                 'Requested': it.requestedQty,
                 'Approved': it.approvedQty,
                 'Item Status': it.itemStatus
@@ -201,6 +216,7 @@
           return window.IPS.equipments.filter(e => byLab(e.lab) && Number(e.available) <= Number(e.minStock)).map(e => ({
             'SKU': e.equipmentId,
             'Equipment Name': e.name,
+            'Specification': e.spec || '-',
             'Lab': e.lab,
             'Available': e.available,
             'Min Stock': e.minStock,
@@ -274,6 +290,25 @@
             'Total Requests': window.IPS.requests.filter(r => r.lab === l && inDateRange(r.useDate, from, to)).length,
             'Low Stock Items': window.IPS.equipments.filter(e => e.lab === l && Number(e.available) <= Number(e.minStock)).length
           }));
+
+        case 'Expiry Report':
+          return window.IPS.equipments
+            .filter(e => byLab(e.lab) && e.expiryDate && inDateRange(e.expiryDate, from, to))
+            .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))
+            .map(e => {
+              const evalObj = getExpiryEvaluation(e.expiryDate);
+              return {
+                'SKU': e.equipmentId,
+                'Item Name': e.name,
+                'Specification': e.spec || '-',
+                'Lab': e.lab,
+                'Type': e.type,
+                'Current Stock': `${e.available} ${e.unit}`,
+                'Location': e.location || '-',
+                'Expiry Date': e.expiryDate,
+                'Condition / Status': evalObj ? evalObj.status : '-'
+              };
+            });
       }
     }
 
@@ -303,7 +338,16 @@
           <tbody class="divide-y divide-slate-100">
             ${rows.map(row => `
               <tr class="hover:bg-slate-50/70">
-                ${headers.map(h => `<td class="p-3">${row[h]}</td>`).join('')}
+                ${headers.map(h => {
+                  const val = String(row[h]);
+                  if (h === 'Condition / Status' && val.startsWith('Expired')) {
+                    return `<td class="p-3 font-semibold text-rose-600">${val}</td>`;
+                  }
+                  if (h === 'Condition / Status' && val.startsWith('Expiring Soon')) {
+                    return `<td class="p-3 font-semibold text-amber-700">${val}</td>`;
+                  }
+                  return `<td class="p-3">${val}</td>`;
+                }).join('')}
               </tr>
             `).join('')}
           </tbody>
