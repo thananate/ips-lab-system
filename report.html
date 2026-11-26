@@ -34,7 +34,7 @@
       <div class="glass-card rounded-2xl p-5 space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3 no-print">
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Report Type (11 Standard Reports)</label>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Report Type (13 Standard Reports)</label>
             <select id="reportTypeSelect" onchange="renderReport()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium">
               <option value="Equipment Inventory">1. Equipment Inventory Report</option>
               <option value="Request Report">2. Requisition / Request Report</option>
@@ -45,24 +45,29 @@
               <option value="Purchase Report">7. Procurement / Purchase Report</option>
               <option value="Unavailable Report">8. Unfulfilled / Shortage Report</option>
               <option value="Teacher Usage Report">9. Teacher Usage Summary</option>
-              <option value="Lab Usage Report">10. Laboratory Utilization Summary</option>
+              <option value="Lab Usage Report">10. Room / Laboratory Utilization Summary</option>
               <option value="Expiry Report">11. Chemical & Consumable Expiry Report</option>
+              <option value="Monthly Summary">12. Monthly Usage & Cost Summary</option>
+              <option value="Yearly Summary">13. Yearly Usage & Cost Summary</option>
             </select>
           </div>
 
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filter by Laboratory</label>
-            <select id="reportLabSelect" onchange="renderReport()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
-              <option value="All">All Labs (Consolidated)</option>
-              <option value="Primary">Primary Lab</option>
-              <option value="Physics">Physics Lab</option>
-              <option value="Chemistry">Chemistry Lab</option>
-              <option value="Biology">Biology Lab</option>
-            </select>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filter by Room / Laboratory</label>
+            <select id="reportLabSelect" onchange="renderReport(); renderAnalyticsCharts();" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
           </div>
 
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Date Filter (Optional)</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-[11px] font-semibold text-slate-500">Date Range</label>
+              <div class="flex gap-1 text-[10px]">
+                <button type="button" onclick="setQuickDate('month')" class="text-indigo-600 hover:underline font-medium">This Month</button>
+                <span class="text-slate-300">|</span>
+                <button type="button" onclick="setQuickDate('year')" class="text-indigo-600 hover:underline font-medium">This Year</button>
+                <span class="text-slate-300">|</span>
+                <button type="button" onclick="setQuickDate('all')" class="text-slate-500 hover:underline">All</button>
+              </div>
+            </div>
             <div class="flex items-center gap-1.5">
               <input type="date" id="dateFrom" onchange="renderReport()" class="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
               <span class="text-slate-400 text-xs">-</span>
@@ -99,7 +104,7 @@
       <!-- VISUAL ANALYTICS SUMMARY -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print">
         <div class="glass-card rounded-2xl p-5">
-          <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-3">Requests by Laboratory</h4>
+          <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-3">Requests by Room / Laboratory</h4>
           <div class="h-56"><canvas id="reqLabChart"></canvas></div>
         </div>
         <div class="glass-card rounded-2xl p-5">
@@ -118,13 +123,44 @@
     initIPSPage({
       activePage: 'report',
       title: 'Analytics & Reports',
-      subtitle: 'Generate 11 specialized laboratory reports and export to Excel, CSV, or PDF',
+      subtitle: 'Generate 13 specialized reports across all rooms and export to Excel, CSV, or PDF',
       allowedRoles: ['Admin', 'Super Admin'],
       onReady: () => {
+        populateDynamicLabFilter();
         renderReport();
         renderAnalyticsCharts();
       }
     });
+
+    function populateDynamicLabFilter() {
+      const allLabs = getAllLabNames();
+      const sel = document.getElementById('reportLabSelect');
+      const prev = sel.value || 'All';
+      sel.innerHTML = `<option value="All">All Rooms (Consolidated)</option>` +
+        allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
+      if (prev === 'All' || allLabs.includes(prev)) sel.value = prev;
+    }
+
+    function setQuickDate(mode) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const fromEl = document.getElementById('dateFrom');
+      const toEl = document.getElementById('dateTo');
+
+      if (mode === 'month') {
+        const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+        fromEl.value = `${y}-${m}-01`;
+        toEl.value = `${y}-${m}-${String(lastDay).padStart(2, '0')}`;
+      } else if (mode === 'year') {
+        fromEl.value = `${y}-01-01`;
+        toEl.value = `${y}-12-31`;
+      } else {
+        fromEl.value = '';
+        toEl.value = '';
+      }
+      renderReport();
+    }
 
     function inDateRange(dateStr, from, to) {
       if (!dateStr) return true;
@@ -145,21 +181,62 @@
       return { status: `Valid (${diffDays} days left)`, days: diffDays };
     }
 
+    function buildPeriodSummary(periodLength, labelHeader) {
+      const lab = document.getElementById('reportLabSelect').value;
+      const from = document.getElementById('dateFrom').value;
+      const to = document.getElementById('dateTo').value;
+      const byLab = (l) => lab === 'All' || l === lab;
+      const map = {};
+
+      const ensureKey = (key) => {
+        if (!map[key]) {
+          map[key] = { requests: 0, approvedItems: 0, damagedQty: 0, purchaseOrders: 0, purchaseCost: 0 };
+        }
+      };
+
+      window.IPS.requests.filter(r => byLab(r.lab) && r.useDate && inDateRange(r.useDate, from, to)).forEach(r => {
+        const key = r.useDate.slice(0, periodLength);
+        ensureKey(key);
+        map[key].requests++;
+        (r.items || []).forEach(it => {
+          map[key].approvedItems += Number(it.approvedQty || 0);
+          map[key].damagedQty += Number(it.returnedDamagedQty || 0);
+        });
+      });
+
+      window.IPS.purchases.filter(p => byLab(p.lab) && p.requestDate && inDateRange(p.requestDate, from, to)).forEach(p => {
+        const key = p.requestDate.slice(0, periodLength);
+        ensureKey(key);
+        map[key].purchaseOrders++;
+        map[key].purchaseCost += Number(p.price || 0);
+      });
+
+      return Object.keys(map).sort().reverse().map(k => ({
+        [labelHeader]: k,
+        'Total Requisitions': map[k].requests,
+        'Total Approved Units': map[k].approvedItems,
+        'Damaged Units Reported': map[k].damagedQty,
+        'Purchase Requests (PR)': map[k].purchaseOrders,
+        'Est. Procurement Cost (THB)': map[k].purchaseCost.toLocaleString()
+      }));
+    }
+
     function getReportRows() {
       const type = document.getElementById('reportTypeSelect').value;
       const lab = document.getElementById('reportLabSelect').value;
       const from = document.getElementById('dateFrom').value;
       const to = document.getElementById('dateTo').value;
       const byLab = (l) => lab === 'All' || l === lab;
+      const allLabs = getAllLabNames();
 
       switch (type) {
         case 'Equipment Inventory':
           return window.IPS.equipments.filter(e => byLab(e.lab)).map(e => ({
             'SKU': e.equipmentId,
             'Equipment Name': e.name,
+            'Formula': e.formula || '-',
             'Specification': e.spec || '-',
-            'Lab': e.lab,
-            'Type': e.type,
+            'Room / Lab': e.lab,
             'Total': e.total,
             'Available': e.available,
             'Reserved': e.reserved || 0,
@@ -173,7 +250,7 @@
           return window.IPS.requests.filter(r => byLab(r.lab) && inDateRange(r.useDate, from, to)).map(r => ({
             'Request ID': r.id,
             'Teacher': r.teacherName,
-            'Lab': r.lab,
+            'Room / Lab': r.lab,
             'Experiment': r.experiment,
             'Usage Date': r.useDate,
             'Time Slot': `${r.startTime}-${r.endTime}`,
@@ -188,7 +265,7 @@
               usage.push({
                 'Request ID': r.id,
                 'Usage Date': r.useDate,
-                'Lab': r.lab,
+                'Room / Lab': r.lab,
                 'Teacher': r.teacherName,
                 'Equipment': it.name,
                 'Specification': it.spec || '-',
@@ -203,7 +280,7 @@
         case 'Stock Movement':
           return window.IPS.movements.filter(m => byLab(m.lab) && inDateRange(m.date, from, to)).map(m => ({
             'Timestamp': m.date,
-            'Lab': m.lab,
+            'Room / Lab': m.lab,
             'SKU': m.equipmentId,
             'Equipment': m.equipmentName,
             'Action': m.action,
@@ -217,7 +294,7 @@
             'SKU': e.equipmentId,
             'Equipment Name': e.name,
             'Specification': e.spec || '-',
-            'Lab': e.lab,
+            'Room / Lab': e.lab,
             'Available': e.available,
             'Min Stock': e.minStock,
             'Deficit': Math.max(0, Number(e.minStock) - Number(e.available)),
@@ -228,7 +305,7 @@
           return window.IPS.equipments.filter(e => byLab(e.lab) && Number(e.damaged || 0) > 0).map(e => ({
             'SKU': e.equipmentId,
             'Equipment Name': e.name,
-            'Lab': e.lab,
+            'Room / Lab': e.lab,
             'Damaged Qty': e.damaged,
             'Total Stock': e.total,
             'Unit': e.unit
@@ -239,7 +316,7 @@
             'PR ID': p.id,
             'Date': p.requestDate,
             'Equipment': p.equipmentName,
-            'Lab': p.lab,
+            'Room / Lab': p.lab,
             'Qty': p.qty,
             'Unit': p.unit,
             'Est. Cost (THB)': p.price || 0,
@@ -254,7 +331,7 @@
               shortages.push({
                 'Request ID': r.id,
                 'Usage Date': r.useDate,
-                'Lab': r.lab,
+                'Room / Lab': r.lab,
                 'Equipment': it.name,
                 'Requested': it.requestedQty,
                 'Approved': it.approvedQty,
@@ -283,8 +360,8 @@
           }));
 
         case 'Lab Usage Report':
-          return ['Primary', 'Physics', 'Chemistry', 'Biology'].filter(l => byLab(l)).map(l => ({
-            'Laboratory': `${l} Lab`,
+          return allLabs.filter(l => byLab(l)).map(l => ({
+            'Room / Laboratory': l,
             'Equipment SKUs': window.IPS.equipments.filter(e => e.lab === l).length,
             'Total Stock Units': window.IPS.equipments.filter(e => e.lab === l).reduce((s, e) => s + Number(e.total || 0), 0),
             'Total Requests': window.IPS.requests.filter(r => r.lab === l && inDateRange(r.useDate, from, to)).length,
@@ -300,15 +377,21 @@
               return {
                 'SKU': e.equipmentId,
                 'Item Name': e.name,
+                'Formula': e.formula || '-',
                 'Specification': e.spec || '-',
-                'Lab': e.lab,
-                'Type': e.type,
+                'Room / Lab': e.lab,
                 'Current Stock': `${e.available} ${e.unit}`,
                 'Location': e.location || '-',
                 'Expiry Date': e.expiryDate,
                 'Condition / Status': evalObj ? evalObj.status : '-'
               };
             });
+
+        case 'Monthly Summary':
+          return buildPeriodSummary(7, 'Month (YYYY-MM)');
+
+        case 'Yearly Summary':
+          return buildPeriodSummary(4, 'Year (YYYY)');
       }
     }
 
@@ -317,7 +400,7 @@
       const labVal = document.getElementById('reportLabSelect').value;
       const rows = getReportRows();
 
-      document.getElementById('reportTitleDisplay').innerText = `${typeSelect.options[typeSelect.selectedIndex].text} (${labVal === 'All' ? 'All Labs' : labVal + ' Lab'})`;
+      document.getElementById('reportTitleDisplay').innerText = `${typeSelect.options[typeSelect.selectedIndex].text} (${labVal === 'All' ? 'All Rooms' : labVal})`;
       document.getElementById('reportMetaDisplay').innerText = `Generated by ${window.IPS.user.name} on ${new Date().toLocaleString()}`;
       document.getElementById('rowCountBadge').innerText = `${rows.length} records`;
 
@@ -379,7 +462,8 @@
     }
 
     function renderAnalyticsCharts() {
-      const labs = ['Primary', 'Physics', 'Chemistry', 'Biology'];
+      const labs = getAllLabNames();
+      const palette = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#6366f1'];
       if (chart1) chart1.destroy();
       chart1 = new Chart(document.getElementById('reqLabChart'), {
         type: 'bar',
@@ -388,14 +472,14 @@
           datasets: [{
             label: 'Total Requests',
             data: labs.map(l => window.IPS.requests.filter(r => r.lab === l).length),
-            backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b'],
+            backgroundColor: labs.map((_, i) => palette[i % palette.length]),
             borderRadius: 6
           }]
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
       });
 
-      const statuses = ['Pending', 'Approved', 'Partial', 'Returned', 'Rejected', 'Cancelled'];
+      const statuses = ['Pending', 'Approved', 'Partial', 'Return Pending', 'Returned', 'Rejected', 'Cancelled'];
       if (chart2) chart2.destroy();
       chart2 = new Chart(document.getElementById('reqStatusChart'), {
         type: 'doughnut',
@@ -403,7 +487,7 @@
           labels: statuses,
           datasets: [{
             data: statuses.map(st => window.IPS.requests.filter(r => r.status === st).length),
-            backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#6366f1', '#ef4444', '#94a3b8']
+            backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#fb923c', '#6366f1', '#ef4444', '#94a3b8']
           }]
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } }
