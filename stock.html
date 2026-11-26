@@ -66,4 +66,614 @@
                 <th class="p-3.5 text-center">Available</th>
                 <th class="p-3.5 text-center">Reserved / Damaged</th>
                 <th class="p-3.5">Stock & Expiry Status</th>
-                <th
+                <th class="p-3.5 text-right admin-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="eqTbody" class="divide-y divide-slate-100 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- IMMUTABLE STOCK MOVEMENT AUDIT LOG -->
+      <div id="movementSection" class="glass-card rounded-2xl overflow-hidden">
+        <div class="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="font-bold text-sm text-slate-800 flex items-center gap-1.5">
+              <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i> Immutable Stock Movement Audit Trail
+            </h3>
+            <p class="text-[11px] text-slate-400">Historical logs cannot be modified or deleted.</p>
+          </div>
+          <button id="btnRecordStock" onclick="openStockModal()" class="hidden px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 flex items-center gap-1.5">
+            <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i> Record Stock Adjustment
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                <th class="p-3.5">Timestamp</th>
+                <th class="p-3.5">Lab</th>
+                <th class="p-3.5">Item</th>
+                <th class="p-3.5">Action</th>
+                <th class="p-3.5 text-center">Qty Change</th>
+                <th class="p-3.5">Staff</th>
+                <th class="p-3.5">Remarks</th>
+              </tr>
+            </thead>
+            <tbody id="mvTbody" class="divide-y divide-slate-100 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ADD / EDIT EQUIPMENT MODAL (ADMIN ONLY) -->
+  <div id="eqModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 id="eqModalTitle" class="text-lg font-bold text-slate-800">Add New Equipment / Chemical</h3>
+        <button onclick="closeModal('eqModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="eqForm" class="mt-4 space-y-4">
+        <input type="hidden" id="eqDocId" />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Laboratory *</label>
+            <select id="eqLab" onchange="onLabSelectChange()" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+              <option value="Primary">Primary Lab</option>
+              <option value="Physics">Physics Lab</option>
+              <option value="Chemistry">Chemistry Lab</option>
+              <option value="Biology">Biology Lab</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Auto-Generated SKU *</label>
+            <input type="text" id="eqId" readonly class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 font-mono font-bold text-indigo-700 text-xs cursor-not-allowed" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Item Name *</label>
+            <input type="text" id="eqName" required placeholder="e.g., Hydrochloric Acid (HCl) or Beaker" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Equipment Type (Stock Behavior) *</label>
+            <select id="eqType" onchange="toggleExpiryField()" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+              <option value="Reusable">Reusable (Returnable)</option>
+              <option value="Equipment">Equipment (Book & Return)</option>
+              <option value="Chemical">Chemical / Liquid Reagent (Deduct & Expiry)</option>
+              <option value="Consumable">Consumable (Deduct Stock)</option>
+              <option value="Set / Kit">Set / Kit</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Category</label>
+            <input type="text" id="eqCategory" placeholder="e.g., Glassware, Liquid / Solution, Optics" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Specification (Size / Concentration)</label>
+            <input type="text" id="eqSpec" placeholder="e.g., 0.1M (500 ml/bottle) or 250 ml" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Unit *</label>
+            <input type="text" id="eqUnit" required placeholder="e.g., pcs, bottles, ml, boxes" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Storage Location</label>
+            <input type="text" id="eqLocation" placeholder="e.g., Chemical Cabinet C2, Shelf 1" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Total Stock *</label>
+            <input type="number" id="eqTotal" min="0" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Minimum Stock Alert *</label>
+            <input type="number" id="eqMin" min="0" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div id="expiryFieldWrapper">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Expiry Date (Optional for Chemicals)</label>
+            <input type="date" id="eqExpiryDate" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Status</label>
+            <select id="eqStatus" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Photo (Auto-compressed Base64)</label>
+            <input type="file" accept="image/*" onchange="handleImgUpload(event)" class="w-full text-xs text-slate-500" />
+            <input type="hidden" id="eqImgBase64" />
+            <img id="eqImgPreview" class="mt-2 h-14 w-14 object-cover rounded-lg hidden border" />
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+          <button type="button" onclick="closeModal('eqModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Save Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- STOCK ADJUSTMENT MODAL (STAFF / ADMIN) -->
+  <div id="stkModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-lg font-bold text-slate-800">Record Stock Movement</h3>
+        <button onclick="closeModal('stkModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="stkForm" class="mt-4 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Select Equipment / Chemical *</label>
+          <select id="stkEqSelect" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Movement Type *</label>
+            <select id="stkAction" onchange="document.getElementById('transferDiv').classList.toggle('hidden', this.value !== 'Transferred')" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+              <option value="Stock In">Stock In (+ Add Stock)</option>
+              <option value="Stock Out">Stock Out (- Remove Stock)</option>
+              <option value="Returned">Returned (+ Return Item)</option>
+              <option value="Damaged">Damaged (- Mark Damaged)</option>
+              <option value="Lost">Lost (- Mark Lost)</option>
+              <option value="Expired Disposal">Expired Disposal (- Remove Expired)</option>
+              <option value="Stock Adjustment">Stock Adjustment (+/-)</option>
+              <option value="Transferred">Transferred (Cross-Lab)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Quantity *</label>
+            <input type="number" id="stkQty" min="1" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+        </div>
+        <div id="transferDiv" class="hidden">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Destination Lab *</label>
+          <select id="stkTargetLab" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+            <option value="Primary">Primary Lab</option>
+            <option value="Physics">Physics Lab</option>
+            <option value="Chemistry">Chemistry Lab</option>
+            <option value="Biology">Biology Lab</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Remarks / Reference *</label>
+          <input type="text" id="stkNote" required placeholder="e.g., PO-2026-01 or Disposed expired bottle" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+        <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+          <button type="button" onclick="closeModal('stkModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Confirm & Log</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="firebase-core.js"></script>
+  <script>
+    let activeLab = 'All';
+
+    initIPSPage({
+      activePage: 'stock',
+      title: 'Inventory & Stock Management',
+      subtitle: 'Auto-numbered SKUs, duplicate detection, chemical expiry tracking, and audit logs',
+      allowedRoles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'],
+      onReady: (user) => {
+        const isStaffOrAdmin = ['Lab Staff', 'Admin', 'Super Admin'].includes(user.role);
+        if (isStaffOrAdmin) {
+          document.getElementById('btnRecordStock').classList.remove('hidden');
+        }
+        renderAll();
+      }
+    });
+
+    // Helper: Auto-generate next sequential SKU per Lab (e.g., PRI-001, PHY-005, CHM-003, BIO-002)
+    function generateNextSKU(lab) {
+      const prefixMap = { 'Primary': 'PRI', 'Physics': 'PHY', 'Chemistry': 'CHM', 'Biology': 'BIO' };
+      const prefix = prefixMap[lab] || 'LAB';
+      let maxNum = 0;
+      window.IPS.equipments.forEach(e => {
+        if ((e.equipmentId || '').startsWith(prefix + '-')) {
+          const numPart = parseInt(e.equipmentId.split('-')[1], 10);
+          if (!isNaN(numPart) && numPart > maxNum) maxNum = numPart;
+        }
+      });
+      return `${prefix}-${String(maxNum + 1).padStart(3, '0')}`;
+    }
+
+    // Helper: Evaluate Expiry Status (Expired / Expiring Soon <= 60 days / Valid)
+    function getExpiryStatus(expiryDate) {
+      if (!expiryDate) return null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const exp = new Date(expiryDate);
+      const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) return { state: 'expired', days: Math.abs(diffDays), label: `Expired (${expiryDate})` };
+      if (diffDays <= 60) return { state: 'soon', days: diffDays, label: `Expires in ${diffDays}d (${expiryDate})` };
+      return { state: 'ok', days: diffDays, label: `Exp: ${expiryDate}` };
+    }
+
+    function renderAll() {
+      const user = window.IPS.user;
+      const isAdmin = ['Admin', 'Super Admin'].includes(user.role);
+
+      document.querySelectorAll('.lab-btn').forEach(b => {
+        if (b.dataset.lab === activeLab) {
+          b.classList.add('bg-indigo-600', 'text-white');
+          b.classList.remove('text-slate-600');
+        } else {
+          b.classList.remove('bg-indigo-600', 'text-white');
+          b.classList.add('text-slate-600');
+        }
+      });
+
+      // Top Action Buttons
+      let btnHtml = '';
+      if (isAdmin && window.IPS.equipments.length === 0) {
+        btnHtml += `<button onclick="seedSampleData()" class="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 flex items-center gap-1.5"><i data-lucide="database" class="w-3.5 h-3.5"></i> Seed 4 Labs Sample</button>`;
+      }
+      if (isAdmin) {
+        btnHtml += `<button onclick="openEqModal()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium hover:opacity-95 flex items-center gap-1.5"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Equipment</button>`;
+      }
+      document.getElementById('actionButtonsArea').innerHTML = btnHtml;
+      document.querySelectorAll('.admin-col').forEach(el => el.classList.toggle('hidden', !isAdmin));
+
+      // Render Expiry Alert Banner
+      const expiringItems = window.IPS.equipments.filter(e => {
+        if (e.status !== 'Active' || !e.expiryDate) return false;
+        if (activeLab !== 'All' && e.lab !== activeLab) return false;
+        const st = getExpiryStatus(e.expiryDate);
+        return st && (st.state === 'expired' || st.state === 'soon');
+      });
+
+      const expBanner = document.getElementById('expiryAlertBanner');
+      if (expiringItems.length > 0) {
+        expBanner.classList.remove('hidden');
+        document.getElementById('expiryAlertList').innerHTML = expiringItems.map(item => {
+          const st = getExpiryStatus(item.expiryDate);
+          const isExp = st.state === 'expired';
+          return `
+            <span class="px-2.5 py-1 rounded-lg text-[11px] font-medium border ${isExp ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-800 border-amber-200'}">
+              <b>${item.name}</b> (${item.lab}) — ${st.label}
+            </span>
+          `;
+        }).join('');
+      } else {
+        expBanner.classList.add('hidden');
+      }
+
+      const q = (document.getElementById('searchInput').value || '').toLowerCase();
+      const filtered = window.IPS.equipments.filter(e => {
+        const labOk = activeLab === 'All' || e.lab === activeLab;
+        const searchOk = !q || (e.name || '').toLowerCase().includes(q) || (e.equipmentId || '').toLowerCase().includes(q) || (e.spec || '').toLowerCase().includes(q);
+        return labOk && searchOk;
+      });
+
+      document.getElementById('eqCountBadge').innerText = `${filtered.length} items`;
+
+      document.getElementById('eqTbody').innerHTML = filtered.length === 0
+        ? `<tr><td colspan="8" class="p-8 text-center text-slate-400">No items found. Click "Add Equipment" or "Seed 4 Labs Sample" to populate inventory.</td></tr>`
+        : filtered.map(eq => {
+            const isLow = Number(eq.available) <= Number(eq.minStock);
+            const expSt = getExpiryStatus(eq.expiryDate);
+            let expBadge = '';
+            if (expSt) {
+              if (expSt.state === 'expired') {
+                expBadge = `<div class="mt-1"><span class="px-2 py-0.5 rounded-full bg-rose-600 text-white font-semibold text-[10px]">${expSt.label}</span></div>`;
+              } else if (expSt.state === 'soon') {
+                expBadge = `<div class="mt-1"><span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold text-[10px]">${expSt.label}</span></div>`;
+              } else {
+                expBadge = `<div class="text-[10px] text-slate-400 mt-1">${expSt.label}</div>`;
+              }
+            }
+
+            return `
+              <tr class="hover:bg-indigo-50/30 transition">
+                <td class="p-3.5">
+                  <div class="flex items-center gap-2.5">
+                    ${eq.image ? `<img src="${eq.image}" class="w-10 h-10 rounded-lg object-cover border" />` : `<div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400"><i data-lucide="flask-round" class="w-5 h-5"></i></div>`}
+                    <span class="font-mono font-semibold text-indigo-700">${eq.equipmentId}</span>
+                  </div>
+                </td>
+                <td class="p-3.5">
+                  <div class="font-bold text-slate-800">${eq.name}</div>
+                  <div class="text-[11px] text-slate-500">${eq.spec || '-'} • Loc: ${eq.location || '-'}</div>
+                </td>
+                <td class="p-3.5">
+                  <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-medium text-[11px]">${eq.lab}</span>
+                  <div class="text-[11px] text-slate-500 mt-1">${eq.type}</div>
+                </td>
+                <td class="p-3.5 text-center font-semibold">${eq.total} ${eq.unit}</td>
+                <td class="p-3.5 text-center font-bold text-emerald-600">${eq.available}</td>
+                <td class="p-3.5 text-center text-slate-500">${eq.reserved || 0} / <span class="text-rose-500">${eq.damaged || 0}</span></td>
+                <td class="p-3.5">
+                  ${isLow
+                    ? `<span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-medium text-[11px]">Low Stock (Min ${eq.minStock})</span>`
+                    : `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium text-[11px]">Normal</span>`
+                  }
+                  ${expBadge}
+                </td>
+                ${isAdmin ? `<td class="p-3.5 text-right"><button onclick="openEqModal('${eq.id}')" class="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button></td>` : ''}
+              </tr>
+            `;
+          }).join('');
+
+      // Render Stock Movement Audit Log
+      const allowedLabs = getUserAllowedLabs(user);
+      const visibleMvs = window.IPS.movements.filter(m => {
+        const labOk = (activeLab === 'All' ? allowedLabs.includes(m.lab) : m.lab === activeLab);
+        const searchOk = !q || (m.equipmentName || '').toLowerCase().includes(q) || (m.staff || '').toLowerCase().includes(q);
+        return labOk && searchOk;
+      });
+
+      const badgeColors = {
+        'Stock In': 'bg-emerald-100 text-emerald-700',
+        'Returned': 'bg-blue-100 text-blue-700',
+        'Reserved': 'bg-purple-100 text-purple-700',
+        'Stock Out': 'bg-amber-100 text-amber-700',
+        'Damaged': 'bg-rose-100 text-rose-700',
+        'Lost': 'bg-rose-200 text-rose-800',
+        'Expired Disposal': 'bg-rose-600 text-white',
+        'Transferred': 'bg-indigo-100 text-indigo-700',
+        'Stock Adjustment': 'bg-slate-200 text-slate-700'
+      };
+
+      document.getElementById('mvTbody').innerHTML = visibleMvs.length === 0
+        ? '<tr><td colspan="7" class="p-6 text-center text-slate-400">No stock movement logs found.</td></tr>'
+        : visibleMvs.slice().reverse().map(mv => `
+            <tr class="hover:bg-slate-50/70">
+              <td class="p-3.5 font-mono text-[11px] text-slate-500">${mv.date}</td>
+              <td class="p-3.5 font-medium">${mv.lab}</td>
+              <td class="p-3.5 font-semibold text-slate-800">${mv.equipmentName} <span class="text-[10px] text-slate-400">(${mv.equipmentId})</span></td>
+              <td class="p-3.5"><span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium ${badgeColors[mv.action] || 'bg-slate-100'}">${mv.action}</span></td>
+              <td class="p-3.5 text-center font-bold ${mv.qty >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${mv.qty >= 0 ? '+' + mv.qty : mv.qty}</td>
+              <td class="p-3.5 text-slate-600">${mv.staff}</td>
+              <td class="p-3.5 text-slate-500">${mv.note}</td>
+            </tr>
+          `).join('');
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function seedSampleData() {
+      const nextYear = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
+      const nextMonth = new Date(Date.now() + 25 * 86400000).toISOString().slice(0, 10);
+      const sampleItems = [
+        { equipmentId: 'PHY-001', name: 'Test Tube 500 ml', lab: 'Physics', type: 'Reusable', category: 'Glassware', spec: 'Borosilicate 500ml', unit: 'pcs', total: 50, available: 50, reserved: 0, damaged: 0, minStock: 15, location: 'Cabinet P1', expiryDate: '', status: 'Active', image: '' },
+        { equipmentId: 'PHY-002', name: 'Beaker 250 ml', lab: 'Physics', type: 'Reusable', category: 'Glassware', spec: 'Glass 250ml', unit: 'pcs', total: 35, available: 35, reserved: 0, damaged: 0, minStock: 10, location: 'Cabinet P1', expiryDate: '', status: 'Active', image: '' },
+        { equipmentId: 'PHY-003', name: 'Microscope', lab: 'Physics', type: 'Equipment', category: 'Optics', spec: 'Binocular 1000x LED', unit: 'units', total: 12, available: 12, reserved: 0, damaged: 0, minStock: 4, location: 'Cabinet P3', expiryDate: '', status: 'Active', image: '' },
+        { equipmentId: 'CHM-001', name: 'Hydrochloric Acid (HCl)', lab: 'Chemistry', type: 'Chemical', category: 'Liquid / Solution', spec: '0.1M Standard Solution (500 ml)', unit: 'bottles', total: 12, available: 12, reserved: 0, damaged: 0, minStock: 5, location: 'Acid Cabinet C1', expiryDate: nextYear, status: 'Active', image: '' },
+        { equipmentId: 'CHM-002', name: 'Hydrogen Peroxide (H2O2)', lab: 'Chemistry', type: 'Chemical', category: 'Liquid / Solution', spec: '3% w/v Reagent (500 ml)', unit: 'bottles', total: 6, available: 6, reserved: 0, damaged: 0, minStock: 5, location: 'Cabinet C2', expiryDate: nextMonth, status: 'Active', image: '' },
+        { equipmentId: 'CHM-003', name: 'Filter Paper No.1', lab: 'Chemistry', type: 'Consumable', category: 'Consumables', spec: '110mm Box of 100', unit: 'boxes', total: 8, available: 8, reserved: 0, damaged: 0, minStock: 10, location: 'Shelf C3', expiryDate: '', status: 'Active', image: '' },
+        { equipmentId: 'BIO-001', name: 'Compound Microscope', lab: 'Biology', type: 'Equipment', category: 'Optics', spec: '1600x Dual View', unit: 'units', total: 15, available: 15, reserved: 0, damaged: 0, minStock: 5, location: 'Cabinet B1', expiryDate: '', status: 'Active', image: '' },
+        { equipmentId: 'PRI-001', name: 'Plastic Beaker 250 ml', lab: 'Primary', type: 'Reusable', category: 'Plasticware', spec: 'Polypropylene 250ml', unit: 'pcs', total: 25, available: 25, reserved: 0, damaged: 0, minStock: 8, location: 'Cabinet PR1', expiryDate: '', status: 'Active', image: '' }
+      ];
+      Swal.fire({ title: 'Seeding Sample Inventory...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      const batch = db.batch();
+      sampleItems.forEach(item => batch.set(db.collection('equipments').doc(), item));
+      await batch.commit();
+      Swal.fire('Completed', 'Sample equipment & chemicals for all 4 labs added.', 'success');
+    }
+
+    function handleImgUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const scale = Math.min(1, 320 / img.width);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          const b64 = canvas.toDataURL('image/jpeg', 0.65);
+          document.getElementById('eqImgBase64').value = b64;
+          const prev = document.getElementById('eqImgPreview');
+          prev.src = b64;
+          prev.classList.remove('hidden');
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function onLabSelectChange() {
+      const docId = document.getElementById('eqDocId').value;
+      if (!docId) {
+        const selectedLab = document.getElementById('eqLab').value;
+        document.getElementById('eqId').value = generateNextSKU(selectedLab);
+      }
+    }
+
+    function toggleExpiryField() {
+      const t = document.getElementById('eqType').value;
+      const showExp = ['Chemical', 'Consumable'].includes(t);
+      document.getElementById('expiryFieldWrapper').classList.toggle('opacity-50', !showExp);
+    }
+
+    function openEqModal(docId = null) {
+      document.getElementById('eqForm').reset();
+      document.getElementById('eqImgPreview').classList.add('hidden');
+      document.getElementById('eqImgBase64').value = '';
+      if (docId) {
+        const eq = window.IPS.equipments.find(x => x.id === docId);
+        document.getElementById('eqModalTitle').innerText = 'Edit Equipment / Chemical';
+        document.getElementById('eqDocId').value = eq.id;
+        document.getElementById('eqId').value = eq.equipmentId;
+        document.getElementById('eqName').value = eq.name;
+        document.getElementById('eqLab').value = eq.lab;
+        document.getElementById('eqType').value = eq.type;
+        document.getElementById('eqCategory').value = eq.category || '';
+        document.getElementById('eqSpec').value = eq.spec || '';
+        document.getElementById('eqUnit').value = eq.unit;
+        document.getElementById('eqLocation').value = eq.location || '';
+        document.getElementById('eqTotal').value = eq.total;
+        document.getElementById('eqMin').value = eq.minStock;
+        document.getElementById('eqExpiryDate').value = eq.expiryDate || '';
+        document.getElementById('eqStatus').value = eq.status;
+        if (eq.image) {
+          document.getElementById('eqImgBase64').value = eq.image;
+          const p = document.getElementById('eqImgPreview');
+          p.src = eq.image;
+          p.classList.remove('hidden');
+        }
+      } else {
+        document.getElementById('eqModalTitle').innerText = 'Add New Equipment / Chemical';
+        document.getElementById('eqDocId').value = '';
+        const defaultLab = activeLab !== 'All' ? activeLab : 'Primary';
+        document.getElementById('eqLab').value = defaultLab;
+        document.getElementById('eqId').value = generateNextSKU(defaultLab);
+      }
+      toggleExpiryField();
+      const m = document.getElementById('eqModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    document.getElementById('eqForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const docId = document.getElementById('eqDocId').value;
+      const total = Number(document.getElementById('eqTotal').value);
+      const lab = document.getElementById('eqLab').value;
+      const name = document.getElementById('eqName').value.trim();
+      const spec = document.getElementById('eqSpec').value.trim();
+
+      const data = {
+        equipmentId: docId ? document.getElementById('eqId').value.trim() : generateNextSKU(lab),
+        name,
+        lab,
+        type: document.getElementById('eqType').value,
+        category: document.getElementById('eqCategory').value.trim(),
+        spec,
+        unit: document.getElementById('eqUnit').value.trim(),
+        location: document.getElementById('eqLocation').value.trim(),
+        total,
+        minStock: Number(document.getElementById('eqMin').value),
+        expiryDate: document.getElementById('eqExpiryDate').value || '',
+        status: document.getElementById('eqStatus').value,
+        image: document.getElementById('eqImgBase64').value
+      };
+
+      // Duplicate Check (Name + Lab + Spec) when creating a new item
+      if (!docId) {
+        const duplicate = window.IPS.equipments.find(item =>
+          item.lab === lab &&
+          item.name.trim().toLowerCase() === name.toLowerCase() &&
+          (item.spec || '').trim().toLowerCase() === spec.toLowerCase()
+        );
+
+        if (duplicate) {
+          const choice = await Swal.fire({
+            icon: 'warning',
+            title: 'Duplicate Item Detected',
+            html: `<b>"${duplicate.name}"</b> (${duplicate.spec || 'No Spec'}) already exists in <b>${lab} Lab</b> as <b>${duplicate.equipmentId}</b> (Current Stock: ${duplicate.total} ${duplicate.unit}).<br><br>Would you like to add <b>+${total} ${data.unit}</b> to the existing stock instead?`,
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: `Add +${total} to Existing (${duplicate.equipmentId})`,
+            denyButtonText: `Create Separate New SKU (${data.equipmentId})`,
+            cancelButtonText: 'Cancel'
+          });
+
+          if (choice.isDismissed) return;
+
+          if (choice.isConfirmed) {
+            const updates = {
+              total: Number(duplicate.total) + total,
+              available: Number(duplicate.available) + total
+            };
+            if (data.expiryDate) updates.expiryDate = data.expiryDate;
+            await db.collection('equipments').doc(duplicate.id).update(updates);
+            await addStockMovement(duplicate.equipmentId, duplicate.name, duplicate.lab, 'Stock In', total, 'Added stock via duplicate merge');
+            closeModal('eqModal');
+            return Swal.fire('Stock Merged', `Added +${total} ${duplicate.unit} to ${duplicate.equipmentId}.`, 'success');
+          }
+        }
+      }
+
+      if (docId) {
+        const old = window.IPS.equipments.find(x => x.id === docId);
+        const diff = total - Number(old.total || 0);
+        await db.collection('equipments').doc(docId).update({ ...data, available: Math.max(0, Number(old.available || 0) + diff) });
+      } else {
+        await db.collection('equipments').add({ ...data, available: total, reserved: 0, damaged: 0 });
+        await addStockMovement(data.equipmentId, data.name, data.lab, 'Stock In', total, 'Initial equipment/chemical registration');
+      }
+      closeModal('eqModal');
+      Swal.fire('Saved', `${data.equipmentId} has been saved successfully.`, 'success');
+    });
+
+    function openStockModal() {
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
+      document.getElementById('stkEqSelect').innerHTML = window.IPS.equipments
+        .filter(e => allowedLabs.includes(e.lab))
+        .map(e => `<option value="${e.id}">[${e.lab}] ${e.name} (${e.equipmentId}) — Avail: ${e.available}</option>`)
+        .join('');
+      document.getElementById('stkForm').reset();
+      document.getElementById('transferDiv').classList.add('hidden');
+      const m = document.getElementById('stkModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    document.getElementById('stkForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const eqId = document.getElementById('stkEqSelect').value;
+      const action = document.getElementById('stkAction').value;
+      const qty = Number(document.getElementById('stkQty').value);
+      const note = document.getElementById('stkNote').value.trim();
+      const eq = window.IPS.equipments.find(x => x.id === eqId);
+      if (!eq) return;
+
+      let signedQty = qty;
+      let updates = {};
+
+      if (action === 'Stock In' || action === 'Stock Adjustment') {
+        updates = { total: Number(eq.total) + qty, available: Number(eq.available) + qty };
+      } else if (action === 'Returned') {
+        updates = {
+          available: Math.min(Number(eq.total) - Number(eq.damaged || 0), Number(eq.available) + qty),
+          reserved: Math.max(0, Number(eq.reserved || 0) - qty)
+        };
+      } else if (action === 'Stock Out' || action === 'Lost' || action === 'Expired Disposal') {
+        if (Number(eq.available) < qty) return Swal.fire('Insufficient Stock', 'Not enough available items.', 'error');
+        updates = { total: Number(eq.total) - qty, available: Number(eq.available) - qty };
+        signedQty = -qty;
+      } else if (action === 'Damaged') {
+        if (Number(eq.available) < qty) return Swal.fire('Insufficient Stock', 'Not enough available items.', 'error');
+        updates = { available: Number(eq.available) - qty, damaged: Number(eq.damaged || 0) + qty };
+        signedQty = -qty;
+      } else if (action === 'Transferred') {
+        const targetLab = document.getElementById('stkTargetLab').value;
+        if (targetLab === eq.lab) return Swal.fire('Invalid Lab', 'Destination lab must differ from source lab.', 'warning');
+        if (Number(eq.available) < qty) return Swal.fire('Insufficient Stock', 'Not enough available items.', 'error');
+        updates = { total: Number(eq.total) - qty, available: Number(eq.available) - qty };
+        signedQty = -qty;
+
+        const dest = window.IPS.equipments.find(x => x.name === eq.name && x.lab === targetLab && (x.spec || '') === (eq.spec || ''));
+        if (dest) {
+          await db.collection('equipments').doc(dest.id).update({ total: Number(dest.total) + qty, available: Number(dest.available) + qty });
+          await addStockMovement(dest.equipmentId, dest.name, targetLab, 'Stock In', qty, `Transferred from ${eq.lab} Lab (${note})`);
+        } else {
+          const newCode = generateNextSKU(targetLab);
+          await db.collection('equipments').add({
+            equipmentId: newCode, name: eq.name, lab: targetLab, type: eq.type,
+            category: eq.category || '', spec: eq.spec || '', unit: eq.unit,
+            location: 'Transfer Receiving', total: qty, available: qty, reserved: 0, damaged: 0,
+            minStock: eq.minStock || 5, expiryDate: eq.expiryDate || '', status: 'Active', image: eq.image || ''
+          });
+          await addStockMovement(newCode, eq.name, targetLab, 'Stock In', qty, `Transferred from ${eq.lab} Lab (${note})`);
+        }
+      }
+
+      await db.collection('equipments').doc(eq.id).update(updates);
+      await addStockMovement(eq.equipmentId, eq.name, eq.lab, action, signedQty, note);
+      closeModal('stkModal');
+      Swal.fire('Logged', 'Stock balance updated and recorded in audit trail.', 'success');
+    });
+
+    function closeModal(id) {
+      const m = document.getElementById(id);
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+  </script>
+</body>
+</html>
