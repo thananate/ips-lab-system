@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPS Lab System | Lab Staff Approval</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f0f4ff 0%, #f5f3ff 50%, #eef2ff 100%); min-height: 100vh; }
+    .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.7); box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.08); }
+  </style>
+</head>
+<body class="text-slate-800 antialiased">
+
+  <div class="min-h-screen flex flex-col lg:flex-row">
+    <aside id="sharedSidebar" class="bg-white/95 border-r border-slate-200/80 w-full lg:w-64 flex-shrink-0 flex flex-col justify-between"></aside>
+    <main class="flex-1 p-4 md:p-8 space-y-6">
+      <div id="sharedHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
+
+      <!-- FILTER & SEARCH BAR -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap gap-1.5 bg-white/80 p-1.5 rounded-2xl border border-slate-200/70">
+          <button onclick="statusFilter='All'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium bg-indigo-600 text-white" data-st="All">All Requests</button>
+          <button onclick="statusFilter='Pending'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Pending">Pending</button>
+          <button onclick="statusFilter='Approved'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Approved">Approved / Partial</button>
+          <button onclick="statusFilter='Returned'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Returned">Returned</button>
+        </div>
+        <input type="text" id="searchInput" onkeyup="renderTable()" placeholder="Search ID, Teacher, Experiment..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-64" />
+      </div>
+
+      <!-- REQUESTS TABLE -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                <th class="p-3.5">Request ID</th>
+                <th class="p-3.5">Teacher & Experiment</th>
+                <th class="p-3.5">Lab</th>
+                <th class="p-3.5">Usage Schedule</th>
+                <th class="p-3.5">Status</th>
+                <th class="p-3.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="requestsTbody" class="divide-y divide-slate-100 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- APPROVAL MODAL (ITEM-BY-ITEM) -->
+  <div id="approvalModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800">Review & Approve Equipment Request</h3>
+          <p id="modalMeta" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeApprovalModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div id="modalItemsContainer" class="mt-4 space-y-3"></div>
+      <div class="mt-4">
+        <label class="block text-xs font-medium text-slate-600 mb-1">Staff Remarks / Instructions</label>
+        <input type="text" id="staffRemarksInput" placeholder="Add notes for the teacher or alternative equipment details..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+      </div>
+      <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
+        <span class="text-[11px] text-slate-400">Approver name and timestamp are logged automatically.</span>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeApprovalModal()" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Close</button>
+          <button type="button" onclick="submitApproval()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow">Save Decision</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="firebase-core.js"></script>
+  <script>
+    let statusFilter = 'All';
+    let activeDocId = null;
+
+    initIPSPage({
+      activePage: 'approve',
+      title: 'Lab Staff Approval',
+      subtitle: 'Review requests item-by-item, manage partial approvals, alternatives, and returns',
+      allowedRoles: ['Lab Staff', 'Admin', 'Super Admin'],
+      onReady: () => {
+        renderTable();
+      }
+    });
+
+    function renderTable() {
+      document.querySelectorAll('.f-btn').forEach(btn => {
+        if (btn.dataset.st === statusFilter) {
+          btn.classList.add('bg-indigo-600', 'text-white');
+          btn.classList.remove('text-slate-600');
+        } else {
+          btn.classList.remove('bg-indigo-600', 'text-white');
+          btn.classList.add('text-slate-600');
+        }
+      });
+
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
+      const q = (document.getElementById('searchInput').value || '').toLowerCase();
+
+      const list = window.IPS.requests.filter(r => {
+        const labOk = allowedLabs.includes(r.lab);
+        const stOk = statusFilter === 'All'
+          || (statusFilter === 'Approved' ? ['Approved', 'Partial'].includes(r.status) : r.status === statusFilter);
+        const searchOk = !q || (r.id || '').toLowerCase().includes(q) || (r.teacherName || '').toLowerCase().includes(q) || (r.experiment || '').toLowerCase().includes(q);
+        return labOk && stOk && searchOk;
+      });
+
+      const badgeMap = {
+        'Pending': 'bg-amber-100 text-amber-700',
+        'Approved': 'bg-emerald-100 text-emerald-700',
+        'Partial': 'bg-blue-100 text-blue-700',
+        'Rejected': 'bg-rose-100 text-rose-700',
+        'Cancelled': 'bg-slate-200 text-slate-600',
+        'Returned': 'bg-indigo-100 text-indigo-700'
+      };
+
+      const tbody = document.getElementById('requestsTbody');
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400">No requisition records found matching your filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.slice().reverse().map(r => `
+        <tr class="hover:bg-slate-50/70">
+          <td class="p-3.5 font-mono font-bold text-indigo-700">${r.id}</td>
+          <td class="p-3.5">
+            <div class="font-semibold text-slate-800">${r.teacherName}</div>
+            <div class="text-[11px] text-slate-500">${r.experiment}</div>
+          </td>
+          <td class="p-3.5"><span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">${r.lab}</span></td>
+          <td class="p-3.5"><b>${r.useDate}</b><br><span class="text-slate-400">${r.startTime} - ${r.endTime}</span></td>
+          <td class="p-3.5"><span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeMap[r.status] || 'bg-slate-100'}">${r.status}</span></td>
+          <td class="p-3.5 text-right space-x-1.5">
+            ${['Approved', 'Partial'].includes(r.status) ? `
+              <button onclick="markReturned('${r.docId}')" class="px-3 py-1.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-medium">Mark Returned</button>
+            ` : ''}
+            ${r.status !== 'Cancelled' && r.status !== 'Returned' ? `
+              <button onclick="openApprovalModal('${r.docId}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium">Review</button>
+            ` : ''}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openApprovalModal(docId) {
+      activeDocId = docId;
+      const req = window.IPS.requests.find(r => r.docId === docId);
+      document.getElementById('modalMeta').innerText = `${req.id} | Teacher: ${req.teacherName} | ${req.lab} Lab | ${req.useDate} (${req.startTime} - ${req.endTime})`;
+      document.getElementById('staffRemarksInput').value = req.staffRemarks || '';
+
+      const html = (req.items || []).map((it, idx) => {
+        const slotAvail = getAvailableForTimeSlot(it.eqDocId, req.useDate, req.startTime, req.endTime, req.id);
+        const suggested = Math.min(it.requestedQty, slotAvail);
+        return `
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span class="font-bold text-slate-800 text-sm">${it.name}</span>
+                <span class="text-xs text-slate-500 ml-2">Requested: <b>${it.requestedQty}</b> | Slot Available: <b class="${slotAvail < it.requestedQty ? 'text-rose-600' : 'text-emerald-600'}">${slotAvail}</b></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <select id="act_${idx}" onchange="onActChange(${idx}, ${suggested})" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white">
+                  <option value="Approved" ${slotAvail >= it.requestedQty ? 'selected' : ''}>Approve</option>
+                  <option value="Partial" ${slotAvail > 0 && slotAvail < it.requestedQty ? 'selected' : ''}>Partial Approval</option>
+                  <option value="Rejected" ${slotAvail === 0 ? 'selected' : ''}>Reject (Out of Stock)</option>
+                  <option value="Alternative">Suggest Alternative</option>
+                </select>
+                <input type="number" id="qty_${idx}" min="0" max="${slotAvail}" value="${suggested}" class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white" />
+              </div>
+            </div>
+            <input type="text" id="alt_${idx}" value="${it.alternativeNote || ''}" placeholder="Alternative equipment name or rejection reason (optional)..." class="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white" />
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('modalItemsContainer').innerHTML = html;
+      const modal = document.getElementById('approvalModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function onActChange(idx, suggested) {
+      const val = document.getElementById(`act_${idx}`).value;
+      const qInput = document.getElementById(`qty_${idx}`);
+      qInput.value = (val === 'Rejected' || val === 'Alternative') ? 0 : suggested;
+    }
+
+    function closeApprovalModal() {
+      const modal = document.getElementById('approvalModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function submitApproval() {
+      const req = window.IPS.requests.find(r => r.docId === activeDocId);
+      const items = JSON.parse(JSON.stringify(req.items || []));
+      let anyApproved = false;
+      let allApproved = true;
+
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const act = document.getElementById(`act_${i}`).value;
+        const appQty = Number(document.getElementById(`qty_${i}`).value);
+        const altNote = document.getElementById(`alt_${i}`).value.trim();
+
+        const slotAvail = getAvailableForTimeSlot(it.eqDocId, req.useDate, req.startTime, req.endTime, req.id);
+        if (appQty > slotAvail) {
+          return Swal.fire('Overlap Conflict', `Maximum available for ${it.name} in this slot is ${slotAvail}.`, 'error');
+        }
+
+        const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
+        let curTotal = Number(eq.total || 0);
+        let curAvail = Number(eq.available || 0);
+        let curRes = Number(eq.reserved || 0);
+
+        if (it.approvedQty > 0 && eq) {
+          if (eq.type === 'Consumable' || eq.type === 'Chemical') {
+            curTotal += Number(it.approvedQty);
+            curAvail += Number(it.approvedQty);
+          } else {
+            curRes = Math.max(0, curRes - Number(it.approvedQty));
+            curAvail += Number(it.approvedQty);
+          }
+        }
+
+        it.itemStatus = act;
+        it.approvedQty = appQty;
+        it.alternativeNote = altNote;
+
+        if (appQty > 0 && eq) {
+          anyApproved = true;
+          if (appQty < it.requestedQty) allApproved = false;
+
+          if (eq.type === 'Consumable' || eq.type === 'Chemical') {
+            curTotal -= appQty;
+            curAvail -= appQty;
+            await db.collection('equipments').doc(eq.id).update({ total: curTotal, available: curAvail });
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Stock Out', -appQty, `Issued consumable for ${req.id}`);
+          } else {
+            curRes += appQty;
+            curAvail = Math.max(0, curAvail - appQty);
+            await db.collection('equipments').doc(eq.id).update({ reserved: curRes, available: curAvail });
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Reserved', -appQty, `Approved reservation for ${req.id}`);
+          }
+        } else {
+          allApproved = false;
+        }
+      }
+
+      const finalStatus = !anyApproved ? 'Rejected' : (allApproved ? 'Approved' : 'Partial');
+      await db.collection('requests').doc(req.docId).update({
+        items,
+        status: finalStatus,
+        approvedBy: window.IPS.user.name,
+        approvalDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        staffRemarks: document.getElementById('staffRemarksInput').value.trim()
+      });
+
+      closeApprovalModal();
+      Swal.fire('Decision Saved', `Request ${req.id} updated to ${finalStatus}.`, 'success');
+    }
+
+    async function markReturned(docId) {
+      const req = window.IPS.requests.find(r => r.docId === docId);
+      for (const it of (req.items || [])) {
+        if (it.approvedQty > 0 && it.type !== 'Consumable' && it.type !== 'Chemical') {
+          const eq = window.IPS.equipments.find(e => e.id === it.eqDocId);
+          if (eq) {
+            await db.collection('equipments').doc(eq.id).update({
+              reserved: Math.max(0, Number(eq.reserved || 0) - Number(it.approvedQty)),
+              available: Math.min(Number(eq.total) - Number(eq.damaged || 0), Number(eq.available) + Number(it.approvedQty))
+            });
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Returned', it.approvedQty, `Returned from request ${req.id}`);
+          }
+        }
+      }
+      await db.collection('requests').doc(docId).update({ status: 'Returned' });
+      Swal.fire('Items Returned', 'Equipment stock has been restored.', 'success');
+    }
+  </script>
+</body>
+</html>
