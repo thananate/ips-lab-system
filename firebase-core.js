@@ -1,5 +1,5 @@
 // =========================================================================
-// IPS LAB SYSTEM - SHARED FIREBASE CORE & AUTH GUARD
+// IPS LAB SYSTEM - SHARED FIREBASE CORE & AUTH GUARD (ENGLISH VERSION)
 // =========================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyCRotp0yrhYGc8zctl1Yo7Fknxz0AJnEZU",
@@ -26,7 +26,7 @@ window.IPS = {
   users: []
 };
 
-// ตรวจสอบสิทธิ์ห้อง Lab ของผู้ใช้
+// Get allowed labs for the current user
 function getUserAllowedLabs(user) {
   if (!user) return [];
   if (['Super Admin', 'Admin', 'Teacher'].includes(user.role)) {
@@ -41,7 +41,7 @@ function getUserAllowedLabs(user) {
   return labs.length > 0 ? labs : ['Primary', 'Physics', 'Chemistry', 'Biology'];
 }
 
-// คำนวณจำนวนอุปกรณ์ว่างในช่วงเวลาที่เลือก (ป้องกันการจองซ้ำซ้อน)
+// Time-Slot Overlap Prevention Engine
 function getAvailableForTimeSlot(eqDocId, targetDate, startTime, endTime, excludeReqId = null) {
   const eq = window.IPS.equipments.find(e => e.id === eqDocId);
   if (!eq) return 0;
@@ -66,7 +66,7 @@ function getAvailableForTimeSlot(eqDocId, targetDate, startTime, endTime, exclud
   return Math.max(0, maxUsable - overlappingReserved);
 }
 
-// บันทึกประวัติ Stock Movement (แก้ไขย้อนหลังไม่ได้)
+// Immutable Stock Movement Audit Log
 async function addStockMovement(equipmentId, equipmentName, lab, action, qty, note) {
   const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
   await db.collection('movements').add({
@@ -82,20 +82,20 @@ async function addStockMovement(equipmentId, equipmentName, lab, action, qty, no
   });
 }
 
-// สร้างแถบเมนูด้านข้างร่วมกันทุกหน้า
+// Shared Sidebar & Header Layout
 function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
   const user = window.IPS.user;
   const role = user.role;
   const allowedLabs = getUserAllowedLabs(user);
 
   const menus = [
-    { href: 'index.html', id: 'index', label: 'หน้าหลัก (สารบัญ)', icon: 'layout-dashboard', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
-    { href: 'request.html', id: 'request', label: 'จองเบิกอุปกรณ์', icon: 'file-plus-2', roles: ['Teacher', 'Admin', 'Super Admin'] },
-    { href: 'approve.html', id: 'approve', label: 'อนุมัติเบิกอุปกรณ์', icon: 'check-square', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
-    { href: 'stock.html', id: 'stock', label: 'คลังอุปกรณ์ & Stock', icon: 'boxes', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
-    { href: 'purchase.html', id: 'purchase', label: 'สั่งซื้ออุปกรณ์ (Purchase)', icon: 'shopping-cart', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
-    { href: 'report.html', id: 'report', label: 'รายงาน (Reports)', icon: 'bar-chart-3', roles: ['Admin', 'Super Admin'] },
-    { href: 'admin.html', id: 'admin', label: 'จัดการสิทธิ์ผู้ใช้ (Admin)', icon: 'users', roles: ['Admin', 'Super Admin'] }
+    { href: 'index.html', id: 'index', label: 'Dashboard (Home)', icon: 'layout-dashboard', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
+    { href: 'request.html', id: 'request', label: 'Equipment Request', icon: 'file-plus-2', roles: ['Teacher', 'Admin', 'Super Admin'] },
+    { href: 'approve.html', id: 'approve', label: 'Lab Staff Approval', icon: 'check-square', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
+    { href: 'stock.html', id: 'stock', label: 'Inventory & Stock', icon: 'boxes', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
+    { href: 'purchase.html', id: 'purchase', label: 'Procurement (Purchase)', icon: 'shopping-cart', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
+    { href: 'report.html', id: 'report', label: 'Analytics & Reports', icon: 'bar-chart-3', roles: ['Admin', 'Super Admin'] },
+    { href: 'admin.html', id: 'admin', label: 'User Management', icon: 'users', roles: ['Admin', 'Super Admin'] }
   ];
 
   const navLinks = menus.filter(m => m.roles.includes(role)).map(m => {
@@ -135,12 +135,12 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
             <div class="overflow-hidden">
               <div class="text-xs font-semibold text-slate-800 truncate">${user.name}</div>
               <div class="text-[11px] text-indigo-600 font-medium">${user.role}</div>
-              <div class="text-[10px] text-slate-400 truncate">${allowedLabs.length === 4 ? 'ทุกห้อง Lab' : allowedLabs.join(', ')}</div>
+              <div class="text-[10px] text-slate-400 truncate">${allowedLabs.length === 4 ? 'Access: All 4 Labs' : 'Lab: ' + allowedLabs.join(', ')}</div>
             </div>
           </div>
         </div>
         <button onclick="auth.signOut().then(() => location.href='index.html')" class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 transition">
-          <i data-lucide="log-out" class="w-4 h-4"></i> ออกจากระบบ
+          <i data-lucide="log-out" class="w-4 h-4"></i> Sign Out
         </button>
       </div>
     `;
@@ -155,15 +155,15 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
       </div>
       <div class="flex items-center gap-2">
         <a href="index.html" class="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 shadow-sm">
-          <i data-lucide="home" class="w-3.5 h-3.5 text-indigo-600"></i> กลับหน้าสารบัญ
+          <i data-lucide="home" class="w-3.5 h-3.5 text-indigo-600"></i> Back to Directory
         </a>
       </div>
     `;
   }
 }
 
-// ตัวเริ่มต้นระบบสำหรับทุกหน้า (ตรวจสอบ Login + โหลดข้อมูล Real-time)
-function initIPSPage({ activePage, title, subtitle, requireLogin = true, onReady }) {
+// Page Bootloader & Real-time Firestore Sync
+function initIPSPage({ activePage, title, subtitle, allowedRoles = null, requireLogin = true, onReady }) {
   auth.onAuthStateChanged(async (firebaseUser) => {
     if (!firebaseUser) {
       if (requireLogin) {
@@ -186,6 +186,18 @@ function initIPSPage({ activePage, title, subtitle, requireLogin = true, onReady
       profile = { ...profile, ...userDoc.data(), uid: firebaseUser.uid };
     } else {
       await db.collection('user').doc(firebaseUser.uid).set(profile);
+    }
+
+    // Role-based Page Guard
+    if (allowedRoles && !allowedRoles.includes(profile.role)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Access Denied',
+        text: `Your role (${profile.role}) does not have permission to access this page.`
+      }).then(() => {
+        window.location.href = 'index.html';
+      });
+      return;
     }
 
     window.IPS.user = profile;
