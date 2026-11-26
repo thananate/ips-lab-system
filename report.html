@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPS Lab System | Analytics & Reports</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f0f4ff 0%, #f5f3ff 50%, #eef2ff 100%); min-height: 100vh; }
+    .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.7); box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.08); }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; }
+      .glass-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased">
+
+  <div class="min-h-screen flex flex-col lg:flex-row">
+    <aside id="sharedSidebar" class="no-print bg-white/95 border-r border-slate-200/80 w-full lg:w-64 flex-shrink-0 flex flex-col justify-between"></aside>
+    <main class="flex-1 p-4 md:p-8 space-y-6">
+      <div id="sharedHeader" class="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
+
+      <!-- REPORT CONTROLS & EXPORT TOOLBAR -->
+      <div class="glass-card rounded-2xl p-5 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 no-print">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Report Type (10 Standard Reports)</label>
+            <select id="reportTypeSelect" onchange="renderReport()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium">
+              <option value="Equipment Inventory">1. Equipment Inventory Report</option>
+              <option value="Request Report">2. Requisition / Request Report</option>
+              <option value="Equipment Usage">3. Equipment Usage Detail</option>
+              <option value="Stock Movement">4. Stock Movement Audit Report</option>
+              <option value="Low Stock Report">5. Low Stock Alert Report</option>
+              <option value="Damaged Equipment">6. Damaged Equipment Report</option>
+              <option value="Purchase Report">7. Procurement / Purchase Report</option>
+              <option value="Unavailable Report">8. Unfulfilled / Shortage Report</option>
+              <option value="Teacher Usage Report">9. Teacher Usage Summary</option>
+              <option value="Lab Usage Report">10. Laboratory Utilization Summary</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filter by Laboratory</label>
+            <select id="reportLabSelect" onchange="renderReport()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+              <option value="All">All Labs (Consolidated)</option>
+              <option value="Primary">Primary Lab</option>
+              <option value="Physics">Physics Lab</option>
+              <option value="Chemistry">Chemistry Lab</option>
+              <option value="Biology">Biology Lab</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Date Filter (Optional)</label>
+            <div class="flex items-center gap-1.5">
+              <input type="date" id="dateFrom" onchange="renderReport()" class="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+              <span class="text-slate-400 text-xs">-</span>
+              <input type="date" id="dateTo" onchange="renderReport()" class="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-end justify-end gap-2">
+            <button onclick="exportExcel()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 shadow-sm">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Excel
+            </button>
+            <button onclick="exportCSV()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 shadow-sm">
+              <i data-lucide="file-text" class="w-4 h-4"></i> CSV
+            </button>
+            <button onclick="window.print()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 text-white text-xs font-medium hover:bg-slate-900 shadow-sm">
+              <i data-lucide="printer" class="w-4 h-4"></i> Print / PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- REPORT HEADER & SUMMARY -->
+        <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 id="reportTitleDisplay" class="font-bold text-base text-slate-800">Equipment Inventory Report</h3>
+            <p id="reportMetaDisplay" class="text-[11px] text-slate-400">Generated on --</p>
+          </div>
+          <span id="rowCountBadge" class="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold">0 records</span>
+        </div>
+
+        <!-- REPORT DATA TABLE -->
+        <div id="reportTableWrapper" class="overflow-x-auto"></div>
+      </div>
+
+      <!-- VISUAL ANALYTICS SUMMARY -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print">
+        <div class="glass-card rounded-2xl p-5">
+          <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-3">Requests by Laboratory</h4>
+          <div class="h-56"><canvas id="reqLabChart"></canvas></div>
+        </div>
+        <div class="glass-card rounded-2xl p-5">
+          <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-3">Request Status Breakdown</h4>
+          <div class="h-56"><canvas id="reqStatusChart"></canvas></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="firebase-core.js"></script>
+  <script>
+    let chart1 = null;
+    let chart2 = null;
+
+    initIPSPage({
+      activePage: 'report',
+      title: 'Analytics & Reports',
+      subtitle: 'Generate 10 specialized laboratory reports and export to Excel, CSV, or PDF',
+      allowedRoles: ['Admin', 'Super Admin'],
+      onReady: () => {
+        renderReport();
+        renderAnalyticsCharts();
+      }
+    });
+
+    function inDateRange(dateStr, from, to) {
+      if (!dateStr) return true;
+      const d = dateStr.slice(0, 10);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    }
+
+    function getReportRows() {
+      const type = document.getElementById('reportTypeSelect').value;
+      const lab = document.getElementById('reportLabSelect').value;
+      const from = document.getElementById('dateFrom').value;
+      const to = document.getElementById('dateTo').value;
+      const byLab = (l) => lab === 'All' || l === lab;
+
+      switch (type) {
+        case 'Equipment Inventory':
+          return window.IPS.equipments.filter(e => byLab(e.lab)).map(e => ({
+            'SKU': e.equipmentId,
+            'Equipment Name': e.name,
+            'Lab': e.lab,
+            'Type': e.type,
+            'Total': e.total,
+            'Available': e.available,
+            'Reserved': e.reserved || 0,
+            'Damaged': e.damaged || 0,
+            'Min Stock': e.minStock,
+            'Unit': e.unit
+          }));
+
+        case 'Request Report':
+          return window.IPS.requests.filter(r => byLab(r.lab) && inDateRange(r.useDate, from, to)).map(r => ({
+            'Request ID': r.id,
+            'Teacher': r.teacherName,
+            'Lab': r.lab,
+            'Experiment': r.experiment,
+            'Usage Date': r.useDate,
+            'Time Slot': `${r.startTime}-${r.endTime}`,
+            'Status': r.status,
+            'Processed By': r.approvedBy || '-'
+          }));
+
+        case 'Equipment Usage':
+          const usage = [];
+          window.IPS.requests.filter(r => byLab(r.lab) && inDateRange(r.useDate, from, to)).forEach(r => {
+            (r.items || []).forEach(it => {
+              usage.push({
+                'Request ID': r.id,
+                'Usage Date': r.useDate,
+                'Lab': r.lab,
+                'Teacher': r.teacherName,
+                'Equipment': it.name,
+                'Requested': it.requestedQty,
+                'Approved': it.approvedQty,
+                'Item Status': it.itemStatus
+              });
+            });
+          });
+          return usage;
+
+        case 'Stock Movement':
+          return window.IPS.movements.filter(m => byLab(m.lab) && inDateRange(m.date, from, to)).map(m => ({
+            'Timestamp': m.date,
+            'Lab': m.lab,
+            'SKU': m.equipmentId,
+            'Equipment': m.equipmentName,
+            'Action': m.action,
+            'Qty Change': m.qty,
+            'Staff': m.staff,
+            'Remarks': m.note
+          }));
+
+        case 'Low Stock Report':
+          return window.IPS.equipments.filter(e => byLab(e.lab) && Number(e.available) <= Number(e.minStock)).map(e => ({
+            'SKU': e.equipmentId,
+            'Equipment Name': e.name,
+            'Lab': e.lab,
+            'Available': e.available,
+            'Min Stock': e.minStock,
+            'Deficit': Math.max(0, Number(e.minStock) - Number(e.available)),
+            'Unit': e.unit
+          }));
+
+        case 'Damaged Equipment':
+          return window.IPS.equipments.filter(e => byLab(e.lab) && Number(e.damaged || 0) > 0).map(e => ({
+            'SKU': e.equipmentId,
+            'Equipment Name': e.name,
+            'Lab': e.lab,
+            'Damaged Qty': e.damaged,
+            'Total Stock': e.total,
+            'Unit': e.unit
+          }));
+
+        case 'Purchase Report':
+          return window.IPS.purchases.filter(p => byLab(p.lab) && inDateRange(p.requestDate, from, to)).map(p => ({
+            'PR ID': p.id,
+            'Date': p.requestDate,
+            'Equipment': p.equipmentName,
+            'Lab': p.lab,
+            'Qty': p.qty,
+            'Unit': p.unit,
+            'Est. Cost (THB)': p.price || 0,
+            'Supplier': p.supplier || '-',
+            'Status': p.status
+          }));
+
+        case 'Unavailable Report':
+          const shortages = [];
+          window.IPS.requests.filter(r => byLab(r.lab) && r.status !== 'Pending' && inDateRange(r.useDate, from, to)).forEach(r => {
+            (r.items || []).filter(it => Number(it.approvedQty) < Number(it.requestedQty)).forEach(it => {
+              shortages.push({
+                'Request ID': r.id,
+                'Usage Date': r.useDate,
+                'Lab': r.lab,
+                'Equipment': it.name,
+                'Requested': it.requestedQty,
+                'Approved': it.approvedQty,
+                'Shortage': Number(it.requestedQty) - Number(it.approvedQty),
+                'Alternative / Note': it.alternativeNote || '-'
+              });
+            });
+          });
+          return shortages;
+
+        case 'Teacher Usage Report':
+          const teacherMap = {};
+          window.IPS.requests.filter(r => byLab(r.lab) && inDateRange(r.useDate, from, to)).forEach(r => {
+            if (!teacherMap[r.teacherName]) {
+              teacherMap[r.teacherName] = { totalReqs: 0, approved: 0, cancelled: 0 };
+            }
+            teacherMap[r.teacherName].totalReqs++;
+            if (['Approved', 'Partial', 'Returned'].includes(r.status)) teacherMap[r.teacherName].approved++;
+            if (r.status === 'Cancelled') teacherMap[r.teacherName].cancelled++;
+          });
+          return Object.entries(teacherMap).map(([name, stat]) => ({
+            'Teacher Name': name,
+            'Total Requests': stat.totalReqs,
+            'Approved / Completed': stat.approved,
+            'Cancelled': stat.cancelled
+          }));
+
+        case 'Lab Usage Report':
+          return ['Primary', 'Physics', 'Chemistry', 'Biology'].filter(l => byLab(l)).map(l => ({
+            'Laboratory': `${l} Lab`,
+            'Equipment SKUs': window.IPS.equipments.filter(e => e.lab === l).length,
+            'Total Stock Units': window.IPS.equipments.filter(e => e.lab === l).reduce((s, e) => s + Number(e.total || 0), 0),
+            'Total Requests': window.IPS.requests.filter(r => r.lab === l && inDateRange(r.useDate, from, to)).length,
+            'Low Stock Items': window.IPS.equipments.filter(e => e.lab === l && Number(e.available) <= Number(e.minStock)).length
+          }));
+      }
+    }
+
+    function renderReport() {
+      const typeSelect = document.getElementById('reportTypeSelect');
+      const labVal = document.getElementById('reportLabSelect').value;
+      const rows = getReportRows();
+
+      document.getElementById('reportTitleDisplay').innerText = `${typeSelect.options[typeSelect.selectedIndex].text} (${labVal === 'All' ? 'All Labs' : labVal + ' Lab'})`;
+      document.getElementById('reportMetaDisplay').innerText = `Generated by ${window.IPS.user.name} on ${new Date().toLocaleString()}`;
+      document.getElementById('rowCountBadge').innerText = `${rows.length} records`;
+
+      const wrapper = document.getElementById('reportTableWrapper');
+      if (rows.length === 0) {
+        wrapper.innerHTML = '<p class="text-xs text-slate-400 text-center py-8">No records found matching the selected report criteria.</p>';
+        return;
+      }
+
+      const headers = Object.keys(rows[0]);
+      wrapper.innerHTML = `
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600">
+              ${headers.map(h => `<th class="p-3">${h}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${rows.map(row => `
+              <tr class="hover:bg-slate-50/70">
+                ${headers.map(h => `<td class="p-3">${row[h]}</td>`).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function exportExcel() {
+      const rows = getReportRows();
+      if (!rows.length) return Swal.fire('No Data', 'There are no records to export.', 'info');
+      const type = document.getElementById('reportTypeSelect').value.replace(/\s+/g, '_');
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Report');
+      XLSX.writeFile(wb, `IPSLab_${type}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    }
+
+    function exportCSV() {
+      const rows = getReportRows();
+      if (!rows.length) return Swal.fire('No Data', 'There are no records to export.', 'info');
+      const type = document.getElementById('reportTypeSelect').value.replace(/\s+/g, '_');
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `IPSLab_${type}_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+    }
+
+    function renderAnalyticsCharts() {
+      const labs = ['Primary', 'Physics', 'Chemistry', 'Biology'];
+      if (chart1) chart1.destroy();
+      chart1 = new Chart(document.getElementById('reqLabChart'), {
+        type: 'bar',
+        data: {
+          labels: labs,
+          datasets: [{
+            label: 'Total Requests',
+            data: labs.map(l => window.IPS.requests.filter(r => r.lab === l).length),
+            backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b'],
+            borderRadius: 6
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+
+      const statuses = ['Pending', 'Approved', 'Partial', 'Returned', 'Rejected', 'Cancelled'];
+      if (chart2) chart2.destroy();
+      chart2 = new Chart(document.getElementById('reqStatusChart'), {
+        type: 'doughnut',
+        data: {
+          labels: statuses,
+          datasets: [{
+            data: statuses.map(st => window.IPS.requests.filter(r => r.status === st).length),
+            backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#6366f1', '#ef4444', '#94a3b8']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } }
+      });
+    }
+  </script>
+</body>
+</html>
