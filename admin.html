@@ -27,7 +27,7 @@
       <div class="glass-card rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div class="text-xs text-slate-600 flex items-center gap-2">
           <i data-lucide="shield-check" class="w-4 h-4 text-indigo-600 flex-shrink-0"></i>
-          <span>Create user accounts directly here or allow teachers to self-register on the login page.</span>
+          <span>Select which laboratories each <b>Teacher</b> is authorized to book. <b>Lab Staff</b> automatically have access to all 4 labs.</span>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <input type="text" id="searchUser" onkeyup="renderUsers()" placeholder="Search name, email, or role..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-56" />
@@ -85,14 +85,14 @@
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Assigned Role *</label>
-          <select id="newRole" onchange="document.getElementById('newLabBoxes').classList.toggle('hidden', this.value !== 'Lab Staff')" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
-            <option value="Teacher">Teacher (Request & View Stock)</option>
-            <option value="Lab Staff">Lab Staff (Approve & Manage Stock)</option>
-            <option value="Admin">Admin (Full Management)</option>
+          <select id="newRole" onchange="document.getElementById('newLabBoxes').classList.toggle('hidden', this.value !== 'Teacher')" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+            <option value="Teacher">Teacher (Book Selected Labs)</option>
+            <option value="Lab Staff">Lab Staff (All 4 Labs - Prepare & Approve)</option>
+            <option value="Admin">Admin (Management & Reports)</option>
           </select>
         </div>
-        <div id="newLabBoxes" class="hidden bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-          <div class="text-[11px] font-semibold text-slate-600">Assign Responsible Laboratories:</div>
+        <div id="newLabBoxes" class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+          <div class="text-[11px] font-semibold text-slate-600">Select Laboratories Teacher Can Book:</div>
           <div class="grid grid-cols-2 gap-2 text-xs">
             <label class="flex items-center gap-2"><input type="checkbox" id="chkPrimary" class="accent-indigo-600"> Primary Lab</label>
             <label class="flex items-center gap-2"><input type="checkbox" id="chkPhysics" class="accent-indigo-600"> Physics Lab</label>
@@ -113,8 +113,8 @@
     initIPSPage({
       activePage: 'admin',
       title: 'User & Role Management',
-      subtitle: 'Configure Role-Based Access Control (RBAC) and laboratory assignments',
-      allowedRoles: ['Admin', 'Super Admin'],
+      subtitle: 'Configure Role-Based Access Control (RBAC) and Teacher laboratory permissions',
+      allowedRoles: ['Super Admin'],
       onReady: () => {
         renderUsers();
       }
@@ -122,7 +122,7 @@
 
     function openCreateUserModal() {
       document.getElementById('createUserForm').reset();
-      document.getElementById('newLabBoxes').classList.add('hidden');
+      document.getElementById('newLabBoxes').classList.remove('hidden');
       const m = document.getElementById('createUserModal');
       m.classList.remove('hidden');
       m.classList.add('flex');
@@ -134,7 +134,6 @@
       m.classList.remove('flex');
     }
 
-    // Create user via Secondary Firebase App so Admin stays logged in
     document.getElementById('createUserForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = document.getElementById('newName').value.trim();
@@ -155,10 +154,10 @@
           name,
           email,
           role,
-          Primary: role === 'Lab Staff' ? document.getElementById('chkPrimary').checked : '',
-          Physics: role === 'Lab Staff' ? document.getElementById('chkPhysics').checked : '',
-          Chemistry: role === 'Lab Staff' ? document.getElementById('chkChemistry').checked : '',
-          Biology: role === 'Lab Staff' ? document.getElementById('chkBiology').checked : ''
+          Primary: role === 'Teacher' ? document.getElementById('chkPrimary').checked : true,
+          Physics: role === 'Teacher' ? document.getElementById('chkPhysics').checked : true,
+          Chemistry: role === 'Teacher' ? document.getElementById('chkChemistry').checked : true,
+          Biology: role === 'Teacher' ? document.getElementById('chkBiology').checked : true
         });
 
         await secondaryApp.auth().signOut();
@@ -174,7 +173,6 @@
 
     function renderUsers() {
       const currentUser = window.IPS.user;
-      const isSuperAdmin = currentUser.role === 'Super Admin';
       const q = (document.getElementById('searchUser').value || '').toLowerCase();
 
       const filtered = window.IPS.users.filter(u =>
@@ -197,9 +195,10 @@
       };
 
       tbody.innerHTML = filtered.map(u => {
-        const isTargetSuper = u.role === 'Super Admin';
-        const lockEdit = isTargetSuper && !isSuperAdmin;
-        const isAllLabsRole = ['Super Admin', 'Admin', 'Teacher'].includes(u.role);
+        const isSuperTarget = u.role === 'Super Admin';
+        // Super Admin, Admin, and Lab Staff automatically have access to all 4 labs.
+        // Only Teacher rows have editable lab checkboxes!
+        const isAllLabsRole = ['Super Admin', 'Admin', 'Lab Staff'].includes(u.role);
 
         return `
           <tr class="hover:bg-slate-50/70">
@@ -211,16 +210,16 @@
                 <div>
                   <div class="font-bold text-slate-800 flex items-center gap-1.5">
                     <span>${u.name || '-'}</span>
-                    ${!lockEdit ? `<button onclick="editUserName('${u.uid}', '${(u.name || '').replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-indigo-600" title="Edit Display Name"><i data-lucide="pencil" class="w-3 h-3"></i></button>` : ''}
+                    <button onclick="editUserName('${u.uid}', '${(u.name || '').replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-indigo-600" title="Edit Display Name"><i data-lucide="pencil" class="w-3 h-3"></i></button>
                   </div>
                   <div class="text-[11px] text-slate-400">${u.email || '-'}</div>
                 </div>
               </div>
             </td>
             <td class="p-3.5">
-              <select onchange="updateUserRole('${u.uid}', this.value)" ${lockEdit ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg border text-xs font-semibold ${roleColors[u.role] || 'bg-white border-slate-200'} disabled:opacity-60">
+              <select onchange="updateUserRole('${u.uid}', this.value)" ${u.uid === currentUser.uid ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg border text-xs font-semibold ${roleColors[u.role] || 'bg-white border-slate-200'} disabled:opacity-60">
                 ${['Teacher', 'Lab Staff', 'Admin', 'Super Admin'].map(r => `
-                  <option value="${r}" ${u.role === r ? 'selected' : ''} ${r === 'Super Admin' && !isSuperAdmin ? 'disabled' : ''}>${r}</option>
+                  <option value="${r}" ${u.role === r ? 'selected' : ''}>${r}</option>
                 `).join('')}
               </select>
             </td>
@@ -228,14 +227,14 @@
               const checked = isAllLabsRole || u[lab] === true || u[lab] === 'true' || u[lab] === 'Yes';
               return `
                 <td class="p-3.5 text-center">
-                  <input type="checkbox" ${checked ? 'checked' : ''} ${isAllLabsRole || lockEdit ? 'disabled' : ''}
+                  <input type="checkbox" ${checked ? 'checked' : ''} ${isAllLabsRole ? 'disabled' : ''}
                     onchange="toggleLabAccess('${u.uid}', '${lab}', this.checked)"
                     class="w-4 h-4 accent-indigo-600 rounded cursor-pointer disabled:opacity-40" />
                 </td>
               `;
             }).join('')}
             <td class="p-3.5 text-right">
-              ${!lockEdit && u.uid !== currentUser.uid ? `
+              ${!isSuperTarget && u.uid !== currentUser.uid ? `
                 <button onclick="deleteUserDoc('${u.uid}', '${u.email}')" class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50" title="Remove Profile">
                   <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>
