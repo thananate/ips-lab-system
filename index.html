@@ -23,9 +23,7 @@
   <div id="loginSection" class="min-h-screen flex items-center justify-center p-4">
     <div class="glass-card w-full max-w-md rounded-2xl p-8">
       <div class="text-center mb-6">
-        <div class="w-14 h-14 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg text-white">
-          <i data-lucide="flask-conical" class="w-8 h-8"></i>
-        </div>
+        <img src="IPS.png" alt="IPS Lab Logo" class="w-16 h-16 mx-auto mb-4 object-contain rounded-2xl bg-white p-1.5 shadow-md border border-slate-100" />
         <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-700 to-purple-700 bg-clip-text text-transparent">IPS Lab System</h1>
         <p class="text-sm text-slate-500 mt-1">Laboratory Equipment Requisition & Inventory Portal</p>
       </div>
@@ -92,7 +90,7 @@
       <!-- Analytics Chart & Alerts (Low Stock + Expiry Alerts) -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="glass-card rounded-2xl p-5 lg:col-span-2">
-          <h4 class="font-bold text-sm text-slate-800 mb-3">Equipment Distribution by Laboratory (4 Labs)</h4>
+          <h4 id="labChartTitle" class="font-bold text-sm text-slate-800 mb-3">Equipment Distribution by Room / Laboratory</h4>
           <div class="h-72"><canvas id="labChart"></canvas></div>
         </div>
 
@@ -152,9 +150,9 @@
           name,
           email,
           role: 'Teacher',
-          Primary: false, Physics: false, Chemistry: false, Biology: false
+          allowedLabs: []
         });
-        Swal.fire('Welcome!', 'Your Teacher account has been created.', 'success');
+        Swal.fire('Welcome!', 'Your Teacher account has been created. Please ask Super Admin to assign your room permissions.', 'success');
       } catch (err) {
         Swal.fire('Registration Failed', err.message, 'error');
       }
@@ -187,13 +185,15 @@
         document.getElementById('loginSection').classList.add('hidden');
         document.getElementById('dashboardSection').classList.remove('hidden');
 
+        const allLabs = getAllLabNames();
+
         const cards = [
-          { href: 'request.html', title: '1. Equipment Request', desc: 'Submit lab requisition requests, check time-slot availability, and track history', icon: 'file-plus-2', color: 'blue', roles: ['Teacher', 'Admin', 'Super Admin'] },
+          { href: 'request.html', title: '1. Equipment Request', desc: 'Submit requisition requests, check time-slot availability, and track history', icon: 'file-plus-2', color: 'blue', roles: ['Teacher', 'Admin', 'Super Admin'] },
           { href: 'approve.html', title: '2. Lab Staff Approval', desc: 'Review requests item-by-item, partial approvals, alternatives, and returns', icon: 'check-square', color: 'emerald', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
-          { href: 'stock.html', title: '3. Inventory & Stock', desc: 'Manage equipment across 4 labs and audit immutable stock movement logs', icon: 'boxes', color: 'purple', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
+          { href: 'stock.html', title: '3. Inventory & Stock', desc: `Manage equipment across ${allLabs.length} rooms and audit stock movement logs`, icon: 'boxes', color: 'purple', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
           { href: 'purchase.html', title: '4. Procurement (Purchase)', desc: 'Create purchase requisitions, track PO status, and receive incoming stock', icon: 'shopping-cart', color: 'amber', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
-          { href: 'report.html', title: '5. Analytics & Reports', desc: 'Generate 10 specialized reports and export to Excel (.xlsx), CSV, or PDF', icon: 'bar-chart-3', color: 'indigo', roles: ['Admin', 'Super Admin'] },
-          { href: 'admin.html', title: '6. User Management', desc: 'Assign user roles (RBAC) and Teacher laboratory permissions', icon: 'users', color: 'rose', roles: ['Super Admin'] }
+          { href: 'report.html', title: '5. Analytics & Reports', desc: 'Generate 13 specialized reports (including Monthly/Yearly) and export to Excel, CSV, or PDF', icon: 'bar-chart-3', color: 'indigo', roles: ['Admin', 'Super Admin'] },
+          { href: 'admin.html', title: '6. User & Lab Management', desc: 'Create/manage rooms, assign user roles (RBAC), and Teacher permissions', icon: 'users', color: 'rose', roles: ['Super Admin'] }
         ];
 
         document.getElementById('directoryCards').innerHTML = cards
@@ -242,15 +242,15 @@
               `;
             }).join('');
 
-        const labs = ['Primary', 'Physics', 'Chemistry', 'Biology'];
+        document.getElementById('labChartTitle').innerText = `Equipment Distribution by Room / Laboratory (${allLabs.length} Rooms)`;
         if (chartObj) chartObj.destroy();
         chartObj = new Chart(document.getElementById('labChart'), {
           type: 'bar',
           data: {
-            labels: labs,
+            labels: allLabs,
             datasets: [
-              { label: 'Available', data: labs.map(l => window.IPS.equipments.filter(e => e.lab === l).reduce((s, e) => s + Number(e.available || 0), 0)), backgroundColor: '#6366f1', borderRadius: 6 },
-              { label: 'Reserved', data: labs.map(l => window.IPS.equipments.filter(e => e.lab === l).reduce((s, e) => s + Number(e.reserved || 0), 0)), backgroundColor: '#c084fc', borderRadius: 6 }
+              { label: 'Available', data: allLabs.map(l => window.IPS.equipments.filter(e => e.lab === l).reduce((s, e) => s + Number(e.available || 0), 0)), backgroundColor: '#6366f1', borderRadius: 6 },
+              { label: 'Reserved', data: allLabs.map(l => window.IPS.equipments.filter(e => e.lab === l).reduce((s, e) => s + Number(e.reserved || 0), 0)), backgroundColor: '#c084fc', borderRadius: 6 }
             ]
           },
           options: { responsive: true, maintainAspectRatio: false }
