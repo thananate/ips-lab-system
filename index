@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPS Lab Management System | ระบบเบิก-คืนอุปกรณ์ห้องปฏิบัติการ</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Prompt & Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- SheetJS (Export Excel .xlsx) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+  <!-- Firebase Compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #f0f4ff 0%, #f5f3ff 50%, #eef2ff 100%);
+      min-height: 100vh;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.08), 0 8px 10px -6px rgba(79, 70, 229, 0.04);
+    }
+    .glass-sidebar {
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(16px);
+      border-right: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; }
+      .glass-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased">
+
+  <!-- ==================== 1. AUTHENTICATION / LOGIN VIEW ==================== -->
+  <div id="authView" class="min-h-screen flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-md rounded-2xl p-8">
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg text-white">
+          <i data-lucide="flask-conical" class="w-8 h-8"></i>
+        </div>
+        <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-700 to-purple-700 bg-clip-text text-transparent">IPS Lab System</h1>
+        <p class="text-sm text-slate-500 mt-1">ระบบบริหารจัดการและเบิก-คืนอุปกรณ์ห้องปฏิบัติการ</p>
+        <div class="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          Firebase Project: ips-lab-system
+        </div>
+      </div>
+
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">อีเมลผู้ใช้งาน (Email)</label>
+          <input type="email" id="loginEmail" required placeholder="thepsintopskul.thananate@ips.ac.th" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm bg-white" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">รหัสผ่าน (Password)</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm bg-white" />
+        </div>
+        <button type="submit" id="loginSubmitBtn" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium text-sm hover:opacity-95 transition shadow-md">
+          เข้าสู่ระบบ
+        </button>
+      </form>
+
+      <div class="mt-5 pt-4 border-t border-slate-100 text-center">
+        <p class="text-[11px] text-slate-400">
+          จัดการบัญชีผู้ใช้งานผ่าน Firebase Authentication<br>
+          และกำหนดสิทธิ์ใน Cloud Firestore (Collection: <code class="text-indigo-600">user</code>)
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 2. MAIN SPA SHELL ==================== -->
+  <div id="appShell" class="hidden min-h-screen flex flex-col lg:flex-row">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="glass-sidebar w-full lg:w-64 flex-shrink-0 flex flex-col justify-between no-print">
+      <div>
+        <div class="p-5 flex items-center justify-between border-b border-slate-100">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-xl flex items-center justify-center text-white shadow">
+              <i data-lucide="flask-conical" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="font-bold text-slate-800 leading-tight">IPS Lab</div>
+              <div class="text-[11px] text-emerald-600 font-medium">● Firebase Live Sync</div>
+            </div>
+          </div>
+          <button id="mobileMenuBtn" class="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <nav id="sidebarNav" class="hidden lg:block p-4 space-y-1.5"></nav>
+      </div>
+
+      <!-- User Profile Footer -->
+      <div class="p-4 border-t border-slate-100 hidden lg:block">
+        <div class="bg-slate-50 rounded-xl p-3 mb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-sm" id="userAvatar">U</div>
+            <div class="overflow-hidden">
+              <div class="text-xs font-semibold text-slate-800 truncate" id="userNameDisplay">-</div>
+              <div class="text-[11px] text-indigo-600 font-medium" id="userRoleDisplay">-</div>
+              <div class="text-[10px] text-slate-400 truncate" id="userLabDisplay">-</div>
+            </div>
+          </div>
+        </div>
+        <button onclick="logout()" class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i> ออกจากระบบ
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
+      <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 no-print">
+        <div>
+          <h2 id="pageTitle" class="text-xl md:text-2xl font-bold text-slate-800">ภาพรวมระบบ (Dashboard)</h2>
+          <p id="pageSubtitle" class="text-xs md:text-sm text-slate-500">ยินดีต้อนรับสู่ระบบบริหารจัดการอุปกรณ์วิทยาศาสตร์ IPS Lab</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+            <input type="text" id="globalSearchInput" onkeyup="handleGlobalSearch(this.value)" placeholder="ค้นหาอุปกรณ์, รหัสคำขอ, ครู..." class="pl-9 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none w-56 md:w-64" />
+          </div>
+          <button onclick="logout()" class="lg:hidden p-2 rounded-xl bg-rose-50 text-rose-600">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </header>
+
+      <div id="pageContainer" class="space-y-6"></div>
+    </main>
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+  <!-- Equipment Modal -->
+  <div id="equipmentModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 id="eqModalTitle" class="text-lg font-bold text-slate-800">เพิ่มรายการอุปกรณ์ใหม่</h3>
+        <button onclick="closeModal('equipmentModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="equipmentForm" class="mt-4 space-y-4">
+        <input type="hidden" id="eqDocId" />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">รหัสอุปกรณ์ (Equipment ID) *</label>
+            <input type="text" id="eqId" required placeholder="เช่น PHY-001" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">ชื่ออุปกรณ์ (Equipment Name) *</label>
+            <input type="text" id="eqName" required placeholder="เช่น Beaker 250 ml" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">ห้องปฏิบัติการ (Lab) *</label>
+            <select id="eqLab" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm">
+              <option value="Primary">Primary Lab</option>
+              <option value="Physics">Physics Lab (ฟิสิกส์)</option>
+              <option value="Chemistry">Chemistry Lab (เคมี)</option>
+              <option value="Biology">Biology Lab (ไบโอ)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">ประเภทอุปกรณ์ (Equipment Type) *</label>
+            <select id="eqType" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm">
+              <option value="Reusable">Reusable (เครื่องแก้ว/รับคืน)</option>
+              <option value="Equipment">Equipment (เครื่องมือ/จองและคืน)</option>
+              <option value="Consumable">Consumable (วัสดุสิ้นเปลือง/ตัด Stock)</option>
+              <option value="Chemical">Chemical (สารเคมี/ควบคุมความปลอดภัย)</option>
+              <option value="Set / Kit">Set / Kit (ชุดการทดลอง)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">หมวดหมู่ย่อย (Category)</label>
+            <input type="text" id="eqCategory" placeholder="เช่น เครื่องแก้ว, กล้องจุลทรรศน์" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">ขนาด / รายละเอียด (Specification)</label>
+            <input type="text" id="eqSpec" placeholder="เช่น Borosilicate Glass 250ml" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">หน่วยนับ (Unit) *</label>
+            <input type="text" id="eqUnit" required placeholder="เช่น ใบ, เครื่อง, กล่อง, ขวด" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">ตำแหน่งจัดเก็บ (Storage Location)</label>
+            <input type="text" id="eqLocation" placeholder="เช่น ตู้ A ชั้น 2" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">จำนวนทั้งหมด (Total Stock) *</label>
+            <input type="number" id="eqTotal" min="0" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">จำนวนขั้นต่ำแจ้งเตือน (Minimum Stock) *</label>
+            <input type="number" id="eqMin" min="0" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">สถานะ (Status)</label>
+            <select id="eqStatus" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm">
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">รูปภาพอุปกรณ์ (บีบอัด Canvas Base64)</label>
+            <input type="file" id="eqImageInput" accept="image/*" onchange="handleImageUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700" />
+            <input type="hidden" id="eqImageBase64" />
+            <img id="eqImagePreview" class="mt-2 h-16 w-16 object-cover rounded-lg hidden border" />
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+          <button type="button" onclick="closeModal('equipmentModal')" class="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">บันทึกข้อมูลอุปกรณ์</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Stock Movement Modal -->
+  <div id="stockModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-lg font-bold text-slate-800">บันทึกการปรับยอด Stock (Audit Log)</h3>
+        <button onclick="closeModal('stockModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="stockForm" class="mt-4 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">เลือกอุปกรณ์ *</label>
+          <select id="stkEqSelect" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">ประเภทรายการ (Action) *</label>
+            <select id="stkAction" onchange="toggleTransferLab(this.value)" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm">
+              <option value="Stock In">Stock In (+ เพิ่มอุปกรณ์ใหม่)</option>
+              <option value="Stock Out">Stock Out (- นำอุปกรณ์ออก)</option>
+              <option value="Returned">Returned (+ รับคืนอุปกรณ์)</option>
+              <option value="Damaged">Damaged (- แจ้งอุปกรณ์เสีย)</option>
+              <option value="Lost">Lost (- แจ้งอุปกรณ์สูญหาย)</option>
+              <option value="Stock Adjustment">Stock Adjustment (ปรับยอดตรวจนับ)</option>
+              <option value="Transferred">Transferred (ย้ายข้าม Lab)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">จำนวน (Qty) *</label>
+            <input type="number" id="stkQty" min="1" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+        </div>
+        <div id="transferTargetDiv" class="hidden">
+          <label class="block text-xs font-medium text-slate-600 mb-1">ย้ายไปยัง Lab ปลายทาง *</label>
+          <select id="stkTargetLab" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm">
+            <option value="Primary">Primary Lab</option>
+            <option value="Physics">Physics Lab</option>
+            <option value="Chemistry">Chemistry Lab</option>
+            <option value="Biology">Biology Lab</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">หมายเหตุ / อ้างอิง (Remarks) *</label>
+          <input type="text" id="stkNote" required placeholder="เช่น รับเข้าจากใบสั่งซื้อ PO-2026-01 หรือ แตกหักระหว่างการทดลอง" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+        </div>
+        <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+          <button type="button" onclick="closeModal('stockModal')" class="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">ยืนยันและบันทึกประวัติ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Staff Approval Modal (Item-by-Item) -->
+  <div id="approvalModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800">ตรวจสอบและอนุมัติคำขอเบิกอุปกรณ์</h3>
+          <p id="appModalMeta" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeModal('approvalModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div id="approvalItemsContainer" class="mt-4 space-y-3"></div>
+      <div class="mt-4">
+        <label class="block text-xs font-medium text-slate-600 mb-1">หมายเหตุจากเจ้าหน้าที่ (Staff Remarks)</label>
+        <input type="text" id="appStaffRemarks" placeholder="ระบุข้อความถึงครูผู้ขอเบิก หรือคำแนะนำอุปกรณ์ทดแทน..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-4 mt-4 border-t border-slate-100">
+        <div class="text-[11px] text-slate-400">ระบบจะบันทึกชื่อเจ้าหน้าที่และวันเวลาอนุมัติอัตโนมัติ</div>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeModal('approvalModal')" class="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">ปิด</button>
+          <button type="button" onclick="submitStaffApproval()" class="px-5 py-2 rounded-xl text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 shadow">บันทึกผลการอนุมัติ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Purchase Request Modal -->
+  <div id="purchaseModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-lg font-bold text-slate-800">สร้างคำขอจัดซื้ออุปกรณ์ (Purchase Request)</h3>
+        <button onclick="closeModal('purchaseModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="purchaseForm" class="mt-4 space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">ชื่ออุปกรณ์ *</label>
+            <input type="text" id="prEqName" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">ห้องปฏิบัติการ (Lab) *</label>
+            <select id="prLab" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm">
+              <option value="Primary">Primary</option>
+              <option value="Physics">Physics</option>
+              <option value="Chemistry">Chemistry</option>
+              <option value="Biology">Biology</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">จำนวนที่ขอจัดซื้อ *</label>
+            <input type="number" id="prQty" min="1" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">หน่วยนับ *</label>
+            <input type="text" id="prUnit" required placeholder="ใบ, เครื่อง, กล่อง" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">ราคาประเมินรวม (บาท)</label>
+            <input type="number" id="prPrice" placeholder="0.00" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">ผู้จำหน่าย (Supplier)</label>
+            <input type="text" id="prSupplier" placeholder="บริษัท ไซเอนซ์ จำกัด" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">เหตุผลความจำเป็น *</label>
+          <input type="text" id="prReason" required placeholder="เช่น Stock ต่ำกว่าเกณฑ์ขั้นต่ำ / รองรับการทดลองภาคเรียนที่ 2" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+        </div>
+        <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+          <button type="button" onclick="closeModal('purchaseModal')" class="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700">บันทึกคำขอจัดซื้อ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== JAVASCRIPT APPLICATION LOGIC ==================== -->
+  <script>
+    // =========================================================================
+    // 1. FIREBASE CONFIGURATION (ips-lab-system)
+    // =========================================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyCRotp0yrhYGc8zctl1Yo7Fknxz0AJnEZU",
+      authDomain: "ips-lab-system.firebaseapp.com",
+      projectId: "ips-lab-system",
+      storageBucket: "ips-lab-system.firebasestorage.app",
+      messagingSenderId: "475418589571",
+      appId: "1:475418589571:web:ae676ffffee084c4b31eb6"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // =========================================================================
+    // 2. GLOBAL APPLICATION STATE
+    // =========================================================================
+    const STATE = {
+      currentUser: null,
+      activePage: 'dashboard',
+      activeLabFilter: 'All',
+      searchQuery: '',
+      equipments: [],
+      requests: [],
+      movements: [],
+      purchases: [],
+      users: [],
+      unsubscribers: []
+    };
+
+    // Helper: ดึงรายชื่อ Lab ที่ User มีสิทธิ์ดูแล
+    function getUserAllowedLabs(user) {
+      if (!user) return [];
+      if (['Super Admin', 'Admin', 'Teacher'].includes(user.role)) {
+        return ['Primary', 'Physics', 'Chemistry', 'Biology'];
+      }
+      // สำหรับ Lab Staff รองรับทั้งโครงสร้างแยกฟิลด์ (Primary, Physics, Chemistry, Biology) และ assignedLab
+      const labs = [];
+      ['Primary', 'Physics', 'Chemistry', 'Biology'].forEach(l => {
+        if (user[l] === true || user[l] === 'true' || user[l] === 'Yes' || user[l] === '1' || user.assignedLab === l) {
+          labs.push(l);
+        }
+      });
+      return labs.length > 0 ? labs : ['Primary', 'Physics', 'Chemistry', 'Biology'];
+    }
+
+    // =========================================================================
+    // 3. FIREBASE AUTHENTICATION & REAL-TIME LISTENERS
+    // =========================================================================
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim();
+      const pass = document.getElementById('loginPassword').value;
+      const btn = document.getElementById('loginSubmitBtn');
+
+      btn.disabled = true;
+      btn.innerText = 'กำลังตรวจสอบสิทธิ์...';
+
+      try {
+        await auth.signInWithEmailAndPassword(email, pass);
+      } catch (err) {
+        Swal.fire('เข้าสู่ระบบไม่สำเร็จ', err.message, 'error');
+        btn.disabled = false;
+        btn.innerText = 'เข้าสู่ระบบ';
+      }
+    });
+
+    auth.onAuthStateChanged(async (firebaseUser) => {
+      const btn = document.getElementById('loginSubmitBtn');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = 'เข้าสู่ระบบ';
+      }
+
+      if (!firebaseUser) {
+        clearListeners();
+        STATE.currentUser = null;
+        document.getElementById('appShell').classList.add('hidden');
+        document.getElementById('authView').classList.remove('hidden');
+        return;
+      }
+
+      try {
+        // อ่านข้อมูลจาก collection "user" (ตามที่ตั้งค่าใน Firestore)
+        const userDoc = await db.collection('user').doc(firebaseUser.uid).get();
+        let profile = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          name: firebaseUser.email.split('@')[0],
+          role: 'Teacher',
+          Primary: '',
+          Physics: '',
+          Chemistry: '',
+          Biology: ''
+        };
+
+        if (userDoc.exists) {
+          profile = { ...profile, ...userDoc.data(), uid: firebaseUser.uid };
+        } else {
+          // สร้าง record เริ่มต้นให้อัตโนมัติหากยังไม่มีใน collection user
+          await db.collection('user').doc(firebaseUser.uid).set(profile);
+        }
+
+        STATE.currentUser = profile;
+        const allowedLabs = getUserAllowedLabs(profile);
+
+        document.getElementById('authView').classList.add('hidden');
+        document.getElementById('appShell').classList.remove('hidden');
+
+        document.getElementById('userAvatar').innerText = (profile.name || 'U').charAt(0).toUpperCase();
+        document.getElementById('userNameDisplay').innerText = profile.name;
+        document.getElementById('userRoleDisplay').innerText = profile.role;
+        document.getElementById('userLabDisplay').innerText = allowedLabs.length === 4 ? 'ทุกห้องปฏิบัติการ (4 Labs)' : `Lab: ${allowedLabs.join(', ')}`;
+
+        startRealtimeSync();
+        buildSidebarMenu();
+        navigateTo('dashboard');
+      } catch (err) {
+        console.error(err);
+        Swal.fire('เกิดข้อผิดพลาดในการโหลดสิทธิ์', err.message, 'error');
+      }
+    });
+
+    function startRealtimeSync() {
+      clearListeners();
+
+      STATE.unsubscribers.push(
+        db.collection('equipments').onSnapshot(snap => {
+          STATE.equipments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          refreshUI();
+        }),
+        db.collection('requests').onSnapshot(snap => {
+          STATE.requests = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+          refreshUI();
+        }),
+        db.collection('movements').orderBy('timestamp', 'asc').onSnapshot(snap => {
+          STATE.movements = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          refreshUI();
+        }),
+        db.collection('purchases').onSnapshot(snap => {
+          STATE.purchases = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+          refreshUI();
+        }),
+        db.collection('user').onSnapshot(snap => {
+          STATE.users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+          refreshUI();
+        })
+      );
+    }
+
+    function clearListeners() {
+      STATE.unsubscribers.forEach(unsub => unsub());
+      STATE.unsubscribers = [];
+    }
+
+    function refreshUI() {
+      if (!STATE.currentUser) return;
+      renderCurrentPage();
+      lucide.createIcons();
+    }
+
+    function logout() {
+      auth.signOut();
+    }
+
+    document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+      document.getElementById('sidebarNav').classList.toggle('hidden');
+    });
+
+    function buildSidebarMenu() {
+      const role = STATE.currentUser.role;
+      const menus = [
+        { id: 'dashboard', label: 'หน้าหลัก (Dashboard)', icon: 'layout-dashboard', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
+        { id: 'new-request', label: 'สร้างคำขอเบิกอุปกรณ์', icon: 'file-plus-2', roles: ['Teacher', 'Admin', 'Super Admin'] },
+        { id: 'my-requests', label: 'ประวัติคำขอและการใช้งาน', icon: 'history', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
+        { id: 'staff-approvals', label: 'อนุมัติคำขอ (Lab Staff)', icon: 'check-square', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
+        { id: 'inventory', label: 'คลังอุปกรณ์ 4 Labs', icon: 'boxes', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
+        { id: 'stock-management', label: 'จัดการ Stock & ประวัติ', icon: 'arrow-left-right', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
+        { id: 'procurement', label: 'จัดซื้ออุปกรณ์ (Purchase)', icon: 'shopping-cart', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
+        { id: 'reports', label: 'รายงานและสถิติ (Reports)', icon: 'bar-chart-3', roles: ['Admin', 'Super Admin'] },
+        { id: 'users-admin', label: 'จัดการสิทธิ์ผู้ใช้งาน', icon: 'users', roles: ['Admin', 'Super Admin'] }
+      ];
+
+      const navHtml = menus
+        .filter(m => m.roles.includes(role))
+        .map(m => `
+          <button onclick="navigateTo('${m.id}')" data-nav="${m.id}" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition text-slate-600 hover:bg-indigo-50 hover:text-indigo-700">
+            <i data-lucide="${m.icon}" class="w-4 h-4"></i>
+            <span>${m.label}</span>
+          </button>
+        `).join('');
+
+      document.getElementById('sidebarNav').innerHTML = navHtml;
+      lucide.createIcons();
+    }
+
+    function navigateTo(pageId) {
+      STATE.activePage = pageId;
+      document.querySelectorAll('.nav-item').forEach(el => {
+        if (el.dataset.nav === pageId) {
+          el.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-sm');
+          el.classList.remove('text-slate-600', 'hover:bg-indigo-50');
+        } else {
+          el.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-sm');
+          el.classList.add('text-slate-600', 'hover:bg-indigo-50');
+        }
+      });
+
+      const titles = {
+        'dashboard': ['ภาพรวมระบบ (Dashboard)', 'สรุปสถานะอุปกรณ์ คำขอเบิก และทางลัดเข้าสู่โมดูลหลัก'],
+        'new-request': ['ส่งคำขอเบิกอุปกรณ์ห้องปฏิบัติการ', 'ตรวจสอบจำนวนว่างตามช่วงเวลา (Time-Slot Overlap Check) อัตโนมัติ'],
+        'my-requests': ['ประวัติคำขอเบิกและการใช้งานอุปกรณ์', 'ติดตามสถานะ ยกเลิกคำขอ หรือตรวจสอบประวัติการคืน/ชำรุด'],
+        'staff-approvals': ['ระบบอนุมัติคำขอเบิก (Lab Staff)', 'อนุมัติรายรายการ อนุมัติบางส่วน เสนออุปกรณ์ทดแทน และรับคืน'],
+        'inventory': ['ฐานข้อมูลอุปกรณ์แยกตาม Lab (4 Labs)', 'Primary Lab, Physics Lab, Chemistry Lab และ Biology Lab'],
+        'stock-management': ['จัดการ Stock และประวัติการเคลื่อนไหว (Audit Trail)', 'บันทึก Stock In/Out, ชำรุด, สูญหาย และโอนย้ายระหว่าง Lab'],
+        'procurement': ['ระบบขอจัดซื้ออุปกรณ์ (Procurement)', 'จัดการรายการอุปกรณ์ที่ต้องจัดซื้อแยกจากคลังสินค้าจริง'],
+        'reports': ['ระบบรายงานและวิเคราะห์ข้อมูล (Analytics & Reports)', 'ออกรายงาน 10 รูปแบบ พร้อมส่งออก Excel (.xlsx), CSV และพิมพ์ PDF'],
+        'users-admin': ['จัดการผู้ใช้งานและกำหนดสิทธิ์ (RBAC)', 'กำหนด Role และห้องปฏิบัติการที่รับผิดชอบใน Firestore']
+      };
+
+      document.getElementById('pageTitle').innerText = titles[pageId][0];
+      document.getElementById('pageSubtitle').innerText = titles[pageId][1];
+
+      renderCurrentPage();
+      lucide.createIcons();
+    }
+
+    function handleGlobalSearch(val) {
+      STATE.searchQuery = val.toLowerCase().trim();
+      renderCurrentPage();
+      lucide.createIcons();
+    }
+
+    function renderCurrentPage() {
+      const container = document.getElementById('pageContainer');
+      switch (STATE.activePage) {
+        case 'dashboard': renderDashboard(container); break;
+        case 'new-request': renderNewRequest(container); break;
+        case 'my-requests': renderMyRequests(container); break;
+        case 'staff-approvals': renderStaffApprovals(container); break;
+        case 'inventory': renderInventory(container); break;
+        case 'stock-management': renderStockManagement(container); break;
+        case 'procurement': renderProcurement(container); break;
+        case 'reports': renderReports(container); break;
+        case 'users-admin': renderUsersAdmin(container); break;
+      }
+    }
+
+    // =========================================================================
+    // 4. TIME-SLOT OVERLAP PREVENTION ENGINE
+    // =========================================================================
+    function getAvailableForTimeSlot(eqDocId, targetDate, startTime, endTime, excludeReqId = null) {
+      const eq = STATE.equipments.find(e => e.id === eqDocId);
+      if (!eq) return 0;
+
+      if (eq.type === 'Consumable' || eq.type === 'Chemical') {
+        return Number(eq.available || 0);
+      }
+
+      const maxUsable = Number(eq.total || 0) - Number(eq.damaged || 0);
+      if (!targetDate || !startTime || !endTime) return Number(eq.available || 0);
+
+      let overlappingReserved = 0;
+      STATE.requests.forEach(req => {
+        if (req.id === excludeReqId) return;
+        if (!['Approved', 'Partial'].includes(req.status)) return;
+        if (req.useDate !== targetDate) return;
+
+        if (startTime < req.endTime && endTime > req.startTime) {
+          const matchedItem = (req.items || []).find(i => i.eqDocId === eqDocId);
+          if (matchedItem && ['Approved', 'Partial'].includes(matchedItem.itemStatus)) {
+            overlappingReserved += Number(matchedItem.approvedQty || 0);
+          }
+        }
+      });
+
+      return Math.max(0, maxUsable - overlappingReserved);
+    }
+
+    // =========================================================================
+    // 5. PAGE 1: DASHBOARD
+    // =========================================================================
+    let chartInstance = null;
+
+    function renderDashboard(container) {
+      const lowStockItems = STATE.equipments.filter(e => Number(e.available) <= Number(e.minStock) && e.status === 'Active');
+      const pendingReqs = STATE.requests.filter(r => r.status === 'Pending');
+      const totalItemsCount = STATE.equipments.reduce((sum, e) => sum + Number(e.total || 0), 0);
+
+      container.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button onclick="navigateTo('new-request')" class="glass-card rounded-2xl p-5 text-left hover:scale-[1.01] transition group border-l-4 border-l-blue-600">
+            <div class="flex items-center justify-between">
+              <div class="p-3 rounded-xl bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
+                <i data-lucide="file-plus-2" class="w-6 h-6"></i>
+              </div>
+              <i data-lucide="arrow-up-right" class="w-5 h-5 text-slate-400"></i>
+            </div>
+            <h3 class="font-bold text-slate-800 mt-4">1. เบิกอุปกรณ์ Lab (Teacher)</h3>
+            <p class="text-xs text-slate-500 mt-1">ส่งคำขอเบิกอุปกรณ์ พร้อมเช็กตารางจองซ้ำอัตโนมัติ</p>
+          </button>
+
+          <button onclick="navigateTo('inventory')" class="glass-card rounded-2xl p-5 text-left hover:scale-[1.01] transition group border-l-4 border-l-purple-600">
+            <div class="flex items-center justify-between">
+              <div class="p-3 rounded-xl bg-purple-100 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition">
+                <i data-lucide="boxes" class="w-6 h-6"></i>
+              </div>
+              <i data-lucide="arrow-up-right" class="w-5 h-5 text-slate-400"></i>
+            </div>
+            <h3 class="font-bold text-slate-800 mt-4">2. คลังอุปกรณ์ 4 Labs (Inventory)</h3>
+            <p class="text-xs text-slate-500 mt-1">จัดการข้อมูลอุปกรณ์ Primary, Physics, Chemistry, Biology</p>
+          </button>
+
+          <button onclick="navigateTo('${STATE.currentUser.role === 'Teacher' ? 'my-requests' : 'staff-approvals'}')" class="glass-card rounded-2xl p-5 text-left hover:scale-[1.01] transition group border-l-4 border-l-emerald-600">
+            <div class="flex items-center justify-between">
+              <div class="p-3 rounded-xl bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition">
+                <i data-lucide="clipboard-check" class="w-6 h-6"></i>
+              </div>
+              <i data-lucide="arrow-up-right" class="w-5 h-5 text-slate-400"></i>
+            </div>
+            <h3 class="font-bold text-slate-800 mt-4">3. อนุมัติคำขอ & รายงาน</h3>
+            <p class="text-xs text-slate-500 mt-1">ตรวจสอบคำขอรออนุมัติ รับคืนอุปกรณ์ และดูสถิติการใช้งาน</p>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass-card rounded-2xl p-4">
+            <div class="text-xs text-slate-500">รายการอุปกรณ์ทั้งหมด</div>
+            <div class="text-2xl font-bold text-slate-800 mt-1">${STATE.equipments.length} <span class="text-xs font-normal text-slate-400">รายการ (${totalItemsCount} ชิ้น)</span></div>
+          </div>
+          <div class="glass-card rounded-2xl p-4">
+            <div class="text-xs text-slate-500">คำขอรออนุมัติ (Pending)</div>
+            <div class="text-2xl font-bold text-amber-600 mt-1">${pendingReqs.length} <span class="text-xs font-normal text-slate-400">คำขอ</span></div>
+          </div>
+          <div class="glass-card rounded-2xl p-4">
+            <div class="text-xs text-slate-500">แจ้งเตือน Low Stock</div>
+            <div class="text-2xl font-bold text-rose-600 mt-1">${lowStockItems.length} <span class="text-xs font-normal text-slate-400">รายการ</span></div>
+          </div>
+          <div class="glass-card rounded-2xl p-4">
+            <div class="text-xs text-slate-500">รายการรอจัดซื้อ (Purchase)</div>
+            <div class="text-2xl font-bold text-indigo-600 mt-1">${STATE.purchases.filter(p => p.status !== 'Received').length} <span class="text-xs font-normal text-slate-400">รายการ</span></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="glass-card rounded-2xl p-5 lg:col-span-2">
+            <h4 class="font-bold text-sm text-slate-800 mb-4">สัดส่วนจำนวนอุปกรณ์แยกตามห้องปฏิบัติการ (4 Labs)</h4>
+            <div class="h-64">
+              <canvas id="labChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <h4 class="font-bold text-sm text-rose-600 flex items-center gap-1.5">
+                  <i data-lucide="alert-triangle" class="w-4 h-4"></i> แจ้งเตือน Low Stock
+                </h4>
+                <span class="text-[11px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-medium">${lowStockItems.length} รายการ</span>
+              </div>
+              <div class="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                ${lowStockItems.length === 0 ? '<p class="text-xs text-slate-400">อุปกรณ์ทุกรายการมีจำนวนเพียงพอ (หรือยังไม่มีข้อมูลในคลัง)</p>' : lowStockItems.map(item => `
+                  <div class="p-3 rounded-xl bg-rose-50/70 border border-rose-100 flex items-center justify-between">
+                    <div>
+                      <div class="text-xs font-semibold text-slate-800">${item.name}</div>
+                      <div class="text-[11px] text-slate-500">${item.lab} Lab • คงเหลือ <b class="text-rose-600">${item.available}</b> / ขั้นต่ำ ${item.minStock}</div>
+                    </div>
+                    ${STATE.currentUser.role !== 'Teacher' ? `
+                      <button onclick="createPurchaseFromLowStock('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-medium hover:bg-rose-700">
+                        + ขอจัดซื้อ
+                      </button>
+                    ` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const ctx = document.getElementById('labChart');
+      if (ctx) {
+        if (chartInstance) chartInstance.destroy();
+        const labs = ['Primary', 'Physics', 'Chemistry', 'Biology'];
+        const availData = labs.map(l => STATE.equipments.filter(e => e.lab === l).reduce((s, e) => s + Number(e.available || 0), 0));
+        const resData = labs.map(l => STATE.equipments.filter(e => e.lab === l).reduce((s, e) => s + Number(e.reserved || 0), 0));
+
+        chartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labs.map(l => `${l} Lab`),
+            datasets: [
+              { label: 'พร้อมใช้งาน (Available)', data: availData, backgroundColor: '#6366f1', borderRadius: 6 },
+              { label: 'ถูกจอง (Reserved)', data: resData, backgroundColor: '#c084fc', borderRadius: 6 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { font: { family: 'Prompt', size: 11 } } } }
+          }
+        });
+      }
+    }
+
+    // =========================================================================
+    // 6. PAGE 2: EQUIPMENT INVENTORY (4 LABS + SEED BUTTON)
+    // =========================================================================
+    function renderInventory(container) {
+      const labs = ['All', 'Primary', 'Physics', 'Chemistry', 'Biology'];
+      const canEdit = ['Admin', 'Super Admin'].includes(STATE.currentUser.role);
+
+      let filtered = STATE.equipments.filter(e => {
+        const matchLab = STATE.activeLabFilter === 'All' || e.lab === STATE.activeLabFilter;
+        const matchSearch = !STATE.searchQuery ||
+          (e.name || '').toLowerCase().includes(STATE.searchQuery) ||
+          (e.equipmentId || '').toLowerCase().includes(STATE.searchQuery) ||
+          (e.lab || '').toLowerCase().includes(STATE.searchQuery);
+        return matchLab && matchSearch;
+      });
+
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap gap-1.5 bg-white/70 p-1.5 rounded-2xl border border-slate-200/70">
+            ${labs.map(l => `
+              <button onclick="STATE.activeLabFilter='${l}'; renderCurrentPage(); lucide.createIcons();" class="px-3.5 py-1.5 rounded-xl text-xs font-medium transition ${STATE.activeLabFilter === l ? 'bg-indigo-600 text-white shadow' : 'text-slate-600 hover:bg-slate-100'}">
+                ${l === 'All' ? 'ทุกห้อง Lab (All)' : l + ' Lab'}
+              </button>
+            `).join('')}
+          </div>
+          <div class="flex flex-wrap gap-2">
+            ${canEdit && STATE.equipments.length === 0 ? `
+              <button onclick="seedInitialEquipments()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-medium shadow hover:bg-emerald-700">
+                <i data-lucide="database" class="w-4 h-4"></i> นำเข้าอุปกรณ์ตั้งต้น (4 Labs)
+              </button>
+            ` : ''}
+            ${canEdit ? `
+              <button onclick="openEquipmentModal()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium shadow hover:opacity-95">
+                <i data-lucide="plus" class="w-4 h-4"></i> เพิ่มอุปกรณ์ใหม่
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                  <th class="p-3.5">รหัส / ภาพ</th>
+                  <th class="p-3.5">ชื่ออุปกรณ์ & รายละเอียด</th>
+                  <th class="p-3.5">Lab / ประเภท</th>
+                  <th class="p-3.5 text-center">ทั้งหมด</th>
+                  <th class="p-3.5 text-center">พร้อมใช้</th>
+                  <th class="p-3.5 text-center">จอง / เสีย</th>
+                  <th class="p-3.5">สถานะ Stock</th>
+                  ${canEdit ? '<th class="p-3.5 text-right">จัดการ</th>' : ''}
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-xs">
+                ${filtered.length === 0 ? `<tr><td colspan="8" class="p-8 text-center text-slate-400">ยังไม่มีรายการอุปกรณ์ในฐานข้อมูล กดปุ่ม "เพิ่มอุปกรณ์ใหม่" หรือ "นำเข้าอุปกรณ์ตั้งต้น" ด้านบน</td></tr>` : filtered.map(eq => {
+                  const isLow = Number(eq.available) <= Number(eq.minStock);
+                  return `
+                    <tr class="hover:bg-indigo-50/30 transition">
+                      <td class="p-3.5">
+                        <div class="flex items-center gap-2.5">
+                          ${eq.image ? `<img src="${eq.image}" class="w-10 h-10 rounded-lg object-cover border" />` : `<div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400"><i data-lucide="flask-round" class="w-5 h-5"></i></div>`}
+                          <span class="font-mono font-semibold text-indigo-700">${eq.equipmentId}</span>
+                        </div>
+                      </td>
+                      <td class="p-3.5">
+                        <div class="font-bold text-slate-800">${eq.name}</div>
+                        <div class="text-[11px] text-slate-500">${eq.spec || '-'} • เก็บที่: ${eq.location || '-'}</div>
+                      </td>
+                      <td class="p-3.5">
+                        <span class="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 font-medium text-[11px]">${eq.lab}</span>
+                        <div class="text-[11px] text-slate-500 mt-1">${eq.type}</div>
+                      </td>
+                      <td class="p-3.5 text-center font-semibold">${eq.total} ${eq.unit}</td>
+                      <td class="p-3.5 text-center font-bold text-emerald-600">${eq.available}</td>
+                      <td class="p-3.5 text-center text-slate-500">${eq.reserved || 0} / <span class="text-rose-500">${eq.damaged || 0}</span></td>
+                      <td class="p-3.5">
+                        ${isLow 
+                          ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-medium text-[11px]">Low Stock (ขั้นต่ำ ${eq.minStock})</span>`
+                          : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium text-[11px]">Normal</span>`
+                        }
+                      </td>
+                      ${canEdit ? `
+                        <td class="p-3.5 text-right">
+                          <button onclick="openEquipmentModal('${eq.id}')" class="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50" title="แก้ไข"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                        </td>
+                      ` : ''}
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    async function seedInitialEquipments() {
+      const sampleItems = [
+        { equipmentId: 'PHY-001', name: 'Test Tube 500 ml', lab: 'Physics', type: 'Reusable', category: 'เครื่องแก้ว', spec: 'Borosilicate 500ml', unit: 'หลอด', total: 50, available: 50, reserved: 0, damaged: 0, minStock: 15, location: 'ตู้ P1 ชั้น 1', status: 'Active', image: '' },
+        { equipmentId: 'PHY-002', name: 'Beaker 250 ml', lab: 'Physics', type: 'Reusable', category: 'เครื่องแก้ว', spec: 'Glass 250ml', unit: 'ใบ', total: 35, available: 35, reserved: 0, damaged: 0, minStock: 10, location: 'ตู้ P1 ชั้น 2', status: 'Active', image: '' },
+        { equipmentId: 'PHY-003', name: 'Thermometer', lab: 'Physics', type: 'Equipment', category: 'เครื่องมือวัด', spec: '-10 to 110 °C', unit: 'อัน', total: 20, available: 20, reserved: 0, damaged: 0, minStock: 5, location: 'ลิ้นชัก P2', status: 'Active', image: '' },
+        { equipmentId: 'PHY-004', name: 'Microscope', lab: 'Physics', type: 'Equipment', category: 'ทัศนศาสตร์', spec: 'Binocular 1000x LED', unit: 'เครื่อง', total: 12, available: 12, reserved: 0, damaged: 0, minStock: 4, location: 'ตู้กันชื้น P3', status: 'Active', image: '' },
+        { equipmentId: 'CHM-001', name: 'Beaker 250 ml', lab: 'Chemistry', type: 'Reusable', category: 'เครื่องแก้ว', spec: 'Pyrex 250ml', unit: 'ใบ', total: 10, available: 6, reserved: 0, damaged: 0, minStock: 10, location: 'ตู้ C1 ชั้น 1', status: 'Active', image: '' },
+        { equipmentId: 'CHM-002', name: 'Thermometer', lab: 'Chemistry', type: 'Equipment', category: 'เครื่องมือวัด', spec: 'Digital Probe', unit: 'อัน', total: 10, available: 10, reserved: 0, damaged: 0, minStock: 5, location: 'ตู้ C2', status: 'Active', image: '' },
+        { equipmentId: 'CHM-003', name: 'กระดาษกรอง (Filter Paper)', lab: 'Chemistry', type: 'Consumable', category: 'วัสดุสิ้นเปลือง', spec: 'No.1 110mm', unit: 'กล่อง', total: 8, available: 8, reserved: 0, damaged: 0, minStock: 10, location: 'ชั้น C3', status: 'Active', image: '' },
+        { equipmentId: 'BIO-001', name: 'Microscope', lab: 'Biology', type: 'Equipment', category: 'กล้องจุลทรรศน์', spec: 'Compound 1600x', unit: 'เครื่อง', total: 15, available: 15, reserved: 0, damaged: 0, minStock: 5, location: 'ตู้ B1', status: 'Active', image: '' },
+        { equipmentId: 'PRI-001', name: 'Beaker 250 ml', lab: 'Primary', type: 'Reusable', category: 'เครื่องแก้วพลาสติก', spec: 'Polypropylene 250ml', unit: 'ใบ', total: 25, available: 25, reserved: 0, damaged: 0, minStock: 8, location: 'ตู้ PR1', status: 'Active', image: '' }
+      ];
+
+      Swal.fire({ title: 'กำลังนำเข้าข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      const batch = db.batch();
+      sampleItems.forEach(item => {
+        const ref = db.collection('equipments').doc();
+        batch.set(ref, item);
+      });
+      await batch.commit();
+      Swal.fire('สำเร็จ', 'นำเข้าข้อมูลอุปกรณ์ทั้ง 4 Labs ลง Firestore เรียบร้อยแล้ว', 'success');
+    }
+
+    function handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 360;
+          const scale = MAX_WIDTH / img.width;
+          canvas.width = img.width > MAX_WIDTH ? MAX_WIDTH : img.width;
+          canvas.height = img.width > MAX_WIDTH ? img.height * scale : img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.65);
+          document.getElementById('eqImageBase64').value = compressedBase64;
+          const prev = document.getElementById('eqImagePreview');
+          prev.src = compressedBase64;
+          prev.classList.remove('hidden');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function openEquipmentModal(docId = null) {
+      const modal = document.getElementById('equipmentModal');
+      document.getElementById('equipmentForm').reset();
+      document.getElementById('eqImagePreview').classList.add('hidden');
+      document.getElementById('eqImageBase64').value = '';
+
+      if (docId) {
+        const eq = STATE.equipments.find(e => e.id === docId);
+        document.getElementById('eqModalTitle').innerText = 'แก้ไขข้อมูลอุปกรณ์';
+        document.getElementById('eqDocId').value = eq.id;
+        document.getElementById('eqId').value = eq.equipmentId;
+        document.getElementById('eqName').value = eq.name;
+        document.getElementById('eqLab').value = eq.lab;
+        document.getElementById('eqType').value = eq.type;
+        document.getElementById('eqCategory').value = eq.category || '';
+        document.getElementById('eqSpec').value = eq.spec || '';
+        document.getElementById('eqUnit').value = eq.unit;
+        document.getElementById('eqLocation').value = eq.location || '';
+        document.getElementById('eqTotal').value = eq.total;
+        document.getElementById('eqMin').value = eq.minStock;
+        document.getElementById('eqStatus').value = eq.status;
+        if (eq.image) {
+          document.getElementById('eqImageBase64').value = eq.image;
+          const prev = document.getElementById('eqImagePreview');
+          prev.src = eq.image;
+          prev.classList.remove('hidden');
+        }
+      } else {
+        document.getElementById('eqModalTitle').innerText = 'เพิ่มรายการอุปกรณ์ใหม่';
+        document.getElementById('eqDocId').value = '';
+      }
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    document.getElementById('equipmentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const docId = document.getElementById('eqDocId').value;
+      const total = Number(document.getElementById('eqTotal').value);
+      const payload = {
+        equipmentId: document.getElementById('eqId').value.trim(),
+        name: document.getElementById('eqName').value.trim(),
+        lab: document.getElementById('eqLab').value,
+        type: document.getElementById('eqType').value,
+        category: document.getElementById('eqCategory').value.trim(),
+        spec: document.getElementById('eqSpec').value.trim(),
+        unit: document.getElementById('eqUnit').value.trim(),
+        location: document.getElementById('eqLocation').value.trim(),
+        total: total,
+        minStock: Number(document.getElementById('eqMin').value),
+        status: document.getElementById('eqStatus').value,
+        image: document.getElementById('eqImageBase64').value
+      };
+
+      try {
+        if (docId) {
+          const old = STATE.equipments.find(x => x.id === docId);
+          const diff = total - Number(old.total || 0);
+          await db.collection('equipments').doc(docId).update({
+            ...payload,
+            available: Math.max(0, Number(old.available || 0) + diff)
+          });
+        } else {
+          await db.collection('equipments').add({
+            ...payload,
+            available: total,
+            reserved: 0,
+            damaged: 0
+          });
+          await addStockMovement(payload.equipmentId, payload.name, payload.lab, 'Stock In', total, 'เพิ่มรายการอุปกรณ์ใหม่เข้าระบบ');
+        }
+        closeModal('equipmentModal');
+        Swal.fire('สำเร็จ', 'บันทึกข้อมูลอุปกรณ์ลง Firestore เรียบร้อยแล้ว', 'success');
+      } catch (err) {
+        Swal.fire('เกิดข้อผิดพลาด', err.message, 'error');
+      }
+    });
+
+    // =========================================================================
+    // 7. PAGE 3: STOCK MANAGEMENT & IMMUTABLE AUDIT LOG
+    // =========================================================================
+    function renderStockManagement(container) {
+      const allowedLabs = getUserAllowedLabs(STATE.currentUser);
+      const visibleMovements = STATE.movements.filter(m => {
+        const labOk = allowedLabs.includes(m.lab);
+        const searchOk = !STATE.searchQuery || (m.equipmentName || '').toLowerCase().includes(STATE.searchQuery) || (m.staff || '').toLowerCase().includes(STATE.searchQuery);
+        return labOk && searchOk;
+      });
+
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="text-xs text-slate-600 bg-amber-50 border border-amber-200 px-3.5 py-2 rounded-xl flex items-center gap-2">
+            <i data-lucide="lock" class="w-4 h-4 text-amber-600"></i>
+            <span><b>Immutable Audit Trail:</b> ประวัติการเคลื่อนไหว Stock ไม่สามารถแก้ไขหรือลบย้อนหลังได้</span>
+          </div>
+          <button onclick="openStockModal()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-medium shadow hover:bg-indigo-700">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i> บันทึกปรับยอด Stock
+          </button>
+        </div>
+
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                  <th class="p-3.5">วัน-เวลา (Timestamp)</th>
+                  <th class="p-3.5">Lab</th>
+                  <th class="p-3.5">อุปกรณ์</th>
+                  <th class="p-3.5">ประเภทรายการ (Action)</th>
+                  <th class="p-3.5 text-center">จำนวนเปลี่ยนแปลง</th>
+                  <th class="p-3.5">ผู้ดำเนินการ (Staff)</th>
+                  <th class="p-3.5">หมายเหตุ</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-xs">
+                ${visibleMovements.slice().reverse().map(mv => {
+                  const badgeColors = {
+                    'Stock In': 'bg-emerald-100 text-emerald-700',
+                    'Returned': 'bg-blue-100 text-blue-700',
+                    'Reserved': 'bg-purple-100 text-purple-700',
+                    'Stock Out': 'bg-amber-100 text-amber-700',
+                    'Damaged': 'bg-rose-100 text-rose-700',
+                    'Lost': 'bg-rose-200 text-rose-800',
+                    'Transferred': 'bg-indigo-100 text-indigo-700',
+                    'Stock Adjustment': 'bg-slate-200 text-slate-700'
+                  };
+                  return `
+                    <tr class="hover:bg-slate-50/60">
+                      <td class="p-3.5 font-mono text-[11px] text-slate-500">${mv.date}</td>
+                      <td class="p-3.5 font-medium">${mv.lab}</td>
+                      <td class="p-3.5 font-semibold text-slate-800">${mv.equipmentName} <span class="text-[10px] text-slate-400">(${mv.equipmentId})</span></td>
+                      <td class="p-3.5"><span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium ${badgeColors[mv.action] || 'bg-slate-100'}">${mv.action}</span></td>
+                      <td class="p-3.5 text-center font-bold ${mv.qty >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${mv.qty >= 0 ? '+' + mv.qty : mv.qty}</td>
+                      <td class="p-3.5 text-slate-600">${mv.staff}</td>
+                      <td class="p-3.5 text-slate-500">${mv.note}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function openStockModal() {
+      const allowedLabs = getUserAllowedLabs(STATE.currentUser);
+      const eqOptions = STATE.equipments
+        .filter(e => allowedLabs.includes(e.lab))
+        .map(e => `<option value="${e.id}">[${e.lab}] ${e.name} (${e.equipmentId}) - คงเหลือ ${e.available}</option>`)
+        .join('');
+      document.getElementById('stkEqSelect').innerHTML = eqOptions;
+      document.getElementById('stockForm').reset();
+      document.getElementById('transferTargetDiv').classList.add('hidden');
+      const modal = document.getElementById('stockModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function toggleTransferLab(action) {
+      document.getElementById('transferTargetDiv').classList.toggle('hidden', action !== 'Transferred');
+    }
+
+    document.getElementById('stockForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const eqId = document.getElementById('stkEqSelect').value;
+      const action = document.getElementById('stkAction').value;
+      const qty = Number(document.getElementById('stkQty').value);
+      const note = document.getElementById('stkNote').value.trim();
+      const eq = STATE.equipments.find(item => item.id === eqId);
+      if (!eq) return;
+
+      let signedQty = qty;
+      let updateFields = {};
+
+      if (action === 'Stock In') {
+        updateFields = { total: Number(eq.total) + qty, available: Number(eq.available) + qty };
+      } else if (action === 'Returned') {
+        updateFields = {
+          available: Math.min(Number(eq.total) - Number(eq.damaged || 0), Number(eq.available) + qty),
+          reserved: Math.max(0, Number(eq.reserved || 0) - qty)
+        };
+      } else if (action === 'Stock Out') {
+        if (Number(eq.available) < qty) return Swal.fire('ยอดคงเหลือไม่พอ', 'จำนวนพร้อมใช้งานไม่เพียงพอ', 'error');
+        updateFields = { total: Number(eq.total) - qty, available: Number(eq.available) - qty };
+        signedQty = -qty;
+      } else if (action === 'Damaged') {
+        if (Number(eq.available) < qty) return Swal.fire('ยอดคงเหลือไม่พอ', 'จำนวนพร้อมใช้งานไม่เพียงพอ', 'error');
+        updateFields = { available: Number(eq.available) - qty, damaged: Number(eq.damaged || 0) + qty };
+        signedQty = -qty;
+      } else if (action === 'Lost') {
+        if (Number(eq.available) < qty) return Swal.fire('ยอดคงเหลือไม่พอ', 'จำนวนพร้อมใช้งานไม่เพียงพอ', 'error');
+        updateFields = { total: Number(eq.total) - qty, available: Number(eq.available) - qty };
+        signedQty = -qty;
+      } else if (action === 'Stock Adjustment') {
+        updateFields = { total: Number(eq.total) + qty, available: Number(eq.available) + qty };
+      } else if (action === 'Transferred') {
+        const targetLab = document.getElementById('stkTargetLab').value;
+        if (targetLab === eq.lab) return Swal.fire('ผิดพลาด', 'กรุณาเลือก Lab ปลายทางที่ต่างจากต้นทาง', 'warning');
+        if (Number(eq.available) < qty) return Swal.fire('ยอดคงเหลือไม่พอ', 'จำนวนพร้อมใช้งานไม่เพียงพอสำหรับโอนย้าย', 'error');
+        updateFields = { total: Number(eq.total) - qty, available: Number(eq.available) - qty };
+        signedQty = -qty;
+
+        const destEq = STATE.equipments.find(x => x.name === eq.name && x.lab === targetLab);
+        if (destEq) {
+          await db.collection('equipments').doc(destEq.id).update({
+            total: Number(destEq.total) + qty,
+            available: Number(destEq.available) + qty
+          });
+          await addStockMovement(destEq.equipmentId, destEq.name, targetLab, 'Stock In', qty, `รับโอนย้ายจาก ${eq.lab} Lab (${note})`);
+        } else {
+          const newCode = targetLab.substring(0, 3).toUpperCase() + '-' + Math.floor(100 + Math.random() * 900);
+          await db.collection('equipments').add({
+            equipmentId: newCode,
+            name: eq.name,
+            lab: targetLab,
+            type: eq.type,
+            category: eq.category || '',
+            spec: eq.spec || '',
+            unit: eq.unit,
+            location: 'จุดรับโอนย้าย',
+            total: qty,
+            available: qty,
+            reserved: 0,
+            damaged: 0,
+            minStock: eq.minStock || 5,
+            status: 'Active',
+            image: eq.image || ''
+          });
+          await addStockMovement(newCode, eq.name, targetLab, 'Stock In', qty, `รับโอนย้ายจาก ${eq.lab} Lab (${note})`);
+        }
+      }
+
+      await db.collection('equipments').doc(eq.id).update(updateFields);
+      await addStockMovement(eq.equipmentId, eq.name, eq.lab, action, signedQty, note);
+      closeModal('stockModal');
+      Swal.fire('บันทึกสำเร็จ', 'ปรับปรุงยอด Stock และบันทึกประวัติเรียบร้อยแล้ว', 'success');
+    });
+
+    async function addStockMovement(equipmentId, equipmentName, lab, action, qty, note) {
+      const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      await db.collection('movements').add({
+        timestamp: Date.now(),
+        date: now,
+        equipmentId,
+        equipmentName,
+        lab,
+        action,
+        qty,
+        staff: STATE.currentUser ? STATE.currentUser.name : 'System',
+        note
+      });
+    }
+
+    // =========================================================================
+    // 8. TEACHER REQUEST CREATION (WITH OVERLAP VALIDATION)
+    // =========================================================================
+    let draftRequestItems = [];
+
+    function renderNewRequest(container) {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      container.innerHTML = `
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="glass-card rounded-2xl p-5 lg:col-span-2 space-y-4">
+            <h3 class="font-bold text-slate-800 border-b pb-3">รายละเอียดการขอใช้ห้องปฏิบัติการและอุปกรณ์</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">ห้องปฏิบัติการ (Lab) *</label>
+                <select id="reqLab" onchange="draftRequestItems=[]; updateAvailableEquipmentDropdown();" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white">
+                  <option value="Physics">Physics Lab (ฟิสิกส์)</option>
+                  <option value="Chemistry">Chemistry Lab (เคมี)</option>
+                  <option value="Biology">Biology Lab (ไบโอ)</option>
+                  <option value="Primary">Primary Lab</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">ชื่อการทดลอง / หัวข้อสอน *</label>
+                <input type="text" id="reqExperiment" placeholder="เช่น การศึกษาเซลล์พืชด้วยกล้องจุลทรรศน์" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">วันที่ใช้งาน *</label>
+                <input type="date" id="reqDate" value="${todayStr}" onchange="updateAvailableEquipmentDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white" />
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">เวลาเริ่ม *</label>
+                  <input type="time" id="reqStart" value="09:00" onchange="updateAvailableEquipmentDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">เวลาสิ้นสุด *</label>
+                  <input type="time" id="reqEnd" value="10:00" onchange="updateAvailableEquipmentDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white" />
+                </div>
+              </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-indigo-50/60 border border-indigo-100 space-y-3">
+              <div class="text-xs font-semibold text-indigo-900">เลือกอุปกรณ์ (ระบบคำนวณจำนวนที่ว่างในช่วงเวลาที่เลือกอัตโนมัติ)</div>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <select id="reqEqDropdown" class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
+                <input type="number" id="reqEqQty" min="1" value="1" class="w-24 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+                <button type="button" onclick="addDraftItem()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700">+ เพิ่มรายการ</button>
+              </div>
+            </div>
+
+            <div id="draftItemsList" class="space-y-2"></div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-5 flex flex-col justify-between">
+            <div class="space-y-3">
+              <h4 class="font-bold text-slate-800">สรุปคำขอเบิกอุปกรณ์</h4>
+              <div class="text-xs text-slate-500 space-y-1.5 bg-slate-50 p-3 rounded-xl">
+                <div><b>ผู้ขอเบิก:</b> ${STATE.currentUser.name}</div>
+                <div><b>เงื่อนไขการยกเลิก:</b> ครูสามารถยกเลิกคำขอได้ด้วยตนเองตราบใดที่สถานะยังเป็น <i>Pending</i></div>
+                <div><b>การป้องกันจองซ้ำ:</b> ระบบหักลบยอดที่อนุมัติแล้วในช่วงเวลาคาบเกี่ยวอัตโนมัติ</div>
+              </div>
+            </div>
+            <button onclick="submitNewRequest()" class="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-sm shadow-lg hover:opacity-95">
+              ส่งคำขอเบิกอุปกรณ์
+            </button>
+          </div>
+        </div>
+      `;
+      updateAvailableEquipmentDropdown();
+      renderDraftItems();
+    }
+
+    function updateAvailableEquipmentDropdown() {
+      const lab = document.getElementById('reqLab').value;
+      const date = document.getElementById('reqDate').value;
+      const start = document.getElementById('reqStart').value;
+      const end = document.getElementById('reqEnd').value;
+
+      const options = STATE.equipments
+        .filter(e => e.lab === lab && e.status === 'Active')
+        .map(e => {
+          const slotAvail = getAvailableForTimeSlot(e.id, date, start, end);
+          return `<option value="${e.id}">${e.name} (${e.type}) — ว่างช่วงเวลานี้: ${slotAvail} ${e.unit}</option>`;
+        }).join('');
+      document.getElementById('reqEqDropdown').innerHTML = options || '<option value="">ไม่มีอุปกรณ์ใน Lab นี้</option>';
+    }
+
+    function addDraftItem() {
+      const eqDocId = document.getElementById('reqEqDropdown').value;
+      const qty = Number(document.getElementById('reqEqQty').value);
+      const date = document.getElementById('reqDate').value;
+      const start = document.getElementById('reqStart').value;
+      const end = document.getElementById('reqEnd').value;
+
+      if (!eqDocId || qty <= 0) return;
+      const eq = STATE.equipments.find(e => e.id === eqDocId);
+      const slotAvail = getAvailableForTimeSlot(eqDocId, date, start, end);
+
+      if (qty > slotAvail) {
+        return Swal.fire('จำนวนเกินกว่าที่ว่างในช่วงเวลานี้', `อุปกรณ์ ${eq.name} มีจำนวนว่างในช่วง ${start}-${end} เพียง ${slotAvail} ${eq.unit}`, 'warning');
+      }
+
+      const existing = draftRequestItems.find(i => i.eqDocId === eqDocId);
+      if (existing) {
+        if (existing.requestedQty + qty > slotAvail) return Swal.fire('เกินจำนวนว่าง', 'ยอดรวมเกินจำนวนที่ว่างในช่วงเวลานี้', 'warning');
+        existing.requestedQty += qty;
+      } else {
+        draftRequestItems.push({
+          eqDocId: eq.id,
+          equipmentId: eq.equipmentId,
+          name: eq.name,
+          type: eq.type,
+          requestedQty: qty,
+          approvedQty: 0,
+          itemStatus: 'Pending',
+          alternativeNote: ''
+        });
+      }
+      renderDraftItems();
+    }
+
+    function renderDraftItems() {
+      const box = document.getElementById('draftItemsList');
+      if (!box) return;
+      if (draftRequestItems.length === 0) {
+        box.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">ยังไม่ได้เพิ่มรายการอุปกรณ์</p>`;
+        return;
+      }
+      box.innerHTML = draftRequestItems.map((item, idx) => `
+        <div class="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200 text-xs">
+          <div>
+            <span class="font-bold text-slate-800">${item.name}</span>
+            <span class="text-[11px] text-slate-400 ml-2">(${item.type})</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="font-semibold text-indigo-600">จำนวน: ${item.requestedQty}</span>
+            <button onclick="draftRequestItems.splice(${idx}, 1); renderDraftItems();" class="text-rose-500 hover:underline">ลบ</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function submitNewRequest() {
+      const lab = document.getElementById('reqLab').value;
+      const experiment = document.getElementById('reqExperiment').value.trim();
+      const useDate = document.getElementById('reqDate').value;
+      const startTime = document.getElementById('reqStart').value;
+      const endTime = document.getElementById('reqEnd').value;
+
+      if (!experiment || !useDate || !startTime || !endTime || draftRequestItems.length === 0) {
+        return Swal.fire('ข้อมูลไม่ครบถ้วน', 'กรุณากรอกชื่อการทดลอง วันเวลา และเพิ่มอุปกรณ์อย่างน้อย 1 รายการ', 'warning');
+      }
+      if (startTime >= endTime) {
+        return Swal.fire('ช่วงเวลาไม่ถูกต้อง', 'เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น', 'warning');
+      }
+
+      const reqId = 'LAB-' + String(STATE.requests.length + 1).padStart(3, '0');
+      const newReq = {
+        id: reqId,
+        teacherName: STATE.currentUser.name,
+        teacherEmail: STATE.currentUser.email,
+        lab,
+        experiment,
+        useDate,
+        startTime,
+        endTime,
+        status: 'Pending',
+        createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        approvedBy: '',
+        approvalDate: '',
+        staffRemarks: '',
+        items: JSON.parse(JSON.stringify(draftRequestItems))
+      };
+
+      await db.collection('requests').add(newReq);
+      draftRequestItems = [];
+      Swal.fire('ส่งคำขอสำเร็จ', `รหัสคำขอของคุณคือ ${reqId}`, 'success');
+      navigateTo('my-requests');
+    }
+
+    // =========================================================================
+    // 9. TEACHER / USAGE HISTORY & CANCELLATION SYSTEM
+    // =========================================================================
+    function renderMyRequests(container) {
+      const isTeacher = STATE.currentUser.role === 'Teacher';
+      const list = STATE.requests.filter(r => {
+        const ownerOk = !isTeacher || r.teacherEmail === STATE.currentUser.email;
+        const searchOk = !STATE.searchQuery || (r.id || '').toLowerCase().includes(STATE.searchQuery) || (r.teacherName || '').toLowerCase().includes(STATE.searchQuery) || (r.experiment || '').toLowerCase().includes(STATE.searchQuery);
+        return ownerOk && searchOk;
+      });
+
+      container.innerHTML = `
+        <div class="space-y-4">
+          ${list.length === 0 ? '<div class="glass-card rounded-2xl p-8 text-center text-xs text-slate-400">ยังไม่มีประวัติคำขอเบิกอุปกรณ์</div>' : list.slice().reverse().map(req => `
+            <div class="glass-card rounded-2xl p-5">
+              <div class="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono font-bold text-indigo-700 text-sm">${req.id}</span>
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getStatusBadge(req.status)}">${req.status}</span>
+                    <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px]">${req.lab} Lab</span>
+                  </div>
+                  <h4 class="font-bold text-slate-800 text-sm mt-1">${req.experiment}</h4>
+                  <p class="text-xs text-slate-500">ครูผู้ขอ: ${req.teacherName} • วันที่ใช้: <b>${req.useDate}</b> เวลา <b>${req.startTime} - ${req.endTime}</b></p>
+                </div>
+                <div class="flex items-center gap-2">
+                  ${req.status === 'Pending' ? `
+                    <button onclick="cancelRequest('${req.docId}')" class="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-medium">
+                      ยกเลิกคำขอ
+                    </button>
+                  ` : ''}
+                  ${['Approved', 'Partial'].includes(req.status) && STATE.currentUser.role !== 'Teacher' ? `
+                    <button onclick="markRequestReturned('${req.docId}')" class="px-3 py-1.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-xs font-medium">
+                      บันทึกคืนอุปกรณ์ครบแล้ว
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+
+              <div class="mt-3 overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="text-slate-400 border-b border-slate-100">
+                      <th class="py-1.5">อุปกรณ์</th>
+                      <th class="py-1.5">ประเภท</th>
+                      <th class="py-1.5 text-center">ขอเบิก</th>
+                      <th class="py-1.5 text-center">อนุมัติจริง</th>
+                      <th class="py-1.5">สถานะรายการ / อุปกรณ์ทดแทน</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-50">
+                    ${(req.items || []).map(it => `
+                      <tr>
+                        <td class="py-2 font-medium text-slate-700">${it.name}</td>
+                        <td class="py-2 text-slate-500">${it.type}</td>
+                        <td class="py-2 text-center">${it.requestedQty}</td>
+                        <td class="py-2 text-center font-bold text-emerald-600">${it.approvedQty}</td>
+                        <td class="py-2">
+                          <span class="font-medium">${it.itemStatus}</span>
+                          ${it.alternativeNote ? `<span class="text-indigo-600 ml-1">(ทดแทน: ${it.alternativeNote})</span>` : ''}
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+
+              ${req.approvedBy ? `
+                <div class="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-500 flex flex-wrap justify-between">
+                  <span>ดำเนินการโดย: <b>${req.approvedBy}</b> (${req.approvalDate})</span>
+                  <span>หมายเหตุ: ${req.staffRemarks || '-'}</span>
+                </div>
+              ` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function cancelRequest(docId) {
+      const req = STATE.requests.find(r => r.docId === docId);
+      if (req.status !== 'Pending') {
+        return Swal.fire('ไม่สามารถยกเลิกได้', 'เจ้าหน้าที่ได้ดำเนินการเตรียมอุปกรณ์แล้ว กรุณาติดต่อเจ้าหน้าที่ Lab', 'warning');
+      }
+      Swal.fire({
+        title: 'ยืนยันการยกเลิกคำขอ?',
+        text: `คำขอ ${req.id} จะถูกยกเลิกและบันทึกประวัติผู้ยกเลิก`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'ยืนยันยกเลิก',
+        cancelButtonText: 'ปิด'
+      }).then(async res => {
+        if (res.isConfirmed) {
+          await db.collection('requests').doc(docId).update({
+            status: 'Cancelled',
+            approvedBy: `ยกเลิกโดย ${STATE.currentUser.name}`,
+            approvalDate: new Date().toISOString().slice(0, 16).replace('T', ' ')
+          });
+          Swal.fire('ยกเลิกสำเร็จ', 'ยกเลิกคำขอเรียบร้อยแล้ว', 'success');
+        }
+      });
+    }
+
+    async function markRequestReturned(docId) {
+      const req = STATE.requests.find(r => r.docId === docId);
+      for (const it of (req.items || [])) {
+        if (it.approvedQty > 0 && it.type !== 'Consumable' && it.type !== 'Chemical') {
+          const eq = STATE.equipments.find(e => e.id === it.eqDocId);
+          if (eq) {
+            await db.collection('equipments').doc(eq.id).update({
+              reserved: Math.max(0, Number(eq.reserved || 0) - Number(it.approvedQty)),
+              available: Math.min(Number(eq.total) - Number(eq.damaged || 0), Number(eq.available) + Number(it.approvedQty))
+            });
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Returned', it.approvedQty, `รับคืนอุปกรณ์จากคำขอ ${req.id}`);
+          }
+        }
+      }
+      await db.collection('requests').doc(docId).update({ status: 'Returned' });
+      Swal.fire('รับคืนสำเร็จ', 'คืนยอดอุปกรณ์กลับเข้าสู่คลังพร้อมใช้งานแล้ว', 'success');
+    }
+
+    // =========================================================================
+    // 10. PAGE 6: LAB STAFF APPROVAL DASHBOARD
+    // =========================================================================
+    let activeApprovalDocId = null;
+
+    function renderStaffApprovals(container) {
+      const allowedLabs = getUserAllowedLabs(STATE.currentUser);
+      const list = STATE.requests.filter(r => {
+        const labOk = allowedLabs.includes(r.lab);
+        const searchOk = !STATE.searchQuery || (r.id || '').toLowerCase().includes(STATE.searchQuery) || (r.teacherName || '').toLowerCase().includes(STATE.searchQuery);
+        return labOk && searchOk;
+      });
+
+      container.innerHTML = `
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="p-4 bg-indigo-50/60 border-b border-indigo-100 flex items-center justify-between">
+            <span class="text-xs font-semibold text-indigo-900">รายการคำขอเบิกอุปกรณ์ (${allowedLabs.join(', ')})</span>
+            <span class="text-[11px] text-indigo-600">รองรับการอนุมัติรายชิ้น / บางส่วน / เสนออุปกรณ์ทดแทน</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                  <th class="p-3.5">Request ID</th>
+                  <th class="p-3.5">ครูผู้ขอ (Teacher)</th>
+                  <th class="p-3.5">Lab</th>
+                  <th class="p-3.5">วันที่-เวลาใช้งาน</th>
+                  <th class="p-3.5">สถานะ</th>
+                  <th class="p-3.5 text-right">ดำเนินการ</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-xs">
+                ${list.length === 0 ? '<tr><td colspan="6" class="p-6 text-center text-slate-400">ไม่มีรายการคำขอเบิกในขณะนี้</td></tr>' : list.slice().reverse().map(req => `
+                  <tr class="hover:bg-slate-50">
+                    <td class="p-3.5 font-mono font-bold text-indigo-700">${req.id}</td>
+                    <td class="p-3.5">
+                      <div class="font-semibold text-slate-800">${req.teacherName}</div>
+                      <div class="text-[11px] text-slate-500">${req.experiment}</div>
+                    </td>
+                    <td class="p-3.5"><span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">${req.lab}</span></td>
+                    <td class="p-3.5">${req.useDate}<br><span class="text-slate-400">${req.startTime} - ${req.endTime}</span></td>
+                    <td class="p-3.5"><span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getStatusBadge(req.status)}">${req.status}</span></td>
+                    <td class="p-3.5 text-right">
+                      <button onclick="openApprovalModal('${req.docId}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium">
+                        ตรวจสอบ / อนุมัติ
+                      </button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function openApprovalModal(docId) {
+      activeApprovalDocId = docId;
+      const req = STATE.requests.find(r => r.docId === docId);
+      document.getElementById('appModalMeta').innerText = `${req.id} | ${req.teacherName} | ${req.lab} Lab | วันที่ ${req.useDate} (${req.startTime}-${req.endTime})`;
+      document.getElementById('appStaffRemarks').value = req.staffRemarks || '';
+
+      const html = (req.items || []).map((it, idx) => {
+        const slotAvail = getAvailableForTimeSlot(it.eqDocId, req.useDate, req.startTime, req.endTime, req.id);
+        const suggestedQty = Math.min(it.requestedQty, slotAvail);
+        return `
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span class="font-bold text-slate-800 text-sm">${it.name}</span>
+                <span class="text-xs text-slate-500 ml-2">ขอเบิก: <b>${it.requestedQty}</b> | ว่างในช่วงเวลานี้: <b class="${slotAvail < it.requestedQty ? 'text-rose-600' : 'text-emerald-600'}">${slotAvail}</b></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <select id="itemAct_${idx}" onchange="handleItemActionChange(${idx}, ${suggestedQty})" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white">
+                  <option value="Approved" ${slotAvail >= it.requestedQty ? 'selected' : ''}>Approve (อนุมัติ)</option>
+                  <option value="Partial" ${slotAvail > 0 && slotAvail < it.requestedQty ? 'selected' : ''}>Partial Approval (อนุมัติบางส่วน)</option>
+                  <option value="Rejected" ${slotAvail === 0 ? 'selected' : ''}>Reject (ไม่อนุมัติ/ของหมด)</option>
+                  <option value="Alternative">Alternative (เสนออุปกรณ์ทดแทน)</option>
+                </select>
+                <input type="number" id="itemQty_${idx}" min="0" max="${slotAvail}" value="${suggestedQty}" class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white" />
+              </div>
+            </div>
+            <input type="text" id="itemAlt_${idx}" value="${it.alternativeNote || ''}" placeholder="ระบุอุปกรณ์ทดแทนหรือเหตุผล (ถ้ามี)..." class="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white" />
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('approvalItemsContainer').innerHTML = html;
+      const modal = document.getElementById('approvalModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function handleItemActionChange(idx, suggestedQty) {
+      const act = document.getElementById(`itemAct_${idx}`).value;
+      const qtyInput = document.getElementById(`itemQty_${idx}`);
+      if (act === 'Rejected' || act === 'Alternative') qtyInput.value = 0;
+      else qtyInput.value = suggestedQty;
+    }
+
+    async function submitStaffApproval() {
+      const req = STATE.requests.find(r => r.docId === activeApprovalDocId);
+      const updatedItems = JSON.parse(JSON.stringify(req.items || []));
+      let anyApproved = false;
+      let allApproved = true;
+
+      for (let idx = 0; idx < updatedItems.length; idx++) {
+        const it = updatedItems[idx];
+        const act = document.getElementById(`itemAct_${idx}`).value;
+        const appQty = Number(document.getElementById(`itemQty_${idx}`).value);
+        const altNote = document.getElementById(`itemAlt_${idx}`).value.trim();
+
+        const slotAvail = getAvailableForTimeSlot(it.eqDocId, req.useDate, req.startTime, req.endTime, req.id);
+        if (appQty > slotAvail) {
+          return Swal.fire('ป้องกันการจองซ้ำซ้อน', `อุปกรณ์ ${it.name} มีจำนวนว่างในช่วงเวลานี้สูงสุด ${slotAvail} ชิ้น ไม่สามารถอนุมัติเกินได้`, 'error');
+        }
+
+        const eq = STATE.equipments.find(e => e.id === it.eqDocId);
+        let curTotal = Number(eq.total || 0);
+        let curAvail = Number(eq.available || 0);
+        let curRes = Number(eq.reserved || 0);
+
+        if (it.approvedQty > 0 && eq) {
+          if (eq.type === 'Consumable' || eq.type === 'Chemical') {
+            curTotal += Number(it.approvedQty);
+            curAvail += Number(it.approvedQty);
+          } else {
+            curRes = Math.max(0, curRes - Number(it.approvedQty));
+            curAvail += Number(it.approvedQty);
+          }
+        }
+
+        it.itemStatus = act;
+        it.approvedQty = appQty;
+        it.alternativeNote = altNote;
+
+        if (appQty > 0 && eq) {
+          anyApproved = true;
+          if (appQty < it.requestedQty) allApproved = false;
+
+          if (eq.type === 'Consumable' || eq.type === 'Chemical') {
+            curTotal -= appQty;
+            curAvail -= appQty;
+            await db.collection('equipments').doc(eq.id).update({ total: curTotal, available: curAvail });
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Stock Out', -appQty, `เบิกใช้สิ้นเปลืองตามคำขอ ${req.id}`);
+          } else {
+            curRes += appQty;
+            curAvail = Math.max(0, curAvail - appQty);
+            await db.collection('equipments').doc(eq.id).update({ reserved: curRes, available: curAvail });
+            await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Reserved', -appQty, `อนุมัติจองตามคำขอ ${req.id}`);
+          }
+        } else {
+          allApproved = false;
+        }
+      }
+
+      const finalStatus = !anyApproved ? 'Rejected' : (allApproved ? 'Approved' : 'Partial');
+      await db.collection('requests').doc(req.docId).update({
+        items: updatedItems,
+        status: finalStatus,
+        approvedBy: STATE.currentUser.name,
+        approvalDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        staffRemarks: document.getElementById('appStaffRemarks').value.trim()
+      });
+
+      closeModal('approvalModal');
+      Swal.fire('บันทึกการอนุมัติสำเร็จ', `สถานะคำขอ ${req.id}: ${finalStatus}`, 'success');
+    }
+
+    // =========================================================================
+    // 11. PAGE 5: PURCHASE / PROCUREMENT MANAGEMENT
+    // =========================================================================
+    function renderProcurement(container) {
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="text-xs text-slate-600">จัดการคำขอจัดซื้ออุปกรณ์แยกจากคลังสินค้าจริง เพื่อวางแผนงบประมาณและติดตามการรับของ</div>
+          <button onclick="openPurchaseModal()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-medium shadow hover:bg-indigo-700">
+            <i data-lucide="plus" class="w-4 h-4"></i> สร้างรายการขอจัดซื้อ
+          </button>
+        </div>
+
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                  <th class="p-3.5">รหัส / วันที่</th>
+                  <th class="p-3.5">อุปกรณ์ & Lab</th>
+                  <th class="p-3.5 text-center">จำนวนขอซื้อ</th>
+                  <th class="p-3.5">เหตุผล & ผู้จำหน่าย</th>
+                  <th class="p-3.5">สถานะจัดซื้อ (Status)</th>
+                  <th class="p-3.5 text-right">อัปเดตสถานะ</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-xs">
+                ${STATE.purchases.length === 0 ? '<tr><td colspan="6" class="p-6 text-center text-slate-400">ยังไม่มีรายการขอจัดซื้อ</td></tr>' : STATE.purchases.slice().reverse().map(pr => `
+                  <tr class="hover:bg-slate-50">
+                    <td class="p-3.5 font-mono text-[11px]"><b>${pr.id}</b><br><span class="text-slate-400">${pr.requestDate}</span></td>
+                    <td class="p-3.5">
+                      <div class="font-bold text-slate-800">${pr.equipmentName}</div>
+                      <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px]">${pr.lab} Lab</span>
+                    </td>
+                    <td class="p-3.5 text-center font-bold text-indigo-700">${pr.qty} ${pr.unit}</td>
+                    <td class="p-3.5">
+                      <div class="text-slate-700">${pr.reason}</div>
+                      <div class="text-[11px] text-slate-400">งบประมาณ: ${Number(pr.price || 0).toLocaleString()} บ. | ผู้ขาย: ${pr.supplier || '-'}</div>
+                    </td>
+                    <td class="p-3.5"><span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">${pr.status}</span></td>
+                    <td class="p-3.5 text-right">
+                      <select onchange="updatePurchaseStatus('${pr.docId}', this.value)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white">
+                        ${['Pending', 'Submitted for Approval', 'Approved', 'Ordered', 'Partially Received', 'Received', 'Cancelled'].map(st => `
+                          <option value="${st}" ${pr.status === st ? 'selected' : ''}>${st}</option>
+                        `).join('')}
+                      </select>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function openPurchaseModal(prefill = null) {
+      document.getElementById('purchaseForm').reset();
+      if (prefill) {
+        document.getElementById('prEqName').value = prefill.name;
+        document.getElementById('prLab').value = prefill.lab;
+        document.getElementById('prQty').value = Math.max(1, Number(prefill.minStock) - Number(prefill.available) + 5);
+        document.getElementById('prUnit').value = prefill.unit;
+        document.getElementById('prReason').value = `Low Stock (คงเหลือ ${prefill.available} / ขั้นต่ำ ${prefill.minStock})`;
+      }
+      const modal = document.getElementById('purchaseModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function createPurchaseFromLowStock(eqDocId) {
+      const eq = STATE.equipments.find(e => e.id === eqDocId);
+      navigateTo('procurement');
+      openPurchaseModal(eq);
+    }
+
+    document.getElementById('purchaseForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await db.collection('purchases').add({
+        id: 'PR-' + String(STATE.purchases.length + 1).padStart(3, '0'),
+        equipmentName: document.getElementById('prEqName').value.trim(),
+        lab: document.getElementById('prLab').value,
+        qty: Number(document.getElementById('prQty').value),
+        unit: document.getElementById('prUnit').value.trim(),
+        price: Number(document.getElementById('prPrice').value || 0),
+        supplier: document.getElementById('prSupplier').value.trim(),
+        reason: document.getElementById('prReason').value.trim(),
+        requestedBy: STATE.currentUser.name,
+        requestDate: new Date().toISOString().slice(0, 10),
+        status: 'Pending',
+        receivedDate: ''
+      });
+      closeModal('purchaseModal');
+      Swal.fire('บันทึกสำเร็จ', 'สร้างคำขอจัดซื้อเรียบร้อยแล้ว', 'success');
+    });
+
+    async function updatePurchaseStatus(docId, newStatus) {
+      const pr = STATE.purchases.find(p => p.docId === docId);
+      const updateData = { status: newStatus };
+      if (newStatus === 'Received' && pr.status !== 'Received') {
+        updateData.receivedDate = new Date().toISOString().slice(0, 10);
+        const eq = STATE.equipments.find(e => e.name.toLowerCase() === pr.equipmentName.toLowerCase() && e.lab === pr.lab);
+        if (eq) {
+          await db.collection('equipments').doc(eq.id).update({
+            total: Number(eq.total) + Number(pr.qty),
+            available: Number(eq.available) + Number(pr.qty)
+          });
+          await addStockMovement(eq.equipmentId, eq.name, eq.lab, 'Stock In', pr.qty, `รับเข้าจากการจัดซื้อ ${pr.id}`);
+        }
+      }
+      await db.collection('purchases').doc(docId).update(updateData);
+      Swal.fire('อัปเดตสถานะแล้ว', `สถานะ ${pr.id} เปลี่ยนเป็น ${newStatus}`, 'success');
+    }
+
+    // =========================================================================
+    // 12. PAGE 4: REPORTS & EXPORT (EXCEL, CSV, PDF/PRINT)
+    // =========================================================================
+    let currentReportType = 'Equipment Inventory';
+    let currentReportLab = 'All';
+
+    function renderReports(container) {
+      const reportTypes = [
+        'Equipment Inventory', 'Request Report', 'Equipment Usage', 'Stock Movement',
+        'Low Stock Report', 'Damaged Equipment', 'Purchase Report', 'Unavailable Report',
+        'Teacher Usage Report', 'Lab Usage Report'
+      ];
+
+      const rows = generateReportRows(currentReportType, currentReportLab);
+
+      container.innerHTML = `
+        <div class="glass-card rounded-2xl p-5 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 no-print">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">ประเภทรายงาน (10 Reports)</label>
+              <select onchange="currentReportType=this.value; renderCurrentPage(); lucide.createIcons();" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium">
+                ${reportTypes.map(r => `<option value="${r}" ${currentReportType === r ? 'selected' : ''}>${r}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">กรองตามห้อง Lab</label>
+              <select onchange="currentReportLab=this.value; renderCurrentPage(); lucide.createIcons();" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+                <option value="All" ${currentReportLab === 'All' ? 'selected' : ''}>รวมทุก Lab (All Labs)</option>
+                <option value="Primary" ${currentReportLab === 'Primary' ? 'selected' : ''}>Primary Lab</option>
+                <option value="Physics" ${currentReportLab === 'Physics' ? 'selected' : ''}>Physics Lab</option>
+                <option value="Chemistry" ${currentReportLab === 'Chemistry' ? 'selected' : ''}>Chemistry Lab</option>
+                <option value="Biology" ${currentReportLab === 'Biology' ? 'selected' : ''}>Biology Lab</option>
+              </select>
+            </div>
+            <div class="md:col-span-2 flex flex-wrap items-end justify-end gap-2">
+              <button onclick="exportReportExcel()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Export Excel (.xlsx)
+              </button>
+              <button onclick="exportReportCSV()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">
+                <i data-lucide="file-text" class="w-4 h-4"></i> Export CSV
+              </button>
+              <button onclick="window.print()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-700 text-white text-xs font-medium hover:bg-slate-800">
+                <i data-lucide="printer" class="w-4 h-4"></i> Print / PDF
+              </button>
+            </div>
+          </div>
+
+          <div class="pt-2 border-t border-slate-100">
+            <h4 class="font-bold text-sm text-slate-800 mb-3">รายงาน: ${currentReportType} (${currentReportLab === 'All' ? 'ทุกห้อง Lab' : currentReportLab + ' Lab'})</h4>
+            ${rows.length === 0 ? '<p class="text-xs text-slate-400 py-6 text-center">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</p>' : `
+              <div class="overflow-x-auto">
+                <table id="reportTable" class="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600">
+                      ${Object.keys(rows[0]).map(k => `<th class="p-3">${k}</th>`).join('')}
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    ${rows.map(row => `
+                      <tr>
+                        ${Object.values(row).map(v => `<td class="p-3">${v}</td>`).join('')}
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `}
+          </div>
+        </div>
+      `;
+    }
+
+    function generateReportRows(type, labFilter) {
+      const byLab = (itemLab) => labFilter === 'All' || itemLab === labFilter;
+
+      switch (type) {
+        case 'Equipment Inventory':
+          return STATE.equipments.filter(e => byLab(e.lab)).map(e => ({
+            'รหัส': e.equipmentId, 'ชื่ออุปกรณ์': e.name, 'Lab': e.lab, 'ประเภท': e.type,
+            'ทั้งหมด': e.total, 'พร้อมใช้': e.available, 'จอง': e.reserved || 0, 'เสีย': e.damaged || 0, 'ขั้นต่ำ': e.minStock
+          }));
+        case 'Low Stock Report':
+          return STATE.equipments.filter(e => byLab(e.lab) && Number(e.available) <= Number(e.minStock)).map(e => ({
+            'รหัส': e.equipmentId, 'ชื่ออุปกรณ์': e.name, 'Lab': e.lab, 'คงเหลือ': e.available, 'ขั้นต่ำ': e.minStock, 'สถานะ': 'Low Stock'
+          }));
+        case 'Damaged Equipment':
+          return STATE.equipments.filter(e => byLab(e.lab) && Number(e.damaged || 0) > 0).map(e => ({
+            'รหัส': e.equipmentId, 'ชื่ออุปกรณ์': e.name, 'Lab': e.lab, 'จำนวนที่เสีย': e.damaged, 'หน่วย': e.unit
+          }));
+        case 'Request Report':
+          return STATE.requests.filter(r => byLab(r.lab)).map(r => ({
+            'Request ID': r.id, 'ครูผู้ขอ': r.teacherName, 'Lab': r.lab, 'การทดลอง': r.experiment, 'วันที่ใช้': r.useDate, 'สถานะ': r.status
+          }));
+        case 'Stock Movement':
+          return STATE.movements.filter(m => byLab(m.lab)).map(m => ({
+            'วัน-เวลา': m.date, 'Lab': m.lab, 'อุปกรณ์': m.equipmentName, 'Action': m.action, 'จำนวน': m.qty, 'ผู้บันทึก': m.staff
+          }));
+        case 'Purchase Report':
+          return STATE.purchases.filter(p => byLab(p.lab)).map(p => ({
+            'รหัส': p.id, 'อุปกรณ์': p.equipmentName, 'Lab': p.lab, 'จำนวนขอซื้อ': p.qty, 'งบประมาณ': p.price, 'สถานะ': p.status
+          }));
+        case 'Equipment Usage':
+          const usage = [];
+          STATE.requests.filter(r => byLab(r.lab)).forEach(r => {
+            (r.items || []).forEach(it => usage.push({
+              'Request ID': r.id, 'วันที่ใช้': r.useDate, 'Lab': r.lab, 'อุปกรณ์': it.name, 'ขอเบิก': it.requestedQty, 'อนุมัติ': it.approvedQty
+            }));
+          });
+          return usage;
+        case 'Unavailable Report':
+          const unavail = [];
+          STATE.requests.filter(r => byLab(r.lab)).forEach(r => {
+            (r.items || []).filter(it => it.approvedQty < it.requestedQty && r.status !== 'Pending').forEach(it => unavail.push({
+              'Request ID': r.id, 'Lab': r.lab, 'อุปกรณ์': it.name, 'ขอเบิก': it.requestedQty, 'ได้รับจริง': it.approvedQty, 'ขาดจำนวน': it.requestedQty - it.approvedQty
+            }));
+          });
+          return unavail;
+        case 'Teacher Usage Report':
+          const tMap = {};
+          STATE.requests.filter(r => byLab(r.lab)).forEach(r => {
+            tMap[r.teacherName] = (tMap[r.teacherName] || 0) + 1;
+          });
+          return Object.entries(tMap).map(([teacher, count]) => ({ 'ชื่อครูผู้สอน': teacher, 'จำนวนคำขอทั้งหมด': count }));
+        case 'Lab Usage Report':
+          return ['Primary', 'Physics', 'Chemistry', 'Biology'].map(l => ({
+            'ห้องปฏิบัติการ': l + ' Lab',
+            'จำนวนรายการอุปกรณ์': STATE.equipments.filter(e => e.lab === l).length,
+            'จำนวนคำขอเบิก': STATE.requests.filter(r => r.lab === l).length
+          }));
+      }
+    }
+
+    function exportReportExcel() {
+      const rows = generateReportRows(currentReportType, currentReportLab);
+      if (!rows.length) return Swal.fire('ไม่มีข้อมูล', 'ไม่พบข้อมูลสำหรับส่งออก', 'info');
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Report");
+      XLSX.writeFile(wb, `IPSLab_${currentReportType.replace(/\s+/g, '_')}.xlsx`);
+    }
+
+    function exportReportCSV() {
+      const rows = generateReportRows(currentReportType, currentReportLab);
+      if (!rows.length) return Swal.fire('ไม่มีข้อมูล', 'ไม่พบข้อมูลสำหรับส่งออก', 'info');
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `IPSLab_${currentReportType.replace(/\s+/g, '_')}.csv`;
+      link.click();
+    }
+
+    // =========================================================================
+    // 13. USER & ROLE MANAGEMENT (FIRESTORE COLLECTION: "user")
+    // =========================================================================
+    function renderUsersAdmin(container) {
+      container.innerHTML = `
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+            <h4 class="font-bold text-sm text-slate-800">รายชื่อผู้ใช้งานและสิทธิ์การเข้าถึง (Firestore Collection: user)</h4>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 font-semibold text-slate-500">
+                  <th class="p-3.5">ชื่อผู้ใช้งาน</th>
+                  <th class="p-3.5">อีเมล</th>
+                  <th class="p-3.5">บทบาท (Role)</th>
+                  <th class="p-3.5">สิทธิ์ดูแลห้อง Lab (สำหรับ Lab Staff)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${STATE.users.map(u => `
+                  <tr>
+                    <td class="p-3.5 font-semibold text-slate-800">${u.name || '-'}</td>
+                    <td class="p-3.5 text-slate-500">${u.email || '-'}</td>
+                    <td class="p-3.5">
+                      <select onchange="updateUserRole('${u.uid}', this.value)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white">
+                        ${['Teacher', 'Lab Staff', 'Admin', 'Super Admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}
+                      </select>
+                    </td>
+                    <td class="p-3.5">
+                      <div class="flex flex-wrap gap-3">
+                        ${['Primary', 'Physics', 'Chemistry', 'Biology'].map(labName => {
+                          const checked = u[labName] === true || u[labName] === 'true' || u[labName] === 'Yes' || u[labName] === '1';
+                          return `
+                            <label class="inline-flex items-center gap-1 cursor-pointer">
+                              <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleUserLabField('${u.uid}', '${labName}', this.checked)" class="rounded text-indigo-600" />
+                              <span>${labName}</span>
+                            </label>
+                          `;
+                        }).join('')}
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    async function updateUserRole(uid, role) {
+      await db.collection('user').doc(uid).update({ role });
+      Swal.fire('บันทึกสำเร็จ', 'อัปเดตสิทธิ์ผู้ใช้งานใน Firestore เรียบร้อยแล้ว', 'success');
+    }
+
+    async function toggleUserLabField(uid, labName, isChecked) {
+      await db.collection('user').doc(uid).update({ [labName]: isChecked });
+      Swal.fire('บันทึกสำเร็จ', `อัปเดตสิทธิ์ห้อง ${labName} Lab เรียบร้อยแล้ว`, 'success');
+    }
+
+    // =========================================================================
+    // 14. HELPERS & INIT
+    // =========================================================================
+    function getStatusBadge(status) {
+      const map = {
+        'Pending': 'bg-amber-100 text-amber-700',
+        'Approved': 'bg-emerald-100 text-emerald-700',
+        'Partial': 'bg-blue-100 text-blue-700',
+        'Rejected': 'bg-rose-100 text-rose-700',
+        'Cancelled': 'bg-slate-200 text-slate-600',
+        'Returned': 'bg-indigo-100 text-indigo-700'
+      };
+      return map[status] || 'bg-slate-100 text-slate-700';
+    }
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    lucide.createIcons();
+  </script>
+</body>
+</html>
