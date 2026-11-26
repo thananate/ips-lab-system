@@ -58,7 +58,7 @@
             <thead>
               <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
                 <th class="p-3.5">PR ID / Date</th>
-                <th class="p-3.5">Equipment & Lab</th>
+                <th class="p-3.5">Equipment & Lab / Room</th>
                 <th class="p-3.5 text-center">Requested Qty</th>
                 <th class="p-3.5">Budget & Supplier</th>
                 <th class="p-3.5">Justification & Requester</th>
@@ -87,13 +87,8 @@
             <input type="text" id="prEqName" required placeholder="e.g., Beaker 250 ml" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Laboratory *</label>
-            <select id="prLab" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
-              <option value="Primary">Primary Lab</option>
-              <option value="Physics">Physics Lab</option>
-              <option value="Chemistry">Chemistry Lab</option>
-              <option value="Biology">Biology Lab</option>
-            </select>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Laboratory / Room *</label>
+            <select id="prLab" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Quantity to Order *</label>
@@ -137,10 +132,16 @@
       subtitle: 'Manage equipment purchase requests separately from active inventory',
       allowedRoles: ['Lab Staff', 'Admin', 'Super Admin'],
       onReady: () => {
+        populateDynamicLabDropdown();
         renderLowStockBanner();
         renderTable();
       }
     });
+
+    function populateDynamicLabDropdown() {
+      const allLabs = getAllLabNames();
+      document.getElementById('prLab').innerHTML = allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
+    }
 
     function renderLowStockBanner() {
       const allowedLabs = getUserAllowedLabs(window.IPS.user);
@@ -181,7 +182,7 @@
         const labOk = allowedLabs.includes(p.lab);
         const stOk = statusFilter === 'All'
           || (statusFilter === 'Open' ? ['Pending', 'Submitted for Approval', 'Approved', 'Partially Received'].includes(p.status) : p.status === statusFilter);
-        const searchOk = !q || (p.id || '').toLowerCase().includes(q) || (p.equipmentName || '').toLowerCase().includes(q) || (p.supplier || '').toLowerCase().includes(q);
+        const searchOk = !q || (p.id || '').toLowerCase().includes(q) || (p.equipmentName || '').toLowerCase().includes(q) || (p.supplier || '').toLowerCase().includes(q) || (p.lab || '').toLowerCase().includes(q);
         return labOk && stOk && searchOk;
       });
 
@@ -209,7 +210,7 @@
           </td>
           <td class="p-3.5">
             <div class="font-bold text-slate-800">${pr.equipmentName}</div>
-            <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-medium">${pr.lab} Lab</span>
+            <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-medium">${pr.lab}</span>
           </td>
           <td class="p-3.5 text-center font-bold text-indigo-700">${pr.qty} ${pr.unit}</td>
           <td class="p-3.5">
@@ -235,6 +236,7 @@
     }
 
     function openPurchaseModal(prefillEqDocId = null) {
+      populateDynamicLabDropdown();
       document.getElementById('purchaseForm').reset();
       if (prefillEqDocId) {
         const eq = window.IPS.equipments.find(e => e.id === prefillEqDocId);
@@ -243,6 +245,7 @@
           document.getElementById('prLab').value = eq.lab;
           document.getElementById('prQty').value = Math.max(1, Number(eq.minStock) - Number(eq.available) + 5);
           document.getElementById('prUnit').value = eq.unit;
+          document.getElementById('prSupplier').value = eq.supplier || '';
           document.getElementById('prReason').value = `Low stock replenishment (Current: ${eq.available}, Min: ${eq.minStock})`;
         }
       }
