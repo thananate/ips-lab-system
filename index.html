@@ -89,15 +89,29 @@
       <!-- KPI Summary -->
       <div id="kpiRow" class="grid grid-cols-2 lg:grid-cols-4 gap-4"></div>
 
-      <!-- Analytics Chart & Low Stock Alerts -->
+      <!-- Analytics Chart & Alerts (Low Stock + Expiry Alerts) -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="glass-card rounded-2xl p-5 lg:col-span-2">
           <h4 class="font-bold text-sm text-slate-800 mb-3">Equipment Distribution by Laboratory (4 Labs)</h4>
-          <div class="h-60"><canvas id="labChart"></canvas></div>
+          <div class="h-72"><canvas id="labChart"></canvas></div>
         </div>
-        <div class="glass-card rounded-2xl p-5">
-          <h4 class="font-bold text-sm text-rose-600 mb-3 flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Low Stock Alerts</h4>
-          <div id="lowStockBox" class="space-y-2 max-h-60 overflow-y-auto"></div>
+
+        <div class="space-y-4">
+          <!-- Low Stock Alerts -->
+          <div class="glass-card rounded-2xl p-5">
+            <h4 class="font-bold text-sm text-rose-600 mb-3 flex items-center gap-1.5">
+              <i data-lucide="alert-triangle" class="w-4 h-4"></i> Low Stock Alerts
+            </h4>
+            <div id="lowStockBox" class="space-y-2 max-h-36 overflow-y-auto"></div>
+          </div>
+
+          <!-- Chemical Expiry Alerts -->
+          <div class="glass-card rounded-2xl p-5">
+            <h4 class="font-bold text-sm text-amber-700 mb-3 flex items-center gap-1.5">
+              <i data-lucide="calendar-clock" class="w-4 h-4 text-amber-600"></i> Expiry Alerts (≤ 60 Days)
+            </h4>
+            <div id="expiryAlertBox" class="space-y-2 max-h-36 overflow-y-auto"></div>
+          </div>
         </div>
       </div>
     </main>
@@ -138,13 +152,24 @@
           name,
           email,
           role: 'Teacher',
-          Primary: '', Physics: '', Chemistry: '', Biology: ''
+          Primary: false, Physics: false, Chemistry: false, Biology: false
         });
         Swal.fire('Welcome!', 'Your Teacher account has been created.', 'success');
       } catch (err) {
         Swal.fire('Registration Failed', err.message, 'error');
       }
     });
+
+    function getExpiryInfo(expiryDate) {
+      if (!expiryDate) return null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const exp = new Date(expiryDate);
+      const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) return { state: 'expired', label: `Expired (${expiryDate})` };
+      if (diffDays <= 60) return { state: 'soon', label: `Expires in ${diffDays}d (${expiryDate})` };
+      return null;
+    }
 
     let chartObj = null;
 
@@ -168,7 +193,7 @@
           { href: 'stock.html', title: '3. Inventory & Stock', desc: 'Manage equipment across 4 labs and audit immutable stock movement logs', icon: 'boxes', color: 'purple', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
           { href: 'purchase.html', title: '4. Procurement (Purchase)', desc: 'Create purchase requisitions, track PO status, and receive incoming stock', icon: 'shopping-cart', color: 'amber', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
           { href: 'report.html', title: '5. Analytics & Reports', desc: 'Generate 10 specialized reports and export to Excel (.xlsx), CSV, or PDF', icon: 'bar-chart-3', color: 'indigo', roles: ['Admin', 'Super Admin'] },
-          { href: 'admin.html', title: '6. User Management', desc: 'Assign user roles (RBAC) and laboratory permissions in Firestore', icon: 'users', color: 'rose', roles: ['Admin', 'Super Admin'] }
+          { href: 'admin.html', title: '6. User Management', desc: 'Assign user roles (RBAC) and Teacher laboratory permissions', icon: 'users', color: 'rose', roles: ['Super Admin'] }
         ];
 
         document.getElementById('directoryCards').innerHTML = cards
@@ -185,13 +210,14 @@
           `).join('');
 
         const lowItems = window.IPS.equipments.filter(e => Number(e.available) <= Number(e.minStock) && e.status === 'Active');
+        const expiringItems = window.IPS.equipments.filter(e => e.status === 'Active' && getExpiryInfo(e.expiryDate) !== null);
         const pendingReqs = window.IPS.requests.filter(r => r.status === 'Pending');
 
         document.getElementById('kpiRow').innerHTML = `
           <div class="glass-card rounded-2xl p-4"><div class="text-xs text-slate-500">Total Equipment SKUs</div><div class="text-2xl font-bold mt-1">${window.IPS.equipments.length} <span class="text-xs font-normal text-slate-400">items</span></div></div>
           <div class="glass-card rounded-2xl p-4"><div class="text-xs text-slate-500">Pending Requests</div><div class="text-2xl font-bold text-amber-600 mt-1">${pendingReqs.length} <span class="text-xs font-normal text-slate-400">requests</span></div></div>
           <div class="glass-card rounded-2xl p-4"><div class="text-xs text-slate-500">Low Stock Alerts</div><div class="text-2xl font-bold text-rose-600 mt-1">${lowItems.length} <span class="text-xs font-normal text-slate-400">items</span></div></div>
-          <div class="glass-card rounded-2xl p-4"><div class="text-xs text-slate-500">Open Purchase Orders</div><div class="text-2xl font-bold text-indigo-600 mt-1">${window.IPS.purchases.filter(p => p.status !== 'Received').length} <span class="text-xs font-normal text-slate-400">orders</span></div></div>
+          <div class="glass-card rounded-2xl p-4"><div class="text-xs text-slate-500">Expiring / Expired Items</div><div class="text-2xl font-bold text-amber-700 mt-1">${expiringItems.length} <span class="text-xs font-normal text-slate-400">items</span></div></div>
         `;
 
         document.getElementById('lowStockBox').innerHTML = lowItems.length === 0
@@ -199,9 +225,22 @@
           : lowItems.map(i => `
               <div class="p-2.5 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-between text-xs">
                 <div><b>${i.name}</b> (${i.lab})<br><span class="text-rose-600">Available: ${i.available} / Min: ${i.minStock}</span></div>
-                <a href="purchase.html" class="px-2 py-1 rounded-lg bg-rose-600 text-white text-[11px]">Order</a>
+                ${['Lab Staff', 'Admin', 'Super Admin'].includes(user.role) ? `<a href="purchase.html" class="px-2 py-1 rounded-lg bg-rose-600 text-white text-[11px]">Order</a>` : ''}
               </div>
             `).join('');
+
+        document.getElementById('expiryAlertBox').innerHTML = expiringItems.length === 0
+          ? '<p class="text-xs text-slate-400">No chemicals expiring within 60 days.</p>'
+          : expiringItems.map(i => {
+              const info = getExpiryInfo(i.expiryDate);
+              const isExp = info.state === 'expired';
+              return `
+                <div class="p-2.5 rounded-xl ${isExp ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200'} border flex items-center justify-between text-xs">
+                  <div><b>${i.name}</b> (${i.lab})<br><span class="${isExp ? 'text-rose-700 font-semibold' : 'text-amber-800'}">${info.label}</span></div>
+                  <a href="stock.html" class="px-2 py-1 rounded-lg ${isExp ? 'bg-rose-600' : 'bg-amber-600'} text-white text-[11px]">Inspect</a>
+                </div>
+              `;
+            }).join('');
 
         const labs = ['Primary', 'Physics', 'Chemistry', 'Biology'];
         if (chartObj) chartObj.destroy();
