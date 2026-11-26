@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPS Lab System | Equipment Request</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f0f4ff 0%, #f5f3ff 50%, #eef2ff 100%); min-height: 100vh; }
+    .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.7); box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.08); }
+  </style>
+</head>
+<body class="text-slate-800 antialiased">
+
+  <div class="min-h-screen flex flex-col lg:flex-row">
+    <aside id="sharedSidebar" class="bg-white/95 border-r border-slate-200/80 w-full lg:w-64 flex-shrink-0 flex flex-col justify-between"></aside>
+    <main class="flex-1 p-4 md:p-8 space-y-6">
+      <div id="sharedHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
+
+      <!-- NEW REQUISITION FORM -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="glass-card rounded-2xl p-6 lg:col-span-2 space-y-4">
+          <h3 class="font-bold text-slate-800 border-b border-slate-100 pb-3 text-sm">Create New Equipment Requisition</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Laboratory *</label>
+              <select id="reqLab" onchange="draftItems=[]; updateDropdown();" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+                <option value="Primary">Primary Lab</option>
+                <option value="Physics">Physics Lab</option>
+                <option value="Chemistry">Chemistry Lab</option>
+                <option value="Biology">Biology Lab</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Experiment / Class Topic *</label>
+              <input type="text" id="reqExperiment" placeholder="e.g., Acid-Base Titration Grade 11" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Usage Date *</label>
+              <input type="date" id="reqDate" onchange="updateDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Start Time *</label>
+                <input type="time" id="reqStart" value="09:00" onchange="updateDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">End Time *</label>
+                <input type="time" id="reqEnd" value="10:30" onchange="updateDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-2.5">
+            <div class="text-xs font-semibold text-indigo-900">Select Equipment (Real-time Time-Slot Availability Check)</div>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <select id="reqEqDropdown" class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
+              <input type="number" id="reqEqQty" min="1" value="1" class="w-24 px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+              <button type="button" onclick="addDraftItem()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700">+ Add Item</button>
+            </div>
+          </div>
+
+          <div id="draftList" class="space-y-2"></div>
+        </div>
+
+        <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+          <div class="space-y-3">
+            <h4 class="font-bold text-slate-800 text-sm">Requisition Guidelines</h4>
+            <ul class="text-xs text-slate-500 space-y-2 bg-slate-50 p-3.5 rounded-xl list-disc list-inside">
+              <li><b>Overlap Protection:</b> System automatically deducts quantities already approved for overlapping time slots.</li>
+              <li><b>Cancellation Policy:</b> You can cancel a request while its status is still <i>Pending</i>.</li>
+              <li><b>Consumables:</b> Deducted permanently upon approval. Reusable items must be returned after class.</li>
+            </ul>
+          </div>
+          <button onclick="submitRequest()" class="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-xs shadow-md hover:opacity-95">
+            Submit Equipment Request
+          </button>
+        </div>
+      </div>
+
+      <!-- MY REQUISITION HISTORY -->
+      <div class="glass-card rounded-2xl p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <h3 class="font-bold text-slate-800 text-sm">My Request & Usage History</h3>
+          <input type="text" id="searchHistory" onkeyup="renderHistory()" placeholder="Search Request ID or Experiment..." class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs w-64" />
+        </div>
+        <div id="historyContainer" class="space-y-3"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="firebase-core.js"></script>
+  <script>
+    let draftItems = [];
+    document.getElementById('reqDate').value = new Date().toISOString().slice(0, 10);
+
+    initIPSPage({
+      activePage: 'request',
+      title: 'Equipment Requisition',
+      subtitle: 'Book laboratory equipment with automatic time-slot conflict prevention',
+      allowedRoles: ['Teacher', 'Admin', 'Super Admin'],
+      onReady: () => {
+        updateDropdown();
+        renderDraftList();
+        renderHistory();
+      }
+    });
+
+    function updateDropdown() {
+      const lab = document.getElementById('reqLab').value;
+      const date = document.getElementById('reqDate').value;
+      const start = document.getElementById('reqStart').value;
+      const end = document.getElementById('reqEnd').value;
+
+      const opts = window.IPS.equipments
+        .filter(e => e.lab === lab && e.status === 'Active')
+        .map(e => {
+          const avail = getAvailableForTimeSlot(e.id, date, start, end);
+          return `<option value="${e.id}">${e.name} (${e.type}) — Available in slot: ${avail} ${e.unit}</option>`;
+        }).join('');
+      document.getElementById('reqEqDropdown').innerHTML = opts || '<option value="">No active equipment in this lab</option>';
+    }
+
+    function addDraftItem() {
+      const eqDocId = document.getElementById('reqEqDropdown').value;
+      const qty = Number(document.getElementById('reqEqQty').value);
+      const date = document.getElementById('reqDate').value;
+      const start = document.getElementById('reqStart').value;
+      const end = document.getElementById('reqEnd').value;
+
+      if (!eqDocId || qty <= 0) return;
+      const eq = window.IPS.equipments.find(e => e.id === eqDocId);
+      const avail = getAvailableForTimeSlot(eqDocId, date, start, end);
+
+      if (qty > avail) {
+        return Swal.fire('Insufficient Availability', `Only ${avail} ${eq.unit} of ${eq.name} available during ${start} - ${end}.`, 'warning');
+      }
+
+      const exist = draftItems.find(i => i.eqDocId === eqDocId);
+      if (exist) {
+        if (exist.requestedQty + qty > avail) return Swal.fire('Limit Exceeded', 'Total requested exceeds slot availability.', 'warning');
+        exist.requestedQty += qty;
+      } else {
+        draftItems.push({
+          eqDocId: eq.id,
+          equipmentId: eq.equipmentId,
+          name: eq.name,
+          type: eq.type,
+          requestedQty: qty,
+          approvedQty: 0,
+          itemStatus: 'Pending',
+          alternativeNote: ''
+        });
+      }
+      renderDraftList();
+    }
+
+    function renderDraftList() {
+      const box = document.getElementById('draftList');
+      if (draftItems.length === 0) {
+        box.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">No items added yet.</p>';
+        return;
+      }
+      box.innerHTML = draftItems.map((it, idx) => `
+        <div class="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200 text-xs">
+          <div><b>${it.name}</b> <span class="text-slate-400 ml-1">(${it.type})</span></div>
+          <div class="flex items-center gap-3">
+            <span class="font-semibold text-indigo-600">Qty: ${it.requestedQty}</span>
+            <button onclick="draftItems.splice(${idx},1); renderDraftList();" class="text-rose-500 hover:underline">Remove</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function submitRequest() {
+      const lab = document.getElementById('reqLab').value;
+      const experiment = document.getElementById('reqExperiment').value.trim();
+      const useDate = document.getElementById('reqDate').value;
+      const startTime = document.getElementById('reqStart').value;
+      const endTime = document.getElementById('reqEnd').value;
+
+      if (!experiment || !useDate || !startTime || !endTime || draftItems.length === 0) {
+        return Swal.fire('Incomplete Form', 'Please fill in all fields and add at least one item.', 'warning');
+      }
+      if (startTime >= endTime) {
+        return Swal.fire('Invalid Time Range', 'End time must be later than start time.', 'warning');
+      }
+
+      const reqId = 'LAB-' + String(window.IPS.requests.length + 1).padStart(3, '0');
+      await db.collection('requests').add({
+        id: reqId,
+        teacherName: window.IPS.user.name,
+        teacherEmail: window.IPS.user.email,
+        lab,
+        experiment,
+        useDate,
+        startTime,
+        endTime,
+        status: 'Pending',
+        createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        approvedBy: '',
+        approvalDate: '',
+        staffRemarks: '',
+        items: draftItems
+      });
+
+      draftItems = [];
+      document.getElementById('reqExperiment').value = '';
+      renderDraftList();
+      Swal.fire('Request Submitted', `Your Request ID is ${reqId}`, 'success');
+    }
+
+    function renderHistory() {
+      const q = (document.getElementById('searchHistory').value || '').toLowerCase();
+      const isTeacher = window.IPS.user.role === 'Teacher';
+      const list = window.IPS.requests.filter(r => {
+        const ownerOk = !isTeacher || r.teacherEmail === window.IPS.user.email;
+        const match = !q || (r.id || '').toLowerCase().includes(q) || (r.experiment || '').toLowerCase().includes(q);
+        return ownerOk && match;
+      });
+
+      const badgeMap = {
+        'Pending': 'bg-amber-100 text-amber-700',
+        'Approved': 'bg-emerald-100 text-emerald-700',
+        'Partial': 'bg-blue-100 text-blue-700',
+        'Rejected': 'bg-rose-100 text-rose-700',
+        'Cancelled': 'bg-slate-200 text-slate-600',
+        'Returned': 'bg-indigo-100 text-indigo-700'
+      };
+
+      document.getElementById('historyContainer').innerHTML = list.length === 0
+        ? '<p class="text-xs text-slate-400 text-center py-4">No requisition records found.</p>'
+        : list.slice().reverse().map(r => `
+          <div class="p-4 rounded-xl border border-slate-200 bg-white/80 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span class="font-mono font-bold text-indigo-700 text-xs">${r.id}</span>
+                <span class="ml-2 px-2 py-0.5 rounded-full text-[10px] font-semibold ${badgeMap[r.status] || 'bg-slate-100'}">${r.status}</span>
+                <span class="ml-1 px-2 py-0.5 rounded bg-purple-50 text-purple-700 text-[10px]">${r.lab} Lab</span>
+                <div class="font-bold text-slate-800 text-xs mt-1">${r.experiment}</div>
+                <div class="text-[11px] text-slate-500">Date: <b>${r.useDate}</b> | Time: <b>${r.startTime} - ${r.endTime}</b></div>
+              </div>
+              ${r.status === 'Pending' ? `<button onclick="cancelReq('${r.docId}', '${r.id}')" class="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-medium">Cancel Request</button>` : ''}
+            </div>
+            <div class="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg space-y-1">
+              ${(r.items || []).map(i => `<div>• <b>${i.name}</b>: Requested ${i.requestedQty} | Approved: <b class="text-emerald-600">${i.approvedQty}</b> (${i.itemStatus}) ${i.alternativeNote ? `<span class="text-indigo-600">[Alt: ${i.alternativeNote}]</span>` : ''}</div>`).join('')}
+            </div>
+            ${r.approvedBy ? `<div class="text-[10px] text-slate-400">Processed by: ${r.approvedBy} (${r.approvalDate}) — Remarks: ${r.staffRemarks || '-'}</div>` : ''}
+          </div>
+        `).join('');
+    }
+
+    function cancelReq(docId, reqId) {
+      Swal.fire({
+        title: `Cancel ${reqId}?`,
+        text: 'This action will cancel your pending requisition.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Cancel'
+      }).then(async res => {
+        if (res.isConfirmed) {
+          await db.collection('requests').doc(docId).update({
+            status: 'Cancelled',
+            approvedBy: `Cancelled by ${window.IPS.user.name}`,
+            approvalDate: new Date().toISOString().slice(0, 16).replace('T', ' ')
+          });
+          Swal.fire('Cancelled', 'Your request has been cancelled.', 'success');
+        }
+      });
+    }
+  </script>
+</body>
+</html>
