@@ -38,7 +38,7 @@
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Usage Date *</label>
-              <input type="date" id="reqDate" onchange="handleSmartSearch()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
+              <input type="date" id="reqDate" onchange="onDateChanged()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
@@ -95,7 +95,7 @@
             <h4 class="font-bold text-slate-800 text-sm">Requisition & Return Guidelines</h4>
             <ul class="text-xs text-slate-500 space-y-2 bg-slate-50 p-3.5 rounded-xl list-disc list-inside">
               <li><b>Quick Search:</b> Type 3+ characters to search existing lab inventory by name, formula, or SKU.</li>
-              <li><b>Special / Fresh Specimens:</b> Need items not kept in stock (e.g., pig heart, frogs, fresh leaves)? Type the name or click <b>"+ Request Special / Fresh Item"</b>.</li>
+              <li><b>Special / Unlisted Items (3-Day Notice):</b> For items not in stock (e.g., pig heart, frogs), please request at least <b>3 days in advance</b> to allow procurement time.</li>
               <li><b>Post-Use Return:</b> Click <b>"Notify Return / Report Damage"</b> in your history after class to notify Lab Staff.</li>
             </ul>
           </div>
@@ -125,7 +125,10 @@
         </h3>
         <button onclick="closeCustomModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
-      <form id="customItemForm" class="mt-4 space-y-3">
+      <div class="mt-3 p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-[11px] text-blue-900">
+        <b>Procurement Policy:</b> Please place orders for unlisted/fresh items at least <b>3 days in advance</b> before the usage date.
+      </div>
+      <form id="customItemForm" class="mt-3 space-y-3">
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Item / Specimen Name *</label>
           <input type="text" id="custName" required placeholder="e.g., หัวใจหมู (Pig Heart), กบ (Frog), ใบชบา" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
@@ -203,6 +206,30 @@
         renderHistory();
       }
     });
+
+    function getAdvanceDays(useDateStr) {
+      if (!useDateStr) return 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const target = new Date(useDateStr);
+      target.setHours(0, 0, 0, 0);
+      return Math.round((target - today) / (1000 * 60 * 60 * 24));
+    }
+
+    async function onDateChanged() {
+      handleSmartSearch();
+      renderDraftList();
+      const hasCustom = draftItems.some(i => i.isCustom);
+      const useDate = document.getElementById('reqDate').value;
+      if (hasCustom && getAdvanceDays(useDate) < 3) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Advance Notice Reminder',
+          text: 'For future orders of unlisted equipment, please place your request at least 3 days in advance to allow time for procurement.',
+          confirmButtonText: 'Acknowledge & Continue'
+        });
+      }
+    }
 
     function onLabChanged() {
       draftItems = [];
@@ -289,7 +316,6 @@
         `;
       }).join('');
 
-      // Always append option to add custom / non-stock item (e.g., หัวใจหมู, กบ)
       html += `
         <div onclick="openCustomItemModal('${rawQuery.replace(/'/g, "\\'")}')" class="p-3 bg-amber-50/80 hover:bg-amber-100/80 cursor-pointer transition flex items-center justify-between text-xs text-amber-900">
           <div class="flex items-center gap-2">
@@ -424,7 +450,7 @@
       renderDraftList();
     }
 
-    // ==================== CUSTOM / NON-STOCK ITEM MODAL ====================
+    // ==================== CUSTOM / NON-STOCK ITEM MODAL (WITH 3-DAY ADVANCE POPUP) ====================
     function openCustomItemModal(prefillName = '') {
       document.getElementById('searchResultsDropdown').classList.add('hidden');
       document.getElementById('customItemForm').reset();
@@ -441,12 +467,28 @@
       m.classList.remove('flex');
     }
 
-    document.getElementById('customItemForm').addEventListener('submit', (e) => {
+    document.getElementById('customItemForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = document.getElementById('custName').value.trim();
       const qty = Number(document.getElementById('custQty').value);
       const unit = document.getElementById('custUnit').value.trim();
       const note = document.getElementById('custNote').value.trim();
+      const useDate = document.getElementById('reqDate').value;
+      const advanceDays = getAdvanceDays(useDate);
+
+      closeCustomModal();
+
+      if (advanceDays < 3) {
+        const res = await Swal.fire({
+          icon: 'warning',
+          title: '3-Day Advance Procurement Notice',
+          text: 'For future orders of unlisted equipment, please place your request at least 3 days in advance to allow time for procurement.',
+          showCancelButton: true,
+          confirmButtonText: 'Continue & Add Item',
+          cancelButtonText: 'Cancel'
+        });
+        if (!res.isConfirmed) return;
+      }
 
       draftItems.push({
         isCustom: true,
@@ -462,13 +504,15 @@
         alternativeNote: ''
       });
 
-      closeCustomModal();
       clearSearchInput();
       renderDraftList();
     });
 
     function renderDraftList() {
       const box = document.getElementById('draftList');
+      const useDate = document.getElementById('reqDate').value;
+      const isShortNotice = getAdvanceDays(useDate) < 3;
+
       if (draftItems.length === 0) {
         box.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">No items added yet. Search above or add a custom item.</p>';
         return;
@@ -477,6 +521,7 @@
         <div class="flex items-center justify-between p-3 rounded-xl ${it.isCustom ? 'bg-amber-50/70 border-amber-200' : 'bg-white border-slate-200'} border text-xs">
           <div>
             ${it.isCustom ? `<span class="px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 text-[10px] font-bold mr-1.5">SPECIAL / NON-STOCK</span>` : ''}
+            ${it.isCustom && isShortNotice ? `<span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 text-[10px] font-semibold mr-1.5">Short Notice (&lt;3 days)</span>` : ''}
             <b>${it.name}</b>
             ${it.spec ? `<span class="text-slate-500 ml-1">[${it.spec}]</span>` : ''}
           </div>
@@ -503,6 +548,9 @@
         return Swal.fire('Invalid Time Range', 'End time must be later than start time.', 'warning');
       }
 
+      const hasCustom = draftItems.some(i => i.isCustom);
+      const isShortNotice = hasCustom && getAdvanceDays(useDate) < 3;
+
       const reqId = 'LAB-' + String(window.IPS.requests.length + 1).padStart(3, '0');
       await db.collection('requests').add({
         id: reqId,
@@ -514,6 +562,7 @@
         startTime,
         endTime,
         status: 'Pending',
+        shortNoticeCustom: isShortNotice,
         createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
         approvedBy: '',
         approvalDate: '',
