@@ -33,15 +33,9 @@
         <div id="expiryAlertList" class="flex flex-wrap gap-2"></div>
       </div>
 
-      <!-- LAB FILTER & ACTION BUTTONS -->
+      <!-- DYNAMIC LAB FILTER & ACTION BUTTONS -->
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex flex-wrap gap-1.5 bg-white/80 p-1.5 rounded-2xl border border-slate-200/70">
-          <button onclick="activeLab='All'; renderAll();" class="lab-btn px-3.5 py-1.5 rounded-xl text-xs font-medium bg-indigo-600 text-white" data-lab="All">All Labs</button>
-          <button onclick="activeLab='Primary'; renderAll();" class="lab-btn px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-lab="Primary">Primary Lab</button>
-          <button onclick="activeLab='Physics'; renderAll();" class="lab-btn px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-lab="Physics">Physics Lab</button>
-          <button onclick="activeLab='Chemistry'; renderAll();" class="lab-btn px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-lab="Chemistry">Chemistry Lab</button>
-          <button onclick="activeLab='Biology'; renderAll();" class="lab-btn px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-lab="Biology">Biology Lab</button>
-        </div>
+        <div id="dynamicLabFilterBar" class="flex flex-wrap gap-1.5 bg-white/80 p-1.5 rounded-2xl border border-slate-200/70"></div>
 
         <div class="flex flex-wrap items-center gap-2">
           <input type="text" id="searchInput" onkeyup="renderAll()" placeholder="Search SKU, Name, Formula, Brand..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-60" />
@@ -92,7 +86,7 @@
             <thead>
               <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
                 <th class="p-3.5">Timestamp</th>
-                <th class="p-3.5">Lab</th>
+                <th class="p-3.5">Lab / Room</th>
                 <th class="p-3.5">Item</th>
                 <th class="p-3.5">Action</th>
                 <th class="p-3.5 text-center">Qty Change</th>
@@ -118,13 +112,8 @@
         <input type="hidden" id="eqDocId" />
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Laboratory *</label>
-            <select id="eqLab" onchange="onLabSelectChange()" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
-              <option value="Primary">Primary Lab</option>
-              <option value="Physics">Physics Lab</option>
-              <option value="Chemistry">Chemistry Lab</option>
-              <option value="Biology">Biology Lab</option>
-            </select>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Laboratory / Room *</label>
+            <select id="eqLab" onchange="onLabSelectChange()" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Auto-Generated SKU *</label>
@@ -132,7 +121,7 @@
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Item Name *</label>
-            <input type="text" id="eqName" required placeholder="e.g., Hydrochloric Acid or Beaker" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+            <input type="text" id="eqName" required placeholder="e.g., Hydrochloric Acid or Geometric Solids" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Chemical Formula (Optional)</label>
@@ -140,15 +129,15 @@
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Category</label>
-            <input type="text" id="eqCategory" placeholder="e.g., Glassware, Liquid / Solution, Optics" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+            <input type="text" id="eqCategory" placeholder="e.g., Glassware, Liquid / Solution, Math Manipulatives" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Specification (Size / Concentration)</label>
-            <input type="text" id="eqSpec" placeholder="e.g., 0.1M (500 ml/bottle) or 250 ml" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+            <input type="text" id="eqSpec" placeholder="e.g., 0.1M (500 ml/bottle) or 3D Acrylic Set" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Brand / Manufacturer</label>
-            <input type="text" id="eqBrand" placeholder="e.g., Pyrex, Merck, Olympus, Sigma" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+            <input type="text" id="eqBrand" placeholder="e.g., Pyrex, Merck, Olympus, Learning Resources" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Supplier / Vendor Company</label>
@@ -156,11 +145,11 @@
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Unit *</label>
-            <input type="text" id="eqUnit" required placeholder="e.g., pcs, bottles, ml, boxes" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+            <input type="text" id="eqUnit" required placeholder="e.g., pcs, bottles, sets, boxes" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Storage Location</label>
-            <input type="text" id="eqLocation" placeholder="e.g., Chemical Cabinet C2, Shelf 1" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+            <input type="text" id="eqLocation" placeholder="e.g., Cabinet M1, Shelf 2" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Expiry Date (Optional for Chemicals)</label>
@@ -254,13 +243,8 @@
           </div>
         </div>
         <div id="transferDiv" class="hidden">
-          <label class="block text-xs font-medium text-slate-600 mb-1">Destination Lab *</label>
-          <select id="stkTargetLab" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
-            <option value="Primary">Primary Lab</option>
-            <option value="Physics">Physics Lab</option>
-            <option value="Chemistry">Chemistry Lab</option>
-            <option value="Biology">Biology Lab</option>
-          </select>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Destination Room *</label>
+          <select id="stkTargetLab" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"></select>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Remarks / Reference *</label>
@@ -288,13 +272,29 @@
         if (isStaffOrAdmin) {
           document.getElementById('btnRecordStock').classList.remove('hidden');
         }
+        populateDynamicLabDropdowns();
         renderAll();
       }
     });
 
+    function populateDynamicLabDropdowns() {
+      const allLabs = getAllLabNames();
+      const optionsHtml = allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
+      document.getElementById('eqLab').innerHTML = optionsHtml;
+      document.getElementById('stkTargetLab').innerHTML = optionsHtml;
+    }
+
     function generateNextSKU(lab) {
-      const prefixMap = { 'Primary': 'PRI', 'Physics': 'PHY', 'Chemistry': 'CHM', 'Biology': 'BIO' };
-      const prefix = prefixMap[lab] || 'LAB';
+      const customPrefixMap = {
+        'Primary': 'PRI',
+        'Physics': 'PHY',
+        'Chemistry': 'CHM',
+        'Biology': 'BIO',
+        'Mathematics Resource': 'MAT'
+      };
+      const cleaned = (lab || 'LAB').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      const prefix = customPrefixMap[lab] || (cleaned.slice(0, 3) || 'LAB');
+
       let maxNum = 0;
       window.IPS.equipments.forEach(e => {
         if ((e.equipmentId || '').startsWith(prefix + '-')) {
@@ -357,20 +357,24 @@
     function renderAll() {
       const user = window.IPS.user;
       const isAdmin = ['Admin', 'Super Admin'].includes(user.role);
+      const allLabs = getAllLabNames();
 
-      document.querySelectorAll('.lab-btn').forEach(b => {
-        if (b.dataset.lab === activeLab) {
-          b.classList.add('bg-indigo-600', 'text-white');
-          b.classList.remove('text-slate-600');
-        } else {
-          b.classList.remove('bg-indigo-600', 'text-white');
-          b.classList.add('text-slate-600');
-        }
-      });
+      // Render Dynamic Lab Filter Buttons
+      const filterBar = document.getElementById('dynamicLabFilterBar');
+      const filterButtons = ['All', ...allLabs];
+      filterBar.innerHTML = filterButtons.map(lab => {
+        const isAct = activeLab === lab;
+        const label = lab === 'All' ? 'All Rooms' : lab;
+        return `
+          <button onclick="activeLab='${lab.replace(/'/g, "\\'")}'; renderAll();" class="px-3.5 py-1.5 rounded-xl text-xs font-medium transition ${isAct ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}">
+            ${label}
+          </button>
+        `;
+      }).join('');
 
       let btnHtml = '';
       if (isAdmin && window.IPS.equipments.length === 0) {
-        btnHtml += `<button onclick="seedSampleData()" class="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 flex items-center gap-1.5"><i data-lucide="database" class="w-3.5 h-3.5"></i> Seed 4 Labs Sample</button>`;
+        btnHtml += `<button onclick="seedSampleData()" class="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 flex items-center gap-1.5"><i data-lucide="database" class="w-3.5 h-3.5"></i> Seed Sample Items</button>`;
       }
       if (isAdmin) {
         btnHtml += `<button onclick="openEqModal()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium hover:opacity-95 flex items-center gap-1.5"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Equipment</button>`;
@@ -417,7 +421,7 @@
       document.getElementById('eqCountBadge').innerText = `${filtered.length} items`;
 
       document.getElementById('eqTbody').innerHTML = filtered.length === 0
-        ? `<tr><td colspan="8" class="p-8 text-center text-slate-400">No items found. Click "Add Equipment" or "Seed 4 Labs Sample" to populate inventory.</td></tr>`
+        ? `<tr><td colspan="8" class="p-8 text-center text-slate-400">No items found. Click "Add Equipment" to populate inventory.</td></tr>`
         : filtered.map(eq => {
             const isLow = Number(eq.available) <= Number(eq.minStock);
             const expSt = getExpiryStatus(eq.expiryDate);
@@ -517,13 +521,14 @@
         { equipmentId: 'CHM-001', name: 'Hydrochloric Acid', formula: 'HCl', lab: 'Chemistry', category: 'Liquid / Solution', spec: '0.1M Standard Solution (500 ml)', brand: 'Merck', supplier: 'Merck Thailand', unit: 'bottles', total: 12, available: 12, reserved: 0, damaged: 0, minStock: 5, location: 'Acid Cabinet C1', expiryDate: nextYear, hazardNote: 'CORROSIVE: Causes skin burns and eye damage. Wear goggles & acid-resistant gloves.', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' },
         { equipmentId: 'CHM-002', name: 'Hydrogen Peroxide', formula: 'H2O2', lab: 'Chemistry', category: 'Liquid / Solution', spec: '3% w/v Reagent (500 ml)', brand: 'Ajax Finechem', supplier: 'Science Supply Co., Ltd.', unit: 'bottles', total: 6, available: 6, reserved: 0, damaged: 0, minStock: 5, location: 'Cabinet C2', expiryDate: nextMonth, hazardNote: 'OXIDIZER: Keep away from heat and direct sunlight.', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' },
         { equipmentId: 'BIO-001', name: 'Compound Microscope', formula: '', lab: 'Biology', category: 'Optics', spec: '1600x Dual View LED', brand: 'Olympus', supplier: 'BioMed Equip Co.', unit: 'units', total: 15, available: 15, reserved: 0, damaged: 0, minStock: 5, location: 'Cabinet B1', expiryDate: '', hazardNote: 'Clean objective lenses with lens paper only.', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' },
-        { equipmentId: 'PRI-001', name: 'Plastic Beaker 250 ml', formula: '', lab: 'Primary', category: 'Plasticware', spec: 'Polypropylene 250ml', brand: 'Kartell', supplier: 'EduLab Asia', unit: 'pcs', total: 25, available: 25, reserved: 0, damaged: 0, minStock: 8, location: 'Cabinet PR1', expiryDate: '', hazardNote: '', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' }
+        { equipmentId: 'PRI-001', name: 'Plastic Beaker 250 ml', formula: '', lab: 'Primary', category: 'Plasticware', spec: 'Polypropylene 250ml', brand: 'Kartell', supplier: 'EduLab Asia', unit: 'pcs', total: 25, available: 25, reserved: 0, damaged: 0, minStock: 8, location: 'Cabinet PR1', expiryDate: '', hazardNote: '', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' },
+        { equipmentId: 'MAT-001', name: '3D Geometric Solids Set', formula: '', lab: 'Mathematics Resource', category: 'Math Manipulatives', spec: '12-Piece Transparent Acrylic', brand: 'Learning Resources', supplier: 'EduLab Asia', unit: 'sets', total: 10, available: 10, reserved: 0, damaged: 0, minStock: 3, location: 'Math Shelf M1', expiryDate: '', hazardNote: '', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' }
       ];
       Swal.fire({ title: 'Seeding Sample Inventory...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
       const batch = db.batch();
       sampleItems.forEach(item => batch.set(db.collection('equipments').doc(), item));
       await batch.commit();
-      Swal.fire('Completed', 'Sample equipment & chemicals added.', 'success');
+      Swal.fire('Completed', 'Sample equipment & chemicals added across all rooms.', 'success');
     }
 
     function handleImgUpload(e) {
@@ -599,6 +604,7 @@
     }
 
     function openEqModal(docId = null) {
+      populateDynamicLabDropdowns();
       document.getElementById('eqForm').reset();
       document.getElementById('eqImgPreview').classList.add('hidden');
       document.getElementById('eqImgBase64').value = '';
@@ -643,7 +649,8 @@
       } else {
         document.getElementById('eqModalTitle').innerText = 'Add New Equipment / Chemical';
         document.getElementById('eqDocId').value = '';
-        const defaultLab = activeLab !== 'All' ? activeLab : 'Primary';
+        const allLabs = getAllLabNames();
+        const defaultLab = activeLab !== 'All' ? activeLab : (allLabs[0] || 'Primary');
         document.getElementById('eqLab').value = defaultLab;
         document.getElementById('eqId').value = generateNextSKU(defaultLab);
       }
@@ -693,7 +700,7 @@
           const choice = await Swal.fire({
             icon: 'warning',
             title: 'Duplicate Item Detected',
-            html: `<b>"${duplicate.name}"</b> (${duplicate.spec || 'No Spec'}) already exists in <b>${lab} Lab</b> as <b>${duplicate.equipmentId}</b> (Current Stock: ${duplicate.total} ${duplicate.unit}).<br><br>Would you like to add <b>+${total} ${data.unit}</b> to the existing stock instead?`,
+            html: `<b>"${duplicate.name}"</b> (${duplicate.spec || 'No Spec'}) already exists in <b>${lab}</b> as <b>${duplicate.equipmentId}</b> (Current Stock: ${duplicate.total} ${duplicate.unit}).<br><br>Would you like to add <b>+${total} ${data.unit}</b> to the existing stock instead?`,
             showDenyButton: true,
             showCancelButton: true,
             confirmButtonText: `Add +${total} to Existing (${duplicate.equipmentId})`,
@@ -730,6 +737,7 @@
     });
 
     function openStockModal() {
+      populateDynamicLabDropdowns();
       const allowedLabs = getUserAllowedLabs(window.IPS.user);
       document.getElementById('stkEqSelect').innerHTML = window.IPS.equipments
         .filter(e => allowedLabs.includes(e.lab))
@@ -771,7 +779,7 @@
         signedQty = -qty;
       } else if (action === 'Transferred') {
         const targetLab = document.getElementById('stkTargetLab').value;
-        if (targetLab === eq.lab) return Swal.fire('Invalid Lab', 'Destination lab must differ from source lab.', 'warning');
+        if (targetLab === eq.lab) return Swal.fire('Invalid Room', 'Destination room must differ from source room.', 'warning');
         if (Number(eq.available) < qty) return Swal.fire('Insufficient Stock', 'Not enough available items.', 'error');
         updates = { total: Number(eq.total) - qty, available: Number(eq.available) - qty };
         signedQty = -qty;
@@ -779,7 +787,7 @@
         const dest = window.IPS.equipments.find(x => x.name === eq.name && x.lab === targetLab && (x.spec || '') === (eq.spec || ''));
         if (dest) {
           await db.collection('equipments').doc(dest.id).update({ total: Number(dest.total) + qty, available: Number(dest.available) + qty });
-          await addStockMovement(dest.equipmentId, dest.name, targetLab, 'Stock In', qty, `Transferred from ${eq.lab} Lab (${note})`);
+          await addStockMovement(dest.equipmentId, dest.name, targetLab, 'Stock In', qty, `Transferred from ${eq.lab} (${note})`);
         } else {
           const newCode = generateNextSKU(targetLab);
           await db.collection('equipments').add({
@@ -789,7 +797,7 @@
             minStock: eq.minStock || 5, expiryDate: eq.expiryDate || '', status: 'Active', image: eq.image || '',
             hazardNote: eq.hazardNote || '', safetyFileData: eq.safetyFileData || '', safetyFileName: eq.safetyFileName || '', safetyLink: eq.safetyLink || ''
           });
-          await addStockMovement(newCode, eq.name, targetLab, 'Stock In', qty, `Transferred from ${eq.lab} Lab (${note})`);
+          await addStockMovement(newCode, eq.name, targetLab, 'Stock In', qty, `Transferred from ${eq.lab} (${note})`);
         }
       }
 
