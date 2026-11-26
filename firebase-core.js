@@ -26,10 +26,11 @@ window.IPS = {
   users: []
 };
 
-// Get allowed labs for the current user
+// Get allowed labs: Super Admin, Admin, and Lab Staff access all 4 labs.
+// Teachers only access the labs explicitly checked in User Management.
 function getUserAllowedLabs(user) {
   if (!user) return [];
-  if (['Super Admin', 'Admin', 'Teacher'].includes(user.role)) {
+  if (['Super Admin', 'Admin', 'Lab Staff'].includes(user.role)) {
     return ['Primary', 'Physics', 'Chemistry', 'Biology'];
   }
   const labs = [];
@@ -38,7 +39,7 @@ function getUserAllowedLabs(user) {
       labs.push(l);
     }
   });
-  return labs.length > 0 ? labs : ['Primary', 'Physics', 'Chemistry', 'Biology'];
+  return labs;
 }
 
 // Time-Slot Overlap Prevention Engine
@@ -95,7 +96,7 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
     { href: 'stock.html', id: 'stock', label: 'Inventory & Stock', icon: 'boxes', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
     { href: 'purchase.html', id: 'purchase', label: 'Procurement (Purchase)', icon: 'shopping-cart', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
     { href: 'report.html', id: 'report', label: 'Analytics & Reports', icon: 'bar-chart-3', roles: ['Admin', 'Super Admin'] },
-    { href: 'admin.html', id: 'admin', label: 'User Management', icon: 'users', roles: ['Admin', 'Super Admin'] }
+    { href: 'admin.html', id: 'admin', label: 'User Management', icon: 'users', roles: ['Super Admin'] }
   ];
 
   const navLinks = menus.filter(m => m.roles.includes(role)).map(m => {
@@ -110,6 +111,10 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
 
   const sidebarEl = document.getElementById('sharedSidebar');
   if (sidebarEl) {
+    const labDisplay = allowedLabs.length === 4
+      ? 'Access: All 4 Labs'
+      : (allowedLabs.length > 0 ? 'Lab: ' + allowedLabs.join(', ') : 'No Lab Assigned Yet');
+
     sidebarEl.innerHTML = `
       <div>
         <div class="p-5 flex items-center justify-between border-b border-slate-100">
@@ -135,7 +140,7 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
             <div class="overflow-hidden">
               <div class="text-xs font-semibold text-slate-800 truncate">${user.name}</div>
               <div class="text-[11px] text-indigo-600 font-medium">${user.role}</div>
-              <div class="text-[10px] text-slate-400 truncate">${allowedLabs.length === 4 ? 'Access: All 4 Labs' : 'Lab: ' + allowedLabs.join(', ')}</div>
+              <div class="text-[10px] ${allowedLabs.length === 0 ? 'text-rose-500 font-medium' : 'text-slate-400'} truncate">${labDisplay}</div>
             </div>
           </div>
         </div>
@@ -180,7 +185,7 @@ function initIPSPage({ activePage, title, subtitle, allowedRoles = null, require
       email: firebaseUser.email,
       name: firebaseUser.email.split('@')[0],
       role: 'Teacher',
-      Primary: '', Physics: '', Chemistry: '', Biology: ''
+      Primary: false, Physics: false, Chemistry: false, Biology: false
     };
     if (userDoc.exists) {
       profile = { ...profile, ...userDoc.data(), uid: firebaseUser.uid };
@@ -188,7 +193,6 @@ function initIPSPage({ activePage, title, subtitle, allowedRoles = null, require
       await db.collection('user').doc(firebaseUser.uid).set(profile);
     }
 
-    // Role-based Page Guard
     if (allowedRoles && !allowedRoles.includes(profile.role)) {
       Swal.fire({
         icon: 'error',
