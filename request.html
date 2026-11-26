@@ -29,13 +29,8 @@
           <h3 class="font-bold text-slate-800 border-b border-slate-100 pb-3 text-sm">Create New Equipment Requisition</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Laboratory *</label>
-              <select id="reqLab" onchange="draftItems=[]; updateDropdown();" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
-                <option value="Primary">Primary Lab</option>
-                <option value="Physics">Physics Lab</option>
-                <option value="Chemistry">Chemistry Lab</option>
-                <option value="Biology">Biology Lab</option>
-              </select>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Authorized Laboratory *</label>
+              <select id="reqLab" onchange="draftItems=[]; updateDropdown();" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Experiment / Class Topic *</label>
@@ -73,12 +68,12 @@
           <div class="space-y-3">
             <h4 class="font-bold text-slate-800 text-sm">Requisition Guidelines</h4>
             <ul class="text-xs text-slate-500 space-y-2 bg-slate-50 p-3.5 rounded-xl list-disc list-inside">
+              <li><b>Lab Authorization:</b> You can only book laboratories assigned to your teacher profile by the Super Admin.</li>
               <li><b>Overlap Protection:</b> System automatically deducts quantities already approved for overlapping time slots.</li>
               <li><b>Cancellation Policy:</b> You can cancel a request while its status is still <i>Pending</i>.</li>
-              <li><b>Consumables:</b> Deducted permanently upon approval. Reusable items must be returned after class.</li>
             </ul>
           </div>
-          <button onclick="submitRequest()" class="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-xs shadow-md hover:opacity-95">
+          <button id="submitReqBtn" onclick="submitRequest()" class="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-xs shadow-md hover:opacity-95 disabled:opacity-50">
             Submit Equipment Request
           </button>
         </div>
@@ -105,7 +100,19 @@
       title: 'Equipment Requisition',
       subtitle: 'Book laboratory equipment with automatic time-slot conflict prevention',
       allowedRoles: ['Teacher', 'Admin', 'Super Admin'],
-      onReady: () => {
+      onReady: (user) => {
+        const allowedLabs = getUserAllowedLabs(user);
+        const labSelect = document.getElementById('reqLab');
+        const submitBtn = document.getElementById('submitReqBtn');
+
+        if (allowedLabs.length === 0) {
+          labSelect.innerHTML = '<option value="">No Lab Authorized — Contact Super Admin</option>';
+          submitBtn.disabled = true;
+        } else {
+          labSelect.innerHTML = allowedLabs.map(l => `<option value="${l}">${l} Lab</option>`).join('');
+          submitBtn.disabled = false;
+        }
+
         updateDropdown();
         renderDraftList();
         renderHistory();
@@ -117,6 +124,11 @@
       const date = document.getElementById('reqDate').value;
       const start = document.getElementById('reqStart').value;
       const end = document.getElementById('reqEnd').value;
+
+      if (!lab) {
+        document.getElementById('reqEqDropdown').innerHTML = '<option value="">No authorized laboratory selected</option>';
+        return;
+      }
 
       const opts = window.IPS.equipments
         .filter(e => e.lab === lab && e.status === 'Active')
@@ -185,6 +197,7 @@
       const startTime = document.getElementById('reqStart').value;
       const endTime = document.getElementById('reqEnd').value;
 
+      if (!lab) return Swal.fire('Not Authorized', 'Please contact Super Admin to assign your laboratory permissions.', 'error');
       if (!experiment || !useDate || !startTime || !endTime || draftItems.length === 0) {
         return Swal.fire('Incomplete Form', 'Please fill in all fields and add at least one item.', 'warning');
       }
