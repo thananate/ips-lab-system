@@ -156,15 +156,16 @@
       activePage: 'request',
       title: 'Equipment Request',
       subtitle: 'Create a single requisition combining equipment from any laboratory or resource room',
-      allowedRoles: ['Teacher', 'Admin', 'Super Admin'],
-      onReady: () => {
-        const today = new Date().toISOString().slice(0, 10);
-        if (!document.getElementById('reqDate').value) document.getElementById('reqDate').value = today;
-        populateLabSelect();
-        renderCatalog();
-        renderMyRequests();
-      }
+      allowedRoles: ['Teacher', 'Admin', 'Super Admin']
     });
+
+    function renderPage() {
+      const today = new Date().toISOString().slice(0, 10);
+      if (!document.getElementById('reqDate').value) document.getElementById('reqDate').value = today;
+      populateLabSelect();
+      renderCatalog();
+      renderMyRequests();
+    }
 
     function populateLabSelect() {
       const allowedLabs = getUserAllowedLabs(window.IPS.user);
@@ -350,7 +351,6 @@
       const reqId = `REQ-${String(nextNum).padStart(3, '0')}`;
       const hasSpecialItem = cart.some(c => c.isSpecial);
 
-      // Attach room name directly into item display so approve.html & reports clearly show which room each item belongs to
       const formattedItems = cart.map(c => ({
         ...c,
         name: c.name.includes(`[${c.lab}]`) ? c.name : `${c.name} [${c.lab}]`,
