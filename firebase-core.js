@@ -1,5 +1,5 @@
 // =========================================================================
-// IPS ASSET SYSTEM - SHARED FIREBASE CORE & DYNAMIC LABS GUARD
+// IPS ASSET SYSTEM - SHARED FIREBASE CORE & DYNAMIC LABS GUARD (V2)
 // =========================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyCRotp0yrhYGc8zctl1Yo7Fknxz0AJnEZU",
@@ -17,6 +17,9 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// Optional: Paste your Google Apps Script Web App URL here to activate automated email notifications
+const IPS_EMAIL_WEBHOOK_URL = "";
+
 const DEFAULT_LABS = ['Primary', 'Physics', 'Chemistry', 'Biology', 'Mathematics Resource'];
 
 window.IPS = {
@@ -27,6 +30,8 @@ window.IPS = {
   requests: [],
   movements: [],
   purchases: [],
+  repairs: [],
+  maSchedules: [],
   users: []
 };
 
@@ -61,13 +66,99 @@ function isConsumableOrChemical(eq) {
   return false;
 }
 
+// Helper: Calculate days elapsed from a YYYY-MM-DD date string until today
+function getDaysElapsed(dateStr) {
+  if (!dateStr) return 0;
+  const start = new Date(dateStr + 'T00:00:00');
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
+}
+
+// Helper: Calculate days remaining until a YYYY-MM-DD future date (negative if overdue)
+function getDaysRemaining(dateStr) {
+  if (!dateStr) return null;
+  const target = new Date(dateStr + 'T00:00:00');
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+}
+
+// Helper: Lookup employee email by name from 'user' collection
+function getUserEmailByName(userName) {
+  if (!userName || !Array.isArray(window.IPS.users)) return '';
+  const target = String(userName).trim().toLowerCase();
+  const found = window.IPS.users.find(u =>
+    String(u.name || '').trim().toLowerCase() === target ||
+    String(u.email || '').trim().toLowerCase() === target
+  );
+  return found ? (found.email || '') : '';
+}
+
+// Helper: Send automated email notification via Google Apps Script Webhook (and log queue in Firestore)
+async function sendIPSEmailNotification({ toEmail, toName, subject, message, refId = '', category = 'General' }) {
+  const resolvedEmail = toEmail || getUserEmailByName(toName);
+  if (!resolvedEmail) return false;
+
+  try {
+    await db.collection('email_logs').add({
+      timestamp: Date.now(),
+      date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      toEmail: resolvedEmail,
+      toName: toName || resolvedEmail,
+      subject,
+      message,
+      refId,
+      category,
+      triggeredBy: window.IPS.user ? window.IPS.user.name : 'System',
+      deliveryStatus: IPS_EMAIL_WEBHOOK_URL ? 'Sent' : 'Logged (Webhook Not Set)'
+    });
+
+    if (IPS_EMAIL_WEBHOOK_URL) {
+      await fetch(IPS_EMAIL_WEBHOOK_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: resolvedEmail, subject, body: message, refId, category })
+      });
+    }
+    return true;
+  } catch (err) {
+    console.warn('Email notification skipped:', err);
+    return false;
+  }
+}
+
+// Helper: Export any array of objects to Excel-compatible UTF-8 CSV file
+function exportDataToCSV(filename, headers, rows) {
+  const escapeCSV = (val) => {
+    const str = String(val === null || val === undefined ? '' : val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+  const csvContent = '\uFEFF' + [
+    headers.map(escapeCSV).join(','),
+    ...rows.map(r => r.map(escapeCSV).join(','))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 // Time-Slot Overlap Prevention Engine
 function getAvailableForTimeSlot(eqDocId, targetDate, startTime, endTime, excludeReqId = null) {
   const eq = window.IPS.equipments.find(e => e.id === eqDocId);
   if (!eq) return 0;
   if (isConsumableOrChemical(eq)) return Number(eq.available || 0);
 
-  const maxUsable = Number(eq.total || 0) - Number(eq.damaged || 0);
+  const maxUsable = Number(eq.total || 0) - Number(eq.damaged || 0) - Number(eq.inRepair || 0);
   if (!targetDate || !startTime || !endTime) return Number(eq.available || 0);
 
   let overlappingReserved = 0;
@@ -127,16 +218,18 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
     { href: 'approve.html', id: 'approve', label: 'Asset Admin Section', icon: 'check-square', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
     { href: 'stock.html', id: 'stock', label: 'Inventory & Stock', icon: 'boxes', roles: ['Teacher', 'Staff', 'Office Staff', 'Lab Staff', 'Admin', 'Super Admin'] },
     { href: 'purchase.html', id: 'purchase', label: 'Procurement (Purchase)', icon: 'shopping-cart', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
+    { href: 'repair.html', id: 'repair', label: 'Repair & MA', icon: 'wrench', roles: ['Lab Staff', 'Staff', 'Admin', 'Super Admin'] },
     { href: 'report.html', id: 'report', label: 'Analytics & Reports', icon: 'bar-chart-3', roles: ['Admin', 'Super Admin'] },
     { href: 'admin.html', id: 'admin', label: 'User & Lab Management', icon: 'users', roles: ['Super Admin'] }
   ];
 
-  // Custom menu ordering specifically for Lab Staff: 1. Stock -> 2. Purchase -> 3. Asset Admin Section
+  // Custom menu ordering specifically for Lab Staff: 1. Stock -> 2. Purchase -> 3. Asset Admin Section -> 4. Repair & MA -> 5. Home
   if (role === 'Lab Staff') {
     menus = [
       { href: 'stock.html', id: 'stock', label: 'Inventory & Stock', icon: 'boxes', roles: ['Lab Staff'] },
       { href: 'purchase.html', id: 'purchase', label: 'Procurement (Purchase)', icon: 'shopping-cart', roles: ['Lab Staff'] },
       { href: 'approve.html', id: 'approve', label: 'Asset Admin Section', icon: 'check-square', roles: ['Lab Staff'] },
+      { href: 'repair.html', id: 'repair', label: 'Repair & MA', icon: 'wrench', roles: ['Lab Staff'] },
       { href: 'index.html', id: 'index', label: 'Dashboard (Home)', icon: 'layout-dashboard', roles: ['Lab Staff'] }
     ];
   }
@@ -265,7 +358,7 @@ function initIPSPage({ activePage, title, subtitle, allowedRoles = null, require
     let loadedCollections = new Set();
     const triggerReady = (colName) => {
       loadedCollections.add(colName);
-      if (loadedCollections.size >= 5) {
+      if (loadedCollections.size >= 7) {
         renderSharedLayout(activePage, title, subtitle);
         if (onReady) onReady(profile);
         if (window.lucide) lucide.createIcons();
@@ -300,9 +393,19 @@ function initIPSPage({ activePage, title, subtitle, allowedRoles = null, require
       triggerReady('purchases');
     });
 
+    db.collection('repairs').onSnapshot(snap => {
+      window.IPS.repairs = snap.docs.map(d => ({ docId: d.id, id: d.id, ...d.data() }));
+      triggerReady('repairs');
+    });
+
+    db.collection('ma_schedules').onSnapshot(snap => {
+      window.IPS.maSchedules = snap.docs.map(d => ({ docId: d.id, id: d.id, ...d.data() }));
+      triggerReady('ma_schedules');
+    });
+
     db.collection('user').onSnapshot(snap => {
       window.IPS.users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
-      if (loadedCollections.size >= 5 && onReady) onReady(profile);
+      if (loadedCollections.size >= 7 && onReady) onReady(profile);
     });
   });
 }
