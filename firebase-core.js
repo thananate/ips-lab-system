@@ -40,7 +40,7 @@ function getAllLabNames() {
 function getUserAllowedLabs(user) {
   const allLabs = getAllLabNames();
   if (!user) return [];
-  if (['Super Admin', 'Admin', 'Lab Staff'].includes(user.role)) {
+  if (['Super Admin', 'Admin', 'Lab Staff','Teacher'].includes(user.role)) {
     return allLabs;
   }
   const labs = [];
