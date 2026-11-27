@@ -24,7 +24,7 @@
       <div id="sharedHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
 
       <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <!-- LEFT 2 COLS: REQUISITION FORM & MULTI-LAB CATALOG -->
+        <!-- LEFT 2 COLS: REQUISITION FORM & UNIFIED EQUIPMENT CATALOG -->
         <div class="xl:col-span-2 space-y-5">
           <!-- Booking Details -->
           <div class="glass-card rounded-2xl p-6 space-y-4">
@@ -32,21 +32,11 @@
               <h3 class="font-bold text-slate-800 flex items-center gap-2">
                 <i data-lucide="calendar-clock" class="w-4 h-4 text-indigo-600"></i> 1. Experiment & Schedule Details
               </h3>
-              <span class="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-semibold">Multi-Lab Requisition Enabled</span>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Filter Equipment by Room / Lab</label>
-                <select id="reqLabSelect" onchange="renderCatalog()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  <option value="ALL">All Rooms / Laboratories</option>
-                </select>
-                <p class="text-[11px] text-slate-400 mt-1">Switch rooms freely — your selected items remain in the cart.</p>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Experiment / Lesson Title *</label>
-                <input type="text" id="reqExperiment" placeholder="e.g., Grade 9 Optics & Lenses" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Experiment / Lesson Title *</label>
+              <input type="text" id="reqExperiment" placeholder="e.g., Grade 9 Optics & Lenses" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -65,16 +55,16 @@
             </div>
           </div>
 
-          <!-- Equipment Catalog -->
+          <!-- Equipment Catalog (All Equipment Search) -->
           <div class="glass-card rounded-2xl p-6 space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
               <div>
                 <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                  <i data-lucide="package-search" class="w-4 h-4 text-indigo-600"></i> 2. Select Equipment Across Any Room
+                  <i data-lucide="package-search" class="w-4 h-4 text-indigo-600"></i> 2. Search & Select Equipment
                 </h3>
-                <p class="text-[11px] text-slate-400">Real-time slot availability checks overlapping bookings automatically</p>
+                <p class="text-[11px] text-slate-400">Browse all school equipment — staff will automatically see item locations upon approval</p>
               </div>
-              <input type="text" id="catalogSearch" onkeyup="renderCatalog()" placeholder="Search SKU, item name, room..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-full sm:w-56 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input type="text" id="catalogSearch" onkeyup="renderCatalog()" placeholder="Search item name, SKU, formula..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
             <div id="catalogGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[430px] overflow-y-auto pr-1"></div>
@@ -94,7 +84,7 @@
           </div>
         </div>
 
-        <!-- RIGHT COL: MULTI-LAB CART & SUBMISSION -->
+        <!-- RIGHT COL: CART & SUBMISSION -->
         <div class="space-y-5">
           <div class="glass-card rounded-2xl p-6 space-y-4 sticky top-6">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -105,16 +95,16 @@
             </div>
 
             <div id="cartItemsList" class="space-y-2.5 max-h-[360px] overflow-y-auto">
-              <div class="text-center py-8 text-xs text-slate-400">No items selected yet.<br/>Pick equipment from any room on the left.</div>
+              <div class="text-center py-8 text-xs text-slate-400">No items selected yet.<br/>Search and pick equipment on the left.</div>
             </div>
 
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Additional Notes for Lab Staff</label>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Additional Notes for Staff</label>
               <textarea id="reqNotes" rows="2" placeholder="Setup instructions, group count, or special notes..." class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
             </div>
 
             <button onclick="submitRequisition()" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-sm shadow-md hover:opacity-95 transition flex items-center justify-center gap-2">
-              <i data-lucide="send" class="w-4 h-4"></i> Submit Single Requisition
+              <i data-lucide="send" class="w-4 h-4"></i> Submit Requisition
             </button>
           </div>
         </div>
@@ -134,7 +124,7 @@
             <thead>
               <tr class="bg-slate-50/80 border-b border-slate-200/70 text-[11px] font-semibold text-slate-500 uppercase">
                 <th class="p-3.5">Req ID</th>
-                <th class="p-3.5">Rooms & Experiment</th>
+                <th class="p-3.5">Experiment / Lesson</th>
                 <th class="p-3.5">Schedule</th>
                 <th class="p-3.5">Items Requested</th>
                 <th class="p-3.5">Status</th>
@@ -155,25 +145,15 @@
     initIPSPage({
       activePage: 'request',
       title: 'Equipment Request',
-      subtitle: 'Create a single requisition combining equipment from any laboratory or resource room',
+      subtitle: 'Search all available equipment across the school and submit a single requisition',
       allowedRoles: ['Teacher', 'Admin', 'Super Admin']
     });
 
     function renderPage() {
       const today = new Date().toISOString().slice(0, 10);
       if (!document.getElementById('reqDate').value) document.getElementById('reqDate').value = today;
-      populateLabSelect();
       renderCatalog();
       renderMyRequests();
-    }
-
-    function populateLabSelect() {
-      const allowedLabs = getUserAllowedLabs(window.IPS.user);
-      const sel = document.getElementById('reqLabSelect');
-      const prevVal = sel.value || 'ALL';
-      sel.innerHTML = `<option value="ALL">All Rooms (${allowedLabs.length} Labs)</option>` +
-        allowedLabs.map(lab => `<option value="${lab}">${lab}</option>`).join('');
-      if (prevVal === 'ALL' || allowedLabs.includes(prevVal)) sel.value = prevVal;
     }
 
     function getSlotAvailableQty(eqDoc) {
@@ -199,15 +179,12 @@
     }
 
     function renderCatalog() {
-      const selectedLab = document.getElementById('reqLabSelect').value;
-      const allowedLabs = getUserAllowedLabs(window.IPS.user);
       const q = (document.getElementById('catalogSearch').value || '').toLowerCase();
       const grid = document.getElementById('catalogGrid');
 
+      // Show ALL school equipment for Teachers to search without room restriction
       const items = window.IPS.equipments.filter(e => {
-        if (!allowedLabs.includes(e.lab)) return false;
-        if (selectedLab !== 'ALL' && e.lab !== selectedLab) return false;
-        if (q && !(e.name || '').toLowerCase().includes(q) && !(e.sku || '').toLowerCase().includes(q) && !(e.lab || '').toLowerCase().includes(q)) return false;
+        if (q && !(e.name || '').toLowerCase().includes(q) && !(e.sku || '').toLowerCase().includes(q) && !(e.formula || '').toLowerCase().includes(q)) return false;
         return true;
       });
 
@@ -224,7 +201,6 @@
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-1.5">
                 <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">${eq.sku || 'N/A'}</span>
-                <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-100 text-purple-700">${eq.lab}</span>
                 ${eq.isHazardous ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">HAZARD</span>' : ''}
               </div>
               <div class="font-semibold text-sm text-slate-800 truncate mt-1">${eq.name}</div>
@@ -253,7 +229,7 @@
           eqDocId: eq.id,
           sku: eq.sku,
           name: eq.name,
-          lab: eq.lab,
+          lab: eq.lab || 'General',
           unit: eq.unit || 'pcs',
           requestedQty: 1,
           isSpecial: false
@@ -266,15 +242,13 @@
     function addSpecialItem() {
       const name = document.getElementById('specialItemName').value.trim();
       const qty = parseInt(document.getElementById('specialItemQty').value) || 1;
-      const selectedLab = document.getElementById('reqLabSelect').value;
-      const defaultLab = selectedLab !== 'ALL' ? selectedLab : (getAllLabNames()[0] || 'General');
       if (!name) return Swal.fire('Missing Name', 'Please enter the special item description.', 'warning');
 
       cart.push({
         eqDocId: 'SPECIAL-' + Date.now(),
         sku: 'SPECIAL',
         name: name,
-        lab: defaultLab,
+        lab: 'Special Request',
         unit: 'lot',
         requestedQty: qty,
         isSpecial: true
@@ -306,14 +280,14 @@
       const list = document.getElementById('cartItemsList');
       document.getElementById('cartCountBadge').innerText = `${cart.length} items`;
       if (cart.length === 0) {
-        list.innerHTML = '<div class="text-center py-8 text-xs text-slate-400">No items selected yet.<br/>Pick equipment from any room on the left.</div>';
+        list.innerHTML = '<div class="text-center py-8 text-xs text-slate-400">No items selected yet.<br/>Search and pick equipment on the left.</div>';
         return;
       }
       list.innerHTML = cart.map((item, idx) => `
         <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
           <div class="min-w-0">
             <div class="text-xs font-semibold text-slate-800 truncate">
-              ${item.name} <span class="text-[10px] font-semibold text-indigo-600">[${item.lab}]</span>
+              ${item.name}
               ${item.isSpecial ? '<span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded ml-1">Special</span>' : ''}
             </div>
             <div class="text-[11px] text-slate-400">${item.sku} • ${item.unit}</div>
@@ -344,6 +318,7 @@
         return Swal.fire('Empty Cart', 'Please add at least one item to your requisition.', 'warning');
       }
 
+      // Automatically compile involved Labs for Admin/Staff view in approve.html
       const uniqueLabs = [...new Set(cart.map(c => c.lab).filter(Boolean))];
       const labSummary = uniqueLabs.length > 1 ? `Multi-Lab (${uniqueLabs.join(', ')})` : (uniqueLabs[0] || 'General');
 
@@ -351,6 +326,7 @@
       const reqId = `REQ-${String(nextNum).padStart(3, '0')}`;
       const hasSpecialItem = cart.some(c => c.isSpecial);
 
+      // Attach [Lab Name] to each item so Admin/Staff know exactly which lab each item is stored in
       const formattedItems = cart.map(c => ({
         ...c,
         name: c.name.includes(`[${c.lab}]`) ? c.name : `${c.name} [${c.lab}]`,
@@ -382,7 +358,7 @@
       document.getElementById('reqNotes').value = '';
       renderCatalog();
       renderCart();
-      Swal.fire('Requisition Submitted', `Request ${reqId} (${labSummary}) has been sent for approval.`, 'success');
+      Swal.fire('Requisition Submitted', `Request ${reqId} has been sent to Asset Admin for approval.`, 'success');
     }
 
     function renderMyRequests() {
@@ -406,15 +382,16 @@
       };
 
       tbody.innerHTML = mine.map(r => {
-        const itemsText = (r.items || []).map(i => `${i.name} (Req: ${i.requestedQty}${i.approvedQty ? ', Appr: ' + i.approvedQty : ''})`).join(', ');
+        // Strip [Lab Name] tag from teacher's history view for clean display, while Admin still sees it in approve.html
+        const itemsText = (r.items || []).map(i => {
+          const cleanName = (i.name || '').replace(/\s*\[[^\]]+\]$/, '');
+          return `${cleanName} (Req: ${i.requestedQty}${i.approvedQty ? ', Appr: ' + i.approvedQty : ''})`;
+        }).join(', ');
         const canReturn = ['Approved', 'Partial'].includes(r.status);
         return `
           <tr class="hover:bg-slate-50/70">
             <td class="p-3.5 font-bold text-indigo-700 whitespace-nowrap">${r.reqId || r.id.slice(0, 6)}</td>
-            <td class="p-3.5">
-              <div class="font-semibold text-slate-800">${r.experiment}</div>
-              <div class="text-[11px] text-indigo-600 font-medium">${r.lab}</div>
-            </td>
+            <td class="p-3.5 font-semibold text-slate-800">${r.experiment}</td>
             <td class="p-3.5 whitespace-nowrap">
               <div>${r.date}</div>
               <div class="text-[11px] text-slate-400">${r.startTime} - ${r.endTime}</div>
