@@ -295,7 +295,7 @@
       }
 
       Swal.fire({
-        title: `Safety & SDS Info: ${eq.name \vert{}\vert{} ''}${eq.formula ? `(${eq.formula})` : ''}`,
+        title: `Safety & SDS Info: ${eq.name || ''} ${eq.formula ? `(${eq.formula})` : ''}`,
         width: 650,
         html: `
           <div class="text-left text-xs space-y-2">
@@ -350,7 +350,7 @@
         if (labF !== 'All' && eq.lab !== labF) return false;
         if (typeF !== 'All' && (eq.type || 'Equipment') !== typeF) return false;
         if (q) {
-          const hay = `${eq.equipmentId || ''} ${eq.name \vert{}\vert{} ''}${eq.formula || ''} ${eq.lab \vert{}\vert{} ''}${eq.location || ''}`.toLowerCase();
+          const hay = `${eq.equipmentId || ''} ${eq.name || ''} ${eq.formula || ''} ${eq.lab || ''} ${eq.location || ''}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -408,15 +408,355 @@
             </td>
             <td class="p-3.5">
               <div class="flex items-center gap-1.5">
-                <span class="font-mono text-[10px] font-bold text-indigo-600">${eq.equipmentId \vert{}\vert{} eq.id.slice(0, 6)}</span>${hasSafety ? `<button type="button" onclick="viewItemSafety('${eq.id}')" class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 hover:bg-amber-200 text-[9px] font-bold">⚠️ SDS</button>` : ''}
+                <span class="font-mono text-[10px] font-bold text-indigo-600">${eq.equipmentId || eq.id.slice(0, 6)}</span>
+                ${hasSafety ? `<button type="button" onclick="viewItemSafety('${eq.id}')" class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 hover:bg-amber-200 text-[9px] font-bold">⚠️ SDS</button>` : ''}
               </div>
-              <div class="font-bold text-slate-800">${eq.name}${eq.formula ? `<span class="text-blue-600 font-mono text-[11px]">(${eq.formula})</span>` : ''}</div>
+              <div class="font-bold text-slate-800">${eq.name} ${eq.formula ? `<span class="text-blue-600 font-mono text-[11px]">(${eq.formula})</span>` : ''}</div>
               ${isLow ? `<span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 text-[9px] font-bold">LOW STOCK (Min: ${eq.minStock || 0})</span>` : ''}
             </td>
             <td class="p-3.5">
               <div class="flex flex-wrap items-center gap-1">
-                <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-medium">${eq.lab}</span>${eq.location ? `<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-medium">📍 ${eq.location}</span>` : ''}
+                <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-medium">${eq.lab}</span>
+                ${eq.location ? `<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-medium">📍 ${eq.location}</span>` : ''}
               </div>
-              <div class="text-[10px] text-slate-400 mt-0.5">${eq.type \vert{}\vert{} 'Equipment'} •${eq.unit || 'pcs'}</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">${eq.type || 'Equipment'} • ${eq.unit || 'pcs'}</div>
             </td>
-            <td class="p-3.5 text-center font-bold text-slate-700">${eq.total || 0}
+            <td class="p-3.5 text-center font-bold text-slate-700">${eq.total || 0}</td>
+            <td class="p-3.5 text-center font-bold ${isLow ? 'text-rose-600' : 'text-emerald-600'}">${eq.available || 0}</td>
+            <td class="p-3.5 text-center text-indigo-600 font-medium">${eq.reserved || 0}</td>
+            <td class="p-3.5 text-center ${Number(eq.damaged || 0) > 0 ? 'text-amber-600 font-bold' : 'text-slate-400'}">${eq.damaged || 0}</td>
+            <td class="p-3.5 text-center ${Number(eq.inRepair || 0) > 0 ? 'text-blue-600 font-bold' : 'text-slate-400'}">${eq.inRepair || 0}</td>
+            ${isAuditMode ? `
+              <td class="p-3.5 text-center bg-amber-50/70">
+                <div class="inline-flex items-center gap-1">
+                  <input type="number" id="audit_qty_${eq.id}" min="0" value="${eq.available || 0}" class="w-16 px-2 py-1 rounded border border-amber-300 text-xs font-bold text-center bg-white" />
+                  <button type="button" onclick="reconcileAuditItem('${eq.id}')" class="px-2 py-1 rounded bg-amber-600 text-white text-[10px] font-semibold hover:bg-amber-700">Reconcile</button>
+                </div>
+              </td>
+            ` : ''}
+            <td class="p-3.5 text-right space-x-1">
+              <button type="button" onclick="openServiceHistoryModal('${eq.id}')" class="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 text-[11px] font-medium" title="View repair & movement history">
+                History ${repairCount > 0 ? `(${repairCount})` : ''}
+              </button>
+              <button type="button" onclick="printSingleA12Label('${eq.id}')" class="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-[11px] font-medium" title="Print A-12 Sticker 34x79mm">
+                Label
+              </button>
+              ${manageOk ? `
+                <button type="button" onclick="openEquipmentModal('${eq.id}')" class="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-medium">Edit</button>
+              ` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ==================== 1. PHYSICAL STOCK AUDIT RECONCILE ====================
+    async function reconcileAuditItem(eqId) {
+      const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
+      if (!eq) return;
+
+      const countedAvail = Number(document.getElementById(`audit_qty_${eqId}`).value);
+      const systemAvail = Number(eq.available || 0);
+      const diff = countedAvail - systemAvail;
+
+      if (diff === 0) {
+        return Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'No variance — stock matches system!', showConfirmButton: false, timer: 1800 });
+      }
+
+      const { value: auditNote } = await Swal.fire({
+        title: `Reconcile Stock Variance: ${eq.name}`,
+        html: `
+          <div class="text-left text-xs space-y-2">
+            <p>System Available: <b>${systemAvail}</b> → Actual Counted: <b>${countedAvail}</b> (Variance: <b class="${diff < 0 ? 'text-rose-600' : 'text-emerald-600'}">${diff > 0 ? '+' + diff : diff}</b>)</p>
+            <input id="swalAuditReason" class="w-full px-3 py-2 rounded-lg border border-slate-200 mt-2" placeholder="Audit reason (e.g., Semester 2 Physical Count / Found extra unit)" />
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Confirm Adjustment',
+        preConfirm: () => document.getElementById('swalAuditReason').value.trim() || 'Physical Stock Audit Adjustment'
+      });
+
+      if (!auditNote) return;
+
+      const newTotal = Math.max(0, Number(eq.total || 0) + diff);
+      await db.collection('equipments').doc(eq.id).update({
+        total: newTotal,
+        available: countedAvail
+      });
+
+      await addStockMovement(
+        eq.equipmentId || '',
+        eq.name,
+        eq.lab,
+        'Stock Audit',
+        diff,
+        `Audit (${systemAvail} -> ${countedAvail}): ${auditNote}`
+      );
+
+      Swal.fire('Reconciled', `${eq.name} updated to ${countedAvail} available.`, 'success');
+    }
+
+    // ==================== 2. PRINT STICKER LABELS A-12 (34 x 79 MM) ====================
+    function printSingleA12Label(eqId) {
+      const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
+      if (eq) generateA12PrintWindow([eq]);
+    }
+
+    function openPrintLabelsModal() {
+      const items = selectedEqIds.size > 0
+        ? (window.IPS.equipments || []).filter(e => selectedEqIds.has(e.id))
+        : getFilteredEquipments();
+
+      if (items.length === 0) {
+        return Swal.fire('No Items', 'Please select at least one equipment item to print labels.', 'warning');
+      }
+      generateA12PrintWindow(items);
+    }
+
+    function generateA12PrintWindow(items) {
+      const win = window.open('', '_blank', 'width=900,height=700');
+      const labelsHtml = items.map(eq => {
+        const code = eq.equipmentId || eq.id.slice(0, 8).toUpperCase();
+        const qrData = encodeURIComponent(`IPS|${code}|${eq.name}|${eq.lab}${eq.location ? '|' + eq.location : ''}`);
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${qrData}`;
+        return `
+          <div class="label-box">
+            <img src="${qrUrl}" class="qr-img" alt="QR" />
+            <div class="info">
+              <div class="school">IPS ASSET SYSTEM</div>
+              <div class="code">${code}</div>
+              <div class="name">${eq.name}</div>
+              <div class="room">Room: ${eq.lab}${eq.location ? ` (${eq.location})` : ''}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      win.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Print Asset Labels (A-12: 34mm x 79mm)</title>
+          <style>
+            @page { margin: 8mm; }
+            body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #f8fafc; }
+            .toolbar { background: #1e293b; color: #fff; padding: 10px 16px; border-radius: 8px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+            .toolbar button { background: #4f46e5; color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+            .sheet { display: flex; flex-wrap: wrap; gap: 4mm; }
+            .label-box {
+              width: 79mm;
+              height: 34mm;
+              box-sizing: border-box;
+              border: 1px dashed #94a3b8;
+              background: #fff;
+              border-radius: 2mm;
+              padding: 2.5mm 3mm;
+              display: flex;
+              align-items: center;
+              gap: 3mm;
+              page-break-inside: avoid;
+            }
+            .qr-img { width: 25mm; height: 25mm; flex-shrink: 0; }
+            .info { overflow: hidden; line-height: 1.25; }
+            .school { font-size: 7pt; font-weight: bold; color: #4f46e5; letter-spacing: 0.4px; }
+            .code { font-size: 11pt; font-weight: 800; font-family: monospace; color: #0f172a; margin: 1px 0; }
+            .name { font-size: 8.5pt; font-weight: bold; color: #1e293b; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+            .room { font-size: 7.5pt; color: #475569; margin-top: 2px; }
+            @media print {
+              body { background: #fff; padding: 0; }
+              .toolbar { display: none; }
+              .label-box { border: 0.2mm solid #e2e8f0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="toolbar">
+            <span><b>Sticker Size: A-12 (34mm x 79mm)</b> • Total Labels: ${items.length}</span>
+            <button onclick="window.print()">Print Labels Now</button>
+          </div>
+          <div class="sheet">${labelsHtml}</div>
+        </body>
+        </html>
+      `);
+      win.document.close();
+    }
+
+    // ==================== 3. SERVICE & REPAIR HISTORY MODAL ====================
+    function openServiceHistoryModal(eqId) {
+      const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
+      if (!eq) return;
+
+      document.getElementById('historyModalMeta').innerText = `${eq.equipmentId || ''} | ${eq.name} (${eq.lab}${eq.location ? ' • ' + eq.location : ''})`;
+
+      const repairs = (window.IPS.repairs || []).filter(r => r.eqDocId === eq.id || (r.equipmentName === eq.name && r.lab === eq.lab));
+      const totalRepairCost = repairs.reduce((s, r) => s + Number(r.cost || 0), 0);
+      const moves = (window.IPS.movements || []).filter(m => m.equipmentName === eq.name && m.lab === eq.lab).slice(-15).reverse();
+
+      document.getElementById('historySummaryBox').innerHTML = `
+        <div class="grid grid-cols-3 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-blue-50 border border-blue-100">
+            <div class="text-blue-600 font-medium">Total Repair Tickets</div>
+            <div class="text-lg font-bold text-blue-900 mt-0.5">${repairs.length} time(s)</div>
+          </div>
+          <div class="p-3 rounded-xl bg-amber-50 border border-amber-100">
+            <div class="text-amber-700 font-medium">Cumulative Repair Cost</div>
+            <div class="text-lg font-bold text-amber-900 mt-0.5">${totalRepairCost.toLocaleString()} THB</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="text-slate-500 font-medium">Currently In Repair</div>
+            <div class="text-lg font-bold text-slate-800 mt-0.5">${eq.inRepair || 0} ${eq.unit || 'pcs'}</div>
+          </div>
+        </div>
+      `;
+
+      let html = '<div class="text-xs font-bold text-slate-700 mt-2">Repair Records</div>';
+      if (repairs.length === 0) {
+        html += '<div class="p-3 rounded-xl bg-slate-50 text-xs text-slate-400">No repair tickets recorded for this equipment.</div>';
+      } else {
+        html += repairs.map(r => `
+          <div class="p-3 rounded-xl border border-slate-200 bg-white text-xs flex justify-between items-center">
+            <div>
+              <b class="text-indigo-700">${r.id}</b> (${r.sentDate}) — ${r.issue}
+              <div class="text-[11px] text-slate-400">Vendor: ${r.vendor || 'Internal'} • Cost: ${Number(r.cost || 0).toLocaleString()} THB</div>
+            </div>
+            <span class="px-2 py-0.5 rounded-full bg-slate-100 font-semibold text-[10px]">${r.status}</span>
+          </div>
+        `).join('');
+      }
+
+      html += '<div class="text-xs font-bold text-slate-700 mt-4">Recent Stock Audit & Movement Log</div>';
+      if (moves.length === 0) {
+        html += '<div class="p-3 rounded-xl bg-slate-50 text-xs text-slate-400">No stock movements logged yet.</div>';
+      } else {
+        html += moves.map(m => `
+          <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-[11px] flex justify-between">
+            <span><b>[${m.action}]</b> ${m.note} <span class="text-slate-400">by ${m.staff}</span></span>
+            <span class="font-mono text-slate-500">${m.date}</span>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('historyTimelineContainer').innerHTML = html;
+      const modal = document.getElementById('historyModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // ==================== ADD / EDIT EQUIPMENT ====================
+    function openEquipmentModal(eqId = null) {
+      populateFilters();
+      document.getElementById('eqForm').reset();
+      document.getElementById('eqDocId').value = eqId || '';
+      const badgeEl = document.getElementById('existingSafetyBadge');
+      badgeEl.classList.add('hidden');
+      badgeEl.innerText = '';
+
+      if (eqId) {
+        const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
+        if (eq) {
+          document.getElementById('eqModalTitle').innerText = 'Edit Equipment / Chemical';
+          document.getElementById('eqLab').value = eq.lab;
+          document.getElementById('eqCode').value = eq.equipmentId || generateRoomAssetCode(eq.lab);
+          document.getElementById('eqName').value = eq.name || '';
+          document.getElementById('eqLocation').value = eq.location || '';
+          document.getElementById('eqFormula').value = eq.formula || '';
+          document.getElementById('eqType').value = eq.type || 'Equipment';
+          document.getElementById('eqUnit').value = eq.unit || 'pcs';
+          document.getElementById('eqTotal').value = eq.total || 0;
+          document.getElementById('eqMinStock').value = eq.minStock || 5;
+          document.getElementById('eqExpiry').value = eq.expiryDate || '';
+          document.getElementById('eqSupplier').value = eq.supplier || '';
+          document.getElementById('eqHazardNote').value = eq.hazardNote || '';
+          document.getElementById('eqSafetyLink').value = eq.safetyLink || '';
+
+          if (eq.safetyFileName) {
+            badgeEl.innerText = `✓ Existing SDS File Attached: ${eq.safetyFileName} (Upload a new file to replace)`;
+            badgeEl.classList.remove('hidden');
+          }
+        }
+      } else {
+        document.getElementById('eqModalTitle').innerText = 'Add New Equipment / Chemical';
+        const defaultRoom = document.getElementById('eqLab').value;
+        document.getElementById('eqCode').value = generateRoomAssetCode(defaultRoom);
+      }
+
+      const m = document.getElementById('eqModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    document.getElementById('eqForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const docId = document.getElementById('eqDocId').value;
+        const total = Number(document.getElementById('eqTotal').value || 0);
+        const safetyFileInput = document.getElementById('eqSafetyFile');
+        const safetyFile = safetyFileInput.files && safetyFileInput.files[0];
+        const parsedSafetyFile = await readFileAsBase64(safetyFile);
+
+        const payload = {
+          equipmentId: document.getElementById('eqCode').value.trim(),
+          lab: document.getElementById('eqLab').value,
+          name: document.getElementById('eqName').value.trim(),
+          location: document.getElementById('eqLocation').value.trim(),
+          formula: document.getElementById('eqFormula').value.trim(),
+          type: document.getElementById('eqType').value,
+          unit: document.getElementById('eqUnit').value.trim(),
+          total,
+          minStock: Number(document.getElementById('eqMinStock').value || 0),
+          expiryDate: document.getElementById('eqExpiry').value,
+          supplier: document.getElementById('eqSupplier').value.trim(),
+          hazardNote: document.getElementById('eqHazardNote').value.trim(),
+          safetyLink: document.getElementById('eqSafetyLink').value.trim(),
+          status: 'Active'
+        };
+
+        if (parsedSafetyFile) {
+          payload.safetyFileName = parsedSafetyFile.fileName;
+          payload.safetyFileData = parsedSafetyFile.fileData;
+        }
+
+        if (docId) {
+          const existing = (window.IPS.equipments || []).find(x => x.id === docId);
+          const diff = total - Number(existing.total || 0);
+          payload.available = Math.max(0, Number(existing.available || 0) + diff);
+          await db.collection('equipments').doc(docId).update(payload);
+        } else {
+          payload.available = total;
+          payload.reserved = 0;
+          payload.damaged = 0;
+          payload.inRepair = 0;
+          await db.collection('equipments').add(payload);
+          await addStockMovement(payload.equipmentId, payload.name, payload.lab, 'Initial Stock', total, 'Added new item to inventory');
+        }
+
+        closeModal('eqModal');
+        Swal.fire('Saved', `Item ${payload.equipmentId} saved to inventory.`, 'success');
+      } catch (err) {
+        Swal.fire('Attachment Error', err.message, 'warning');
+      }
+    });
+
+    function exportStockCSV() {
+      const today = new Date().toISOString().slice(0, 10);
+      const headers = ['Asset ID', 'Name', 'Formula', 'Room', 'Storage Location', 'Category', 'Unit', 'Total', 'Available', 'Reserved', 'Damaged', 'In Repair', 'Min Stock', 'Expiry Date', 'Supplier', 'Safety Note'];
+      const rows = getFilteredEquipments().map(e => [
+        e.equipmentId || '', e.name, e.formula || '', e.lab, e.location || '', e.type || 'Equipment', e.unit || 'pcs',
+        e.total || 0, e.available || 0, e.reserved || 0, e.damaged || 0, e.inRepair || 0,
+        e.minStock || 0, e.expiryDate || '', e.supplier || '', e.hazardNote || ''
+      ]);
+      exportDataToCSV(`IPS_Inventory_${today}.csv`, headers, rows);
+    }
+
+    function closeModal(id) {
+      const m = document.getElementById(id);
+      if (m) {
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+      }
+    }
+  </script>
+</body>
+</html>
