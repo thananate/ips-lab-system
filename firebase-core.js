@@ -1,5 +1,5 @@
 // =========================================================================
-// IPS ASSET SYSTEM - SHARED FIREBASE CORE & DYNAMIC LABS GUARD (V2)
+// IPS ASSET SYSTEM - SHARED FIREBASE CORE & RESTRICTED ROOMS GUARD (V3)
 // =========================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyCRotp0yrhYGc8zctl1Yo7Fknxz0AJnEZU",
@@ -35,27 +35,47 @@ window.IPS = {
   users: []
 };
 
-// Get all active laboratory names dynamically
-function getAllLabNames() {
-  return (window.IPS.labs && window.IPS.labs.length > 0) ? window.IPS.labs : DEFAULT_LABS;
+// Check if a room is marked as Restricted / Private (e.g., ICT Assets)
+function isRoomRestricted(roomName) {
+  const doc = (window.IPS.labDocs || []).find(l => l.name === roomName);
+  return Boolean(doc && doc.isRestricted === true);
 }
 
-// Get allowed labs: Super Admin, Admin, Lab Staff, Teachers, Staff, and Office Staff access all rooms
+// Get allowed rooms for current user (automatically hides Restricted rooms unless Super Admin or explicitly granted)
 function getUserAllowedLabs(user) {
-  const allLabs = getAllLabNames();
+  const allDocs = window.IPS.labDocs || [];
+  const allNames = allDocs.length > 0 ? allDocs.map(l => l.name) : [...DEFAULT_LABS];
   if (!user) return [];
-  if (['Super Admin', 'Admin', 'Lab Staff', 'Teacher', 'Staff', 'Office Staff'].includes(user.role)) {
-    return allLabs;
+
+  // Super Admin always sees every room including Restricted/Secret rooms
+  if (user.role === 'Super Admin') {
+    return allNames;
   }
-  const labs = [];
-  allLabs.forEach(l => {
-    const inArray = Array.isArray(user.allowedLabs) && user.allowedLabs.includes(l);
-    const inProp = user[l] === true || user[l] === 'true' || user[l] === 'Yes' || user[l] === '1';
-    if (inArray || inProp) {
-      labs.push(l);
+
+  const explicitAccess = Array.isArray(user.allowedLabs) ? user.allowedLabs : [];
+  const standardRoles = ['Admin', 'Lab Staff', 'Teacher', 'Staff', 'Office Staff'];
+
+  return allNames.filter(roomName => {
+    if (isRoomRestricted(roomName)) {
+      return explicitAccess.includes(roomName) || user[roomName] === true || user[roomName] === 'true';
     }
+    if (standardRoles.includes(user.role)) {
+      return true;
+    }
+    return explicitAccess.includes(roomName) || user[roomName] === true || user[roomName] === 'true';
   });
-  return labs;
+}
+
+// Get all room names visible to the current user (used by dropdowns across all pages)
+function getAllLabNames() {
+  if (window.IPS.user) {
+    return getUserAllowedLabs(window.IPS.user);
+  }
+  const allDocs = window.IPS.labDocs || [];
+  if (allDocs.length > 0) {
+    return allDocs.filter(l => !l.isRestricted).map(l => l.name);
+  }
+  return [...DEFAULT_LABS];
 }
 
 // Helper: Determine if item is consumable/chemical (deducted permanently on approval)
@@ -209,8 +229,8 @@ async function addStockMovement(equipmentId, equipmentName, lab, action, qty, no
 function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
   const user = window.IPS.user;
   const role = user.role;
-  const allLabs = getAllLabNames();
   const allowedLabs = getUserAllowedLabs(user);
+  const restrictedCount = allowedLabs.filter(r => isRoomRestricted(r)).length;
 
   let menus = [
     { href: 'index.html', id: 'index', label: 'Dashboard (Home)', icon: 'layout-dashboard', roles: ['Teacher', 'Staff', 'Office Staff', 'Lab Staff', 'Admin', 'Super Admin'] },
@@ -246,9 +266,9 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
 
   const sidebarEl = document.getElementById('sharedSidebar');
   if (sidebarEl) {
-    const labDisplay = allowedLabs.length === allLabs.length
-      ? `Access: All ${allLabs.length} Rooms`
-      : (allowedLabs.length > 0 ? 'Lab: ' + allowedLabs.join(', ') : 'No Lab Assigned Yet');
+    const labDisplay = allowedLabs.length > 0
+      ? `Rooms: ${allowedLabs.length} Accessible${restrictedCount > 0 ? ` (🔒 ${restrictedCount} Secret)` : ''}`
+      : 'No Room Assigned';
 
     sidebarEl.innerHTML = `
       <div>
@@ -308,6 +328,7 @@ async function ensureDefaultLabsSeeded() {
       await db.collection('labs').add({
         name: DEFAULT_LABS[i],
         order: i + 1,
+        isRestricted: false,
         createdAt: new Date().toISOString().slice(0, 10)
       });
     }
