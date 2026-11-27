@@ -154,7 +154,7 @@ const menus = [
             <img src="IPS.png" alt="IPS Lab Logo" class="w-10 h-10 object-contain rounded-xl bg-white p-0.5 shadow-sm border border-slate-100" />
             <div>
               <div class="font-bold text-slate-800 leading-tight">Device Borrowing IPS</div>
-              <div class="text-[11px] text-emerald-600 font-medium">● Firebase Live</div>
+              <div class="text-[11px] text-emerald-600 font-medium">● Admin Panel (Firebase Live)</div>
             </div>
           </a>
           <button onclick="document.getElementById('mobileNavMenu').classList.toggle('hidden')" class="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100">
