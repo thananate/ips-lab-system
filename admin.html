@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IPS Lab System | User & Lab Management</title>
+  <title>IPS Asset System | User & Lab Management</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -23,288 +23,243 @@
     <main class="flex-1 p-4 md:p-8 space-y-6">
       <div id="sharedHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
 
-      <!-- DYNAMIC LABORATORIES / RESOURCE ROOMS MANAGER -->
-      <div class="glass-card rounded-2xl p-5 space-y-3">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+      <!-- ROLE PERMISSION SUMMARY -->
+      <div class="glass-card rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+          <div class="font-bold text-slate-800">Teacher / Staff / Office Staff</div>
+          <div class="text-[11px] text-slate-500 mt-0.5">Access Dashboard, Equipment Request, and Inventory Stock. (<b>Staff</b> also accesses Repair & MA).</div>
+        </div>
+        <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200">
+          <div class="font-bold text-indigo-900">Lab Staff</div>
+          <div class="text-[11px] text-indigo-700 mt-0.5">Ordered workflow: 1. Stock → 2. Purchase → 3. Asset Admin Section → 4. Repair & MA → 5. Home.</div>
+        </div>
+        <div class="p-3 rounded-xl bg-purple-50/70 border border-purple-200">
+          <div class="font-bold text-purple-900">Admin / Super Admin</div>
+          <div class="text-[11px] text-purple-700 mt-0.5">Full operational control, Analytics & Reports, and User/Lab system configuration.</div>
+        </div>
+      </div>
+
+      <!-- USER & ROLE MANAGEMENT TABLE -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
-              <i data-lucide="building-2" class="w-4 h-4 text-indigo-600"></i> Laboratories & Resource Rooms
+              <i data-lucide="users" class="w-4 h-4 text-indigo-600"></i> Registered Staff & Role Assignments
             </h3>
-            <p class="text-[11px] text-slate-500">Add or manage rooms available across Requisition, Inventory, Procurement, and Reports.</p>
+            <p class="text-[11px] text-slate-400">Assign roles including Teacher, Staff, Office Staff, Lab Staff, Admin, and Super Admin</p>
           </div>
           <div class="flex items-center gap-2">
-            <input type="text" id="newLabNameInput" placeholder="New room name (e.g., Robotics Lab)..." class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs w-56" />
-            <button onclick="addNewLabRoom()" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 flex items-center gap-1 shadow-sm">
-              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Room
-            </button>
+            <select id="roleFilter" onchange="renderUsersTable()" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs">
+              <option value="All">All Roles</option>
+              <option value="Teacher">Teacher</option>
+              <option value="Staff">Staff</option>
+              <option value="Office Staff">Office Staff</option>
+              <option value="Lab Staff">Lab Staff</option>
+              <option value="Admin">Admin</option>
+              <option value="Super Admin">Super Admin</option>
+            </select>
+            <input type="text" id="userSearchInput" onkeyup="renderUsersTable()" placeholder="Search Name or Email..." class="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs w-52" />
           </div>
         </div>
-        <div id="labsChipsContainer" class="flex flex-wrap gap-2"></div>
-      </div>
 
-      <!-- ACTION & SEARCH BAR -->
-      <div class="glass-card rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div class="text-xs text-slate-600 flex items-center gap-2">
-          <i data-lucide="shield-check" class="w-4 h-4 text-indigo-600 flex-shrink-0"></i>
-          <span>Select which rooms each <b>Teacher</b> is authorized to book. <b>Lab Staff</b> and <b>Admin</b> automatically access all rooms.</span>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <input type="text" id="searchUser" onkeyup="renderUsers()" placeholder="Search name, email, or role..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-56" />
-          <button onclick="openCreateUserModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium shadow hover:opacity-95 flex items-center gap-1.5">
-            <i data-lucide="user-plus" class="w-4 h-4"></i> Create New User
-          </button>
-        </div>
-      </div>
-
-      <!-- USERS RBAC TABLE -->
-      <div class="glass-card rounded-2xl overflow-hidden">
-        <div class="p-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 class="font-bold text-sm text-slate-800">Registered System Users & Room Permissions</h3>
-          <span id="userCountBadge" class="text-[11px] text-slate-500">0 users</span>
-        </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
-            <thead id="usersThead"></thead>
+            <thead>
+              <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                <th class="p-3.5">Staff Member</th>
+                <th class="p-3.5">Email Address</th>
+                <th class="p-3.5">Current Role</th>
+                <th class="p-3.5 text-right">Change Role</th>
+              </tr>
+            </thead>
             <tbody id="usersTbody" class="divide-y divide-slate-100 text-xs"></tbody>
           </table>
         </div>
       </div>
-    </main>
-  </div>
 
-  <!-- CREATE NEW USER MODAL -->
-  <div id="createUserModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-        <h3 class="text-lg font-bold text-slate-800">Create New System Account</h3>
-        <button onclick="closeCreateUserModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      <!-- DYNAMIC ROOMS / LABORATORIES MANAGEMENT -->
+      <div class="glass-card rounded-2xl p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
+              <i data-lucide="building-2" class="w-4 h-4 text-purple-600"></i> Rooms & Laboratories Configuration
+            </h3>
+            <p class="text-[11px] text-slate-400">Rooms added here immediately appear across Stock, Requests, Purchase, and Repair & MA</p>
+          </div>
+          <button onclick="addNewLabRoom()" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 flex items-center gap-1.5 shadow-sm">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add New Room / Department
+          </button>
+        </div>
+
+        <div id="labsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
       </div>
-      <form id="createUserForm" class="mt-4 space-y-3.5">
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Full Name *</label>
-          <input type="text" id="newName" required placeholder="e.g., Somchai Jaidee" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Email Address *</label>
-          <input type="email" id="newEmail" required placeholder="somchai@ips.ac.th" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Initial Password (min 6 chars) *</label>
-          <input type="password" id="newPassword" minlength="6" required placeholder="••••••••" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Assigned Role *</label>
-          <select id="newRole" onchange="document.getElementById('newLabBoxes').classList.toggle('hidden', this.value !== 'Teacher')" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
-            <option value="Teacher">Teacher (Book Selected Rooms)</option>
-            <option value="Lab Staff">Lab Staff (All Rooms - Prepare & Approve)</option>
-            <option value="Admin">Admin (Management & Reports)</option>
-          </select>
-        </div>
-        <div id="newLabBoxes" class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-          <div class="text-[11px] font-semibold text-slate-600">Select Rooms Teacher Can Book:</div>
-          <div id="dynamicCreateLabCheckboxes" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs"></div>
-        </div>
-        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-          <button type="button" onclick="closeCreateUserModal()" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Create Account</button>
-        </div>
-      </form>
-    </div>
+    </main>
   </div>
 
   <script src="firebase-core.js"></script>
   <script>
+    const ALL_ROLES = ['Teacher', 'Staff', 'Office Staff', 'Lab Staff', 'Admin', 'Super Admin'];
+
     initIPSPage({
       activePage: 'admin',
       title: 'User & Lab Management',
-      subtitle: 'Configure laboratories/resource rooms, RBAC roles, and Teacher permissions',
+      subtitle: 'Manage staff roles (Teacher, Staff, Office Staff, Lab Staff, Admin) and rooms',
       allowedRoles: ['Super Admin'],
       onReady: () => {
-        renderLabsManager();
-        renderUsers();
+        renderUsersTable();
+        renderLabsGrid();
       }
     });
 
-    function renderLabsManager() {
-      const container = document.getElementById('labsChipsContainer');
-      const docs = window.IPS.labDocs || [];
-      if (docs.length === 0) {
-        container.innerHTML = '<span class="text-xs text-slate-400">Loading rooms...</span>';
-        return;
-      }
-      container.innerHTML = docs.map(d => {
-        const itemCount = window.IPS.equipments.filter(e => e.lab === d.name).length;
-        return `
-          <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50/80 border border-indigo-200 text-xs">
-            <span class="font-semibold text-indigo-900">${d.name}</span>
-            <span class="px-1.5 py-0.2 rounded-full bg-white text-[10px] text-slate-500 border border-slate-200">${itemCount} items</span>
-            <button onclick="deleteLabRoom('${d.id}', '${d.name.replace(/'/g, "\\'")}', ${itemCount})" class="text-slate-400 hover:text-rose-600 ml-0.5" title="Delete Room">
-              <i data-lucide="x" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-        `;
-      }).join('');
-      if (window.lucide) lucide.createIcons();
-    }
+    function renderUsersTable() {
+      const roleF = document.getElementById('roleFilter').value || 'All';
+      const q = String(document.getElementById('userSearchInput').value || '').toLowerCase();
+      const users = Array.isArray(window.IPS.users) ? window.IPS.users : [];
 
-    async function addNewLabRoom() {
-      const inp = document.getElementById('newLabNameInput');
-      const name = inp.value.trim();
-      if (!name) return Swal.fire('Room Name Required', 'Please enter a laboratory or resource room name.', 'warning');
-      const exists = getAllLabNames().some(l => l.toLowerCase() === name.toLowerCase());
-      if (exists) return Swal.fire('Duplicate Name', `"${name}" already exists.`, 'warning');
-      const nextOrder = (window.IPS.labDocs || []).length + 1;
-      await db.collection('labs').add({ name, order: nextOrder, createdAt: new Date().toISOString().slice(0, 10) });
-      inp.value = '';
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `Added "${name}"`, showConfirmButton: false, timer: 1800 });
-    }
+      const roleBadges = {
+        'Teacher': 'bg-slate-100 text-slate-700',
+        'Staff': 'bg-teal-100 text-teal-800',
+        'Office Staff': 'bg-cyan-100 text-cyan-800',
+        'Lab Staff': 'bg-blue-100 text-blue-800',
+        'Admin': 'bg-indigo-100 text-indigo-800',
+        'Super Admin': 'bg-purple-100 text-purple-800'
+      };
 
-    function deleteLabRoom(docId, labName, itemCount) {
-      if (getAllLabNames().length <= 1) return Swal.fire('Cannot Delete', 'At least one room must remain in the system.', 'warning');
-      Swal.fire({
-        title: `Delete "${labName}"?`,
-        text: itemCount > 0 ? `Warning: ${itemCount} inventory items belong to ${labName}.` : 'This room will be removed.',
-        icon: 'warning', showCancelButton: true, confirmButtonColor: '#e11d48', confirmButtonText: 'Delete Room'
-      }).then(async res => {
-        if (res.isConfirmed) {
-          await db.collection('labs').doc(docId).delete();
-          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `Removed "${labName}"`, showConfirmButton: false, timer: 1800 });
+      const filtered = users.filter(u => {
+        const uRole = u.role || 'Teacher';
+        if (roleF !== 'All' && uRole !== roleF) return false;
+        if (q) {
+          const hay = `${u.name || ''} ${u.email || ''} ${uRole}`.toLowerCase();
+          if (!hay.includes(q)) return false;
         }
+        return true;
       });
-    }
 
-    function openCreateUserModal() {
-      document.getElementById('createUserForm').reset();
-      document.getElementById('newLabBoxes').classList.remove('hidden');
-      const allLabs = getAllLabNames();
-      document.getElementById('dynamicCreateLabCheckboxes').innerHTML = allLabs.map(lab => `
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" name="newLabChk" value="${lab}" class="accent-indigo-600">
-          <span class="truncate">${lab}</span>
-        </label>
-      `).join('');
-      const m = document.getElementById('createUserModal');
-      m.classList.remove('hidden'); m.classList.add('flex');
-    }
-
-    function closeCreateUserModal() {
-      const m = document.getElementById('createUserModal');
-      m.classList.add('hidden'); m.classList.remove('flex');
-    }
-
-    document.getElementById('createUserForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('newName').value.trim();
-      const email = document.getElementById('newEmail').value.trim();
-      const password = document.getElementById('newPassword').value;
-      const role = document.getElementById('newRole').value;
-      const allLabs = getAllLabNames();
-      Swal.fire({ title: 'Creating User Account...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-      let secondaryApp = null;
-      try {
-        secondaryApp = firebase.initializeApp(firebaseConfig, 'SecondaryUserCreator_' + Date.now());
-        const cred = await secondaryApp.auth().createUserWithEmailAndPassword(email, password);
-        const newUid = cred.user.uid;
-        const checkedLabs = Array.from(document.querySelectorAll('input[name="newLabChk"]:checked')).map(el => el.value);
-        const userPayload = { uid: newUid, name, email, role, allowedLabs: role === 'Teacher' ? checkedLabs : [...allLabs] };
-        allLabs.forEach(lab => { userPayload[lab] = role === 'Teacher' ? checkedLabs.includes(lab) : true; });
-        await db.collection('user').doc(newUid).set(userPayload);
-        await secondaryApp.auth().signOut();
-        await secondaryApp.delete();
-        closeCreateUserModal();
-        Swal.fire('Account Created', `${name} (${role}) can now sign in with ${email}.`, 'success');
-      } catch (err) {
-        if (secondaryApp) await secondaryApp.delete().catch(() => {});
-        Swal.fire('Failed to Create Account', err.message, 'error');
-      }
-    });
-
-    function renderUsers() {
-      const currentUser = window.IPS.user;
-      const q = (document.getElementById('searchUser').value || '').toLowerCase();
-      const allLabs = getAllLabNames();
-      document.getElementById('usersThead').innerHTML = `
-        <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
-          <th class="p-3.5">User Profile</th>
-          <th class="p-3.5">Role (RBAC)</th>
-          ${allLabs.map(lab => `<th class="p-3.5 text-center whitespace-nowrap">${lab}</th>`).join('')}
-          <th class="p-3.5 text-right">Actions</th>
-        </tr>
-      `;
-      const filtered = window.IPS.users.filter(u => !q || (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q) || (u.role || '').toLowerCase().includes(q));
-      document.getElementById('userCountBadge').innerText = `${filtered.length} users`;
       const tbody = document.getElementById('usersTbody');
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${allLabs.length + 3}" class="p-8 text-center text-slate-400">No users found.</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-slate-400">No users found matching your filter.</td></tr>';
         return;
       }
-      const roleColors = { 'Super Admin': 'bg-rose-100 text-rose-700 border-rose-200', 'Admin': 'bg-purple-100 text-purple-700 border-purple-200', 'Lab Staff': 'bg-emerald-100 text-emerald-700 border-emerald-200', 'Teacher': 'bg-blue-100 text-blue-700 border-blue-200' };
+
       tbody.innerHTML = filtered.map(u => {
-        const isSuperTarget = u.role === 'Super Admin';
-        const isAllLabsRole = ['Super Admin', 'Admin', 'Lab Staff'].includes(u.role);
-        const userAllowed = getUserAllowedLabs(u);
+        const uRole = u.role || 'Teacher';
+        const isSelf = u.uid === (window.IPS.user || {}).uid;
         return `
           <tr class="hover:bg-slate-50/70">
             <td class="p-3.5">
               <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs flex-shrink-0">${(u.name || 'U').charAt(0).toUpperCase()}</div>
+                <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs">
+                  ${(u.name || u.email || 'U').charAt(0).toUpperCase()}
+                </div>
                 <div>
-                  <div class="font-bold text-slate-800 flex items-center gap-1.5">
-                    <span>${u.name || '-'}</span>
-                    <button onclick="editUserName('${u.uid}', '${(u.name || '').replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-indigo-600"><i data-lucide="pencil" class="w-3 h-3"></i></button>
-                  </div>
-                  <div class="text-[11px] text-slate-400">${u.email || '-'}</div>
+                  <div class="font-bold text-slate-800">${u.name || '-'} ${isSelf ? '<span class="text-[10px] text-emerald-600">(You)</span>' : ''}</div>
                 </div>
               </div>
             </td>
+            <td class="p-3.5 font-mono text-[11px] text-slate-600">${u.email || '-'}</td>
             <td class="p-3.5">
-              <select onchange="updateUserRole('${u.uid}', this.value)" ${u.uid === currentUser.uid ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg border text-xs font-semibold ${roleColors[u.role] || 'bg-white border-slate-200'} disabled:opacity-60">
-                ${['Teacher', 'Lab Staff', 'Admin', 'Super Admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}
-              </select>
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${roleBadges[uRole] || 'bg-slate-100 text-slate-700'}">${uRole}</span>
             </td>
-            ${allLabs.map(lab => {
-              const checked = isAllLabsRole || userAllowed.includes(lab);
-              return `<td class="p-3.5 text-center"><input type="checkbox" ${checked ? 'checked' : ''} ${isAllLabsRole ? 'disabled' : ''} onchange="toggleLabAccess('${u.uid}', '${lab.replace(/'/g, "\\'")}', this.checked)" class="w-4 h-4 accent-indigo-600 rounded cursor-pointer disabled:opacity-40" /></td>`;
-            }).join('')}
             <td class="p-3.5 text-right">
-              ${!isSuperTarget && u.uid !== currentUser.uid ? `<button onclick="deleteUserDoc('${u.uid}', '${u.email}')" class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : '<span class="text-[10px] text-slate-300">Protected</span>'}
+              <select onchange="updateUserRole('${u.uid}', this.value)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white font-medium">
+                ${ALL_ROLES.map(r => `<option value="${r}" ${uRole === r ? 'selected' : ''}>${r}</option>`).join('')}
+              </select>
             </td>
           </tr>
         `;
       }).join('');
-      if (window.lucide) lucide.createIcons();
     }
 
     async function updateUserRole(uid, newRole) {
+      const targetUser = (window.IPS.users || []).find(u => u.uid === uid);
+      if (!targetUser) return;
+
       await db.collection('user').doc(uid).update({ role: newRole });
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `Role updated to ${newRole}`, showConfirmButton: false, timer: 1800 });
-    }
-
-    async function toggleLabAccess(uid, lab, isChecked) {
-      const targetUser = window.IPS.users.find(u => u.uid === uid);
-      let currentAllowed = targetUser ? getUserAllowedLabs(targetUser) : [];
-      if (isChecked && !currentAllowed.includes(lab)) currentAllowed.push(lab);
-      else if (!isChecked) currentAllowed = currentAllowed.filter(l => l !== lab);
-      await db.collection('user').doc(uid).update({ [lab]: isChecked, allowedLabs: currentAllowed });
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `${lab} access updated`, showConfirmButton: false, timer: 1500 });
-    }
-
-    function editUserName(uid, currentName) {
-      Swal.fire({ title: 'Edit Display Name', input: 'text', inputValue: currentName, showCancelButton: true, confirmButtonText: 'Save' }).then(async res => {
-        if (res.isConfirmed && res.value.trim()) {
-          await db.collection('user').doc(uid).update({ name: res.value.trim() });
-          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Name updated', showConfirmButton: false, timer: 1500 });
-        }
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: `${targetUser.name || targetUser.email} is now ${newRole}`,
+        showConfirmButton: false,
+        timer: 2000
       });
     }
 
-    function deleteUserDoc(uid, email) {
-      Swal.fire({ title: 'Remove User Profile?', text: `Remove Firestore profile for ${email}?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e11d48', confirmButtonText: 'Delete' }).then(async res => {
-        if (res.isConfirmed) {
-          await db.collection('user').doc(uid).delete();
-          Swal.fire('Deleted', 'User profile removed from Firestore.', 'success');
-        }
+    function renderLabsGrid() {
+      const labDocs = Array.isArray(window.IPS.labDocs) ? window.IPS.labDocs : [];
+      const container = document.getElementById('labsGrid');
+
+      if (labDocs.length === 0) {
+        container.innerHTML = '<div class="text-xs text-slate-400">No rooms configured yet.</div>';
+        return;
+      }
+
+      container.innerHTML = labDocs.map((lab, idx) => `
+        <div class="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+          <div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Room #${idx + 1}</div>
+            <div class="font-bold text-slate-800 text-sm">${lab.name}</div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button type="button" onclick="renameLabRoom('${lab.id}', '${lab.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 text-[11px] font-medium">
+              Rename
+            </button>
+            <button type="button" onclick="deleteLabRoom('${lab.id}', '${lab.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 text-[11px] font-medium">
+              Delete
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function addNewLabRoom() {
+      const { value: roomName } = await Swal.fire({
+        title: 'Add New Room / Department',
+        input: 'text',
+        inputPlaceholder: 'e.g., IT & Computer Lab, Admin Office, Art Room',
+        showCancelButton: true,
+        confirmButtonText: 'Add Room',
+        inputValidator: (v) => !v || !v.trim() ? 'Please enter a room name.' : null
       });
+      if (!roomName) return;
+
+      const nextOrder = (window.IPS.labDocs || []).length + 1;
+      await db.collection('labs').add({
+        name: roomName.trim(),
+        order: nextOrder,
+        createdAt: new Date().toISOString().slice(0, 10)
+      });
+      Swal.fire('Added', `"${roomName.trim()}" is now available across all modules.`, 'success');
+    }
+
+    async function renameLabRoom(docId, currentName) {
+      const { value: newName } = await Swal.fire({
+        title: 'Rename Room',
+        input: 'text',
+        inputValue: currentName,
+        showCancelButton: true,
+        confirmButtonText: 'Save Name',
+        inputValidator: (v) => !v || !v.trim() ? 'Room name cannot be empty.' : null
+      });
+      if (!newName || newName.trim() === currentName) return;
+
+      await db.collection('labs').doc(docId).update({ name: newName.trim() });
+      Swal.fire('Updated', `Renamed to "${newName.trim()}".`, 'success');
+    }
+
+    async function deleteLabRoom(docId, roomName) {
+      const res = await Swal.fire({
+        title: `Delete "${roomName}"?`,
+        text: 'Existing equipment records in this room will remain in Firestore, but the room will be removed from dropdowns.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'Yes, delete'
+      });
+      if (!res.isConfirmed) return;
+
+      await db.collection('labs').doc(docId).delete();
+      Swal.fire('Deleted', `"${roomName}" removed.`, 'success');
     }
   </script>
 </body>
