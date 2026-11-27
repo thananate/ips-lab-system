@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IPS Lab System | Analytics & Reports</title>
+  <title>IPS Asset System | Analytics & Reports</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -34,7 +34,7 @@
       <div class="glass-card rounded-2xl p-5 space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3 no-print">
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Report Type (13 Standard Reports)</label>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Report Type (15 Executive Reports)</label>
             <select id="reportTypeSelect" onchange="renderReport()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium">
               <option value="Equipment Inventory">1. Equipment Inventory Report</option>
               <option value="Request Report">2. Requisition / Request Report</option>
@@ -44,11 +44,13 @@
               <option value="Damaged Equipment">6. Damaged Equipment Report</option>
               <option value="Purchase Report">7. Procurement / Purchase Report</option>
               <option value="Unavailable Report">8. Unfulfilled / Shortage Report</option>
-              <option value="Teacher Usage Report">9. Teacher Usage Summary</option>
+              <option value="Teacher Usage Report">9. Teacher / Staff Usage Summary</option>
               <option value="Lab Usage Report">10. Room / Laboratory Utilization Summary</option>
               <option value="Expiry Report">11. Chemical & Consumable Expiry Report</option>
               <option value="Monthly Summary">12. Monthly Usage & Cost Summary</option>
               <option value="Yearly Summary">13. Yearly Usage & Cost Summary</option>
+              <option value="Repair Report">14. Equipment Repair & Turnaround Report</option>
+              <option value="MA Contract Report">15. MA Contracts & Renewal Schedule</option>
             </select>
           </div>
 
@@ -104,7 +106,7 @@
       <!-- VISUAL ANALYTICS SUMMARY -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print">
         <div class="glass-card rounded-2xl p-5">
-          <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-3">Requests by Room / Laboratory</h4>
+          <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-3">Requests by Accessible Room / Laboratory</h4>
           <div class="h-56"><canvas id="reqLabChart"></canvas></div>
         </div>
         <div class="glass-card rounded-2xl p-5">
@@ -123,7 +125,7 @@
     initIPSPage({
       activePage: 'report',
       title: 'Analytics & Reports',
-      subtitle: 'Generate 13 specialized reports across all rooms and export to Excel, CSV, or PDF',
+      subtitle: 'Generate 15 specialized reports across accessible rooms and export to Excel, CSV, or PDF',
       allowedRoles: ['Admin', 'Super Admin'],
       onReady: () => {
         populateDynamicLabFilter();
@@ -133,12 +135,20 @@
     });
 
     function populateDynamicLabFilter() {
-      const allLabs = getAllLabNames();
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
       const sel = document.getElementById('reportLabSelect');
       const prev = sel.value || 'All';
-      sel.innerHTML = `<option value="All">All Rooms (Consolidated)</option>` +
-        allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
-      if (prev === 'All' || allLabs.includes(prev)) sel.value = prev;
+      sel.innerHTML = `<option value="All">All Accessible Rooms (${allowedLabs.length})</option>` +
+        allowedLabs.map(l => `<option value="${l}">${l}</option>`).join('');
+      if (prev === 'All' || allowedLabs.includes(prev)) sel.value = prev;
+    }
+
+    // Strict security filter: ensures Restricted / Secret ICT rooms NEVER leak into "All Rooms" for unauthorized Admins
+    function isRoomPermittedAndSelected(roomName) {
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
+      if (!allowedLabs.includes(roomName)) return false;
+      const selectedLab = document.getElementById('reportLabSelect').value;
+      return selectedLab === 'All' || roomName === selectedLab;
     }
 
     function setQuickDate(mode) {
@@ -182,19 +192,17 @@
     }
 
     function buildPeriodSummary(periodLength, labelHeader) {
-      const lab = document.getElementById('reportLabSelect').value;
       const from = document.getElementById('dateFrom').value;
       const to = document.getElementById('dateTo').value;
-      const byLab = (l) => lab === 'All' || l === lab;
       const map = {};
 
       const ensureKey = (key) => {
         if (!map[key]) {
-          map[key] = { requests: 0, approvedItems: 0, damagedQty: 0, purchaseOrders: 0, purchaseCost: 0 };
+          map[key] = { requests: 0, approvedItems: 0, damagedQty: 0, purchaseOrders: 0, purchaseCost: 0, repairTickets: 0, repairCost: 0 };
         }
       };
 
-      window.IPS.requests.filter(r => byLab(r.lab) && r.useDate && inDateRange(r.useDate, from, to)).forEach(r => {
+      (window.IPS.requests || []).filter(r => isRoomPermittedAndSelected(r.lab) && r.useDate && inDateRange(r.useDate, from, to)).forEach(r => {
         const key = r.useDate.slice(0, periodLength);
         ensureKey(key);
         map[key].requests++;
@@ -204,54 +212,61 @@
         });
       });
 
-      window.IPS.purchases.filter(p => byLab(p.lab) && p.requestDate && inDateRange(p.requestDate, from, to)).forEach(p => {
+      (window.IPS.purchases || []).filter(p => isRoomPermittedAndSelected(p.lab) && p.requestDate && inDateRange(p.requestDate, from, to)).forEach(p => {
         const key = p.requestDate.slice(0, periodLength);
         ensureKey(key);
         map[key].purchaseOrders++;
         map[key].purchaseCost += Number(p.price || 0);
       });
 
+      (window.IPS.repairs || []).filter(rep => isRoomPermittedAndSelected(rep.lab) && rep.sentDate && inDateRange(rep.sentDate, from, to)).forEach(rep => {
+        const key = rep.sentDate.slice(0, periodLength);
+        ensureKey(key);
+        map[key].repairTickets++;
+        map[key].repairCost += Number(rep.cost || 0);
+      });
+
       return Object.keys(map).sort().reverse().map(k => ({
         [labelHeader]: k,
         'Total Requisitions': map[k].requests,
-        'Total Approved Units': map[k].approvedItems,
-        'Damaged Units Reported': map[k].damagedQty,
-        'Purchase Requests (PR)': map[k].purchaseOrders,
-        'Est. Procurement Cost (THB)': map[k].purchaseCost.toLocaleString()
+        'Approved Units': map[k].approvedItems,
+        'Damaged Units': map[k].damagedQty,
+        'Purchase Orders (PR)': map[k].purchaseOrders,
+        'Procurement Cost (THB)': map[k].purchaseCost.toLocaleString(),
+        'Repair Tickets': map[k].repairTickets,
+        'Repair Cost (THB)': map[k].repairCost.toLocaleString()
       }));
     }
 
     function getReportRows() {
       const type = document.getElementById('reportTypeSelect').value;
-      const lab = document.getElementById('reportLabSelect').value;
       const from = document.getElementById('dateFrom').value;
       const to = document.getElementById('dateTo').value;
-      const byLab = (l) => lab === 'All' || l === lab;
-      const allLabs = getAllLabNames();
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
 
       switch (type) {
         case 'Equipment Inventory':
-          return window.IPS.equipments.filter(e => byLab(e.lab)).map(e => ({
-            'SKU': e.equipmentId,
+          return (window.IPS.equipments || []).filter(e => isRoomPermittedAndSelected(e.lab)).map(e => ({
+            'SKU': e.equipmentId || '-',
             'Equipment Name': e.name,
             'Formula': e.formula || '-',
-            'Specification': e.spec || '-',
             'Room / Lab': e.lab,
-            'Total': e.total,
-            'Available': e.available,
+            'Total': e.total || 0,
+            'Available': e.available || 0,
             'Reserved': e.reserved || 0,
             'Damaged': e.damaged || 0,
-            'Min Stock': e.minStock,
+            'In Repair': e.inRepair || 0,
+            'Min Stock': e.minStock || 0,
             'Expiry Date': e.expiryDate || '-',
-            'Unit': e.unit
+            'Unit': e.unit || 'pcs'
           }));
 
         case 'Request Report':
-          return window.IPS.requests.filter(r => byLab(r.lab) && inDateRange(r.useDate, from, to)).map(r => ({
-            'Request ID': r.id,
-            'Teacher': r.teacherName,
+          return (window.IPS.requests || []).filter(r => isRoomPermittedAndSelected(r.lab) && inDateRange(r.useDate, from, to)).map(r => ({
+            'Request ID': r.requestCode || r.id,
+            'Requester': r.teacherName || r.requesterName || '-',
             'Room / Lab': r.lab,
-            'Experiment': r.experiment,
+            'Subject / Activity': r.experiment || r.subject || '-',
             'Usage Date': r.useDate,
             'Time Slot': `${r.startTime}-${r.endTime}`,
             'Status': r.status,
@@ -260,28 +275,27 @@
 
         case 'Equipment Usage':
           const usage = [];
-          window.IPS.requests.filter(r => byLab(r.lab) && inDateRange(r.useDate, from, to)).forEach(r => {
+          (window.IPS.requests || []).filter(r => isRoomPermittedAndSelected(r.lab) && inDateRange(r.useDate, from, to)).forEach(r => {
             (r.items || []).forEach(it => {
               usage.push({
-                'Request ID': r.id,
+                'Request ID': r.requestCode || r.id,
                 'Usage Date': r.useDate,
                 'Room / Lab': r.lab,
-                'Teacher': r.teacherName,
+                'Requester': r.teacherName || r.requesterName || '-',
                 'Equipment': it.name,
-                'Specification': it.spec || '-',
                 'Requested': it.requestedQty,
-                'Approved': it.approvedQty,
-                'Item Status': it.itemStatus
+                'Approved': it.approvedQty || it.requestedQty,
+                'Status': it.itemStatus || r.status
               });
             });
           });
           return usage;
 
         case 'Stock Movement':
-          return window.IPS.movements.filter(m => byLab(m.lab) && inDateRange(m.date, from, to)).map(m => ({
+          return (window.IPS.movements || []).filter(m => isRoomPermittedAndSelected(m.lab) && inDateRange(m.date, from, to)).map(m => ({
             'Timestamp': m.date,
             'Room / Lab': m.lab,
-            'SKU': m.equipmentId,
+            'SKU': m.equipmentId || '-',
             'Equipment': m.equipmentName,
             'Action': m.action,
             'Qty Change': m.qty,
@@ -290,46 +304,46 @@
           }));
 
         case 'Low Stock Report':
-          return window.IPS.equipments.filter(e => byLab(e.lab) && Number(e.available) <= Number(e.minStock)).map(e => ({
-            'SKU': e.equipmentId,
+          return (window.IPS.equipments || []).filter(e => isRoomPermittedAndSelected(e.lab) && Number(e.available) <= Number(e.minStock)).map(e => ({
+            'SKU': e.equipmentId || '-',
             'Equipment Name': e.name,
-            'Specification': e.spec || '-',
             'Room / Lab': e.lab,
             'Available': e.available,
             'Min Stock': e.minStock,
             'Deficit': Math.max(0, Number(e.minStock) - Number(e.available)),
-            'Unit': e.unit
+            'Unit': e.unit || 'pcs'
           }));
 
         case 'Damaged Equipment':
-          return window.IPS.equipments.filter(e => byLab(e.lab) && Number(e.damaged || 0) > 0).map(e => ({
-            'SKU': e.equipmentId,
+          return (window.IPS.equipments || []).filter(e => isRoomPermittedAndSelected(e.lab) && Number(e.damaged || 0) > 0).map(e => ({
+            'SKU': e.equipmentId || '-',
             'Equipment Name': e.name,
             'Room / Lab': e.lab,
             'Damaged Qty': e.damaged,
+            'In Repair Qty': e.inRepair || 0,
             'Total Stock': e.total,
-            'Unit': e.unit
+            'Unit': e.unit || 'pcs'
           }));
 
         case 'Purchase Report':
-          return window.IPS.purchases.filter(p => byLab(p.lab) && inDateRange(p.requestDate, from, to)).map(p => ({
+          return (window.IPS.purchases || []).filter(p => isRoomPermittedAndSelected(p.lab) && inDateRange(p.requestDate, from, to)).map(p => ({
             'PR ID': p.id,
             'Date': p.requestDate,
             'Equipment': p.equipmentName,
             'Room / Lab': p.lab,
             'Qty': p.qty,
             'Unit': p.unit,
-            'Est. Cost (THB)': p.price || 0,
+            'Est. Cost (THB)': Number(p.price || 0).toLocaleString(),
             'Supplier': p.supplier || '-',
             'Status': p.status
           }));
 
         case 'Unavailable Report':
           const shortages = [];
-          window.IPS.requests.filter(r => byLab(r.lab) && r.status !== 'Pending' && inDateRange(r.useDate, from, to)).forEach(r => {
+          (window.IPS.requests || []).filter(r => isRoomPermittedAndSelected(r.lab) && r.status !== 'Pending' && inDateRange(r.useDate, from, to)).forEach(r => {
             (r.items || []).filter(it => Number(it.approvedQty) < Number(it.requestedQty)).forEach(it => {
               shortages.push({
-                'Request ID': r.id,
+                'Request ID': r.requestCode || r.id,
                 'Usage Date': r.useDate,
                 'Room / Lab': r.lab,
                 'Equipment': it.name,
@@ -344,44 +358,44 @@
 
         case 'Teacher Usage Report':
           const teacherMap = {};
-          window.IPS.requests.filter(r => byLab(r.lab) && inDateRange(r.useDate, from, to)).forEach(r => {
-            if (!teacherMap[r.teacherName]) {
-              teacherMap[r.teacherName] = { totalReqs: 0, approved: 0, cancelled: 0 };
+          (window.IPS.requests || []).filter(r => isRoomPermittedAndSelected(r.lab) && inDateRange(r.useDate, from, to)).forEach(r => {
+            const name = r.teacherName || r.requesterName || 'Unknown';
+            if (!teacherMap[name]) {
+              teacherMap[name] = { totalReqs: 0, approved: 0, cancelled: 0 };
             }
-            teacherMap[r.teacherName].totalReqs++;
-            if (['Approved', 'Partial', 'Returned'].includes(r.status)) teacherMap[r.teacherName].approved++;
-            if (r.status === 'Cancelled') teacherMap[r.teacherName].cancelled++;
+            teacherMap[name].totalReqs++;
+            if (['Approved', 'Partial', 'Returned'].includes(r.status)) teacherMap[name].approved++;
+            if (r.status === 'Cancelled') teacherMap[name].cancelled++;
           });
           return Object.entries(teacherMap).map(([name, stat]) => ({
-            'Teacher Name': name,
+            'Requester Name': name,
             'Total Requests': stat.totalReqs,
             'Approved / Completed': stat.approved,
             'Cancelled': stat.cancelled
           }));
 
         case 'Lab Usage Report':
-          return allLabs.filter(l => byLab(l)).map(l => ({
+          return allowedLabs.filter(l => isRoomPermittedAndSelected(l)).map(l => ({
             'Room / Laboratory': l,
-            'Equipment SKUs': window.IPS.equipments.filter(e => e.lab === l).length,
-            'Total Stock Units': window.IPS.equipments.filter(e => e.lab === l).reduce((s, e) => s + Number(e.total || 0), 0),
-            'Total Requests': window.IPS.requests.filter(r => r.lab === l && inDateRange(r.useDate, from, to)).length,
-            'Low Stock Items': window.IPS.equipments.filter(e => e.lab === l && Number(e.available) <= Number(e.minStock)).length
+            'Equipment SKUs': (window.IPS.equipments || []).filter(e => e.lab === l).length,
+            'Total Stock Units': (window.IPS.equipments || []).filter(e => e.lab === l).reduce((s, e) => s + Number(e.total || 0), 0),
+            'In Repair Units': (window.IPS.equipments || []).filter(e => e.lab === l).reduce((s, e) => s + Number(e.inRepair || 0), 0),
+            'Total Requests': (window.IPS.requests || []).filter(r => r.lab === l && inDateRange(r.useDate, from, to)).length,
+            'Low Stock Items': (window.IPS.equipments || []).filter(e => e.lab === l && Number(e.available) <= Number(e.minStock)).length
           }));
 
         case 'Expiry Report':
-          return window.IPS.equipments
-            .filter(e => byLab(e.lab) && e.expiryDate && inDateRange(e.expiryDate, from, to))
+          return (window.IPS.equipments || [])
+            .filter(e => isRoomPermittedAndSelected(e.lab) && e.expiryDate && inDateRange(e.expiryDate, from, to))
             .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))
             .map(e => {
               const evalObj = getExpiryEvaluation(e.expiryDate);
               return {
-                'SKU': e.equipmentId,
+                'SKU': e.equipmentId || '-',
                 'Item Name': e.name,
                 'Formula': e.formula || '-',
-                'Specification': e.spec || '-',
                 'Room / Lab': e.lab,
                 'Current Stock': `${e.available} ${e.unit}`,
-                'Location': e.location || '-',
                 'Expiry Date': e.expiryDate,
                 'Condition / Status': evalObj ? evalObj.status : '-'
               };
@@ -392,6 +406,34 @@
 
         case 'Yearly Summary':
           return buildPeriodSummary(4, 'Year (YYYY)');
+
+        case 'Repair Report':
+          return (window.IPS.repairs || []).filter(r => isRoomPermittedAndSelected(r.lab) && inDateRange(r.sentDate || r.requestDate, from, to)).map(r => ({
+            'Repair ID': r.id,
+            'Sent Date': r.sentDate || r.requestDate,
+            'Equipment': r.equipmentName,
+            'Room / Lab': r.lab,
+            'Qty': r.qty,
+            'Days Open': ['Completed', 'Unrepairable'].includes(r.status) ? 'Closed' : `${getDaysElapsed(r.sentDate || r.requestDate)}d`,
+            'Vendor': r.vendor || 'Internal',
+            'Est. Cost (THB)': Number(r.cost || 0).toLocaleString(),
+            'Status': r.status
+          }));
+
+        case 'MA Contract Report':
+          return (window.IPS.maSchedules || []).filter(m => isRoomPermittedAndSelected(m.lab)).map(m => {
+            const dLeft = getDaysRemaining(m.endDate);
+            return {
+              'MA ID': m.id,
+              'System / Asset': m.title,
+              'Room / Lab': m.lab,
+              'Vendor': m.vendor,
+              'Contract No.': m.contractNo || '-',
+              'Expiry / Next Due': m.endDate,
+              'Days Remaining': dLeft === null ? '-' : (dLeft < 0 ? `Expired (${Math.abs(dLeft)}d ago)` : `${dLeft} days`),
+              'Contract Value (THB)': Number(m.cost || 0).toLocaleString()
+            };
+          });
       }
     }
 
@@ -400,7 +442,7 @@
       const labVal = document.getElementById('reportLabSelect').value;
       const rows = getReportRows();
 
-      document.getElementById('reportTitleDisplay').innerText = `${typeSelect.options[typeSelect.selectedIndex].text} (${labVal === 'All' ? 'All Rooms' : labVal})`;
+      document.getElementById('reportTitleDisplay').innerText = `${typeSelect.options[typeSelect.selectedIndex].text} (${labVal === 'All' ? 'All Accessible Rooms' : labVal})`;
       document.getElementById('reportMetaDisplay').innerText = `Generated by ${window.IPS.user.name} on ${new Date().toLocaleString()}`;
       document.getElementById('rowCountBadge').innerText = `${rows.length} records`;
 
@@ -423,7 +465,7 @@
               <tr class="hover:bg-slate-50/70">
                 ${headers.map(h => {
                   const val = String(row[h]);
-                  if (h === 'Condition / Status' && val.startsWith('Expired')) {
+                  if ((h === 'Condition / Status' || h === 'Days Remaining') && val.startsWith('Expired')) {
                     return `<td class="p-3 font-semibold text-rose-600">${val}</td>`;
                   }
                   if (h === 'Condition / Status' && val.startsWith('Expiring Soon')) {
@@ -445,7 +487,7 @@
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Report');
-      XLSX.writeFile(wb, `IPSLab_${type}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      XLSX.writeFile(wb, `IPSAsset_${type}_${new Date().toISOString().slice(0, 10)}.xlsx`);
     }
 
     function exportCSV() {
@@ -457,12 +499,13 @@
       const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `IPSLab_${type}_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `IPSAsset_${type}_${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
     }
 
     function renderAnalyticsCharts() {
-      const labs = getAllLabNames();
+      const labs = getUserAllowedLabs(window.IPS.user);
+      const visibleReqs = (window.IPS.requests || []).filter(r => labs.includes(r.lab));
       const palette = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#6366f1'];
       if (chart1) chart1.destroy();
       chart1 = new Chart(document.getElementById('reqLabChart'), {
@@ -471,7 +514,7 @@
           labels: labs,
           datasets: [{
             label: 'Total Requests',
-            data: labs.map(l => window.IPS.requests.filter(r => r.lab === l).length),
+            data: labs.map(l => visibleReqs.filter(r => r.lab === l).length),
             backgroundColor: labs.map((_, i) => palette[i % palette.length]),
             borderRadius: 6
           }]
@@ -486,7 +529,7 @@
         data: {
           labels: statuses,
           datasets: [{
-            data: statuses.map(st => window.IPS.requests.filter(r => r.status === st).length),
+            data: statuses.map(st => visibleReqs.filter(r => r.status === st).length),
             backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#fb923c', '#6366f1', '#ef4444', '#94a3b8']
           }]
         },
