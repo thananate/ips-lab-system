@@ -103,7 +103,7 @@
               <textarea id="reqNotes" rows="2" placeholder="Setup instructions, group count, or special notes..." class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
             </div>
 
-            <button onclick="submitRequisition()" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-sm shadow-md hover:opacity-95 transition flex items-center justify-center gap-2">
+            <button type="button" onclick="submitRequisition()" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-sm shadow-md hover:opacity-95 transition flex items-center justify-center gap-2">
               <i data-lucide="send" class="w-4 h-4"></i> Submit Requisition
             </button>
           </div>
@@ -182,7 +182,6 @@
       const q = (document.getElementById('catalogSearch').value || '').toLowerCase();
       const grid = document.getElementById('catalogGrid');
 
-      // Show ALL school equipment for Teachers to search without room restriction
       const items = window.IPS.equipments.filter(e => {
         if (q && !(e.name || '').toLowerCase().includes(q) && !(e.sku || '').toLowerCase().includes(q) && !(e.formula || '').toLowerCase().includes(q)) return false;
         return true;
@@ -206,7 +205,7 @@
               <div class="font-semibold text-sm text-slate-800 truncate mt-1">${eq.name}</div>
               <div class="text-[11px] text-slate-500">Available for slot: <b class="${slotAvail > 0 ? 'text-emerald-600' : 'text-rose-600'}">${slotAvail} ${eq.unit || 'pcs'}</b></div>
             </div>
-            <button onclick="addToCart('${eq.id}')" ${slotAvail <= 0 ? 'disabled' : ''} class="px-3 py-1.5 rounded-lg text-xs font-medium ${slotAvail > 0 ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'} flex-shrink-0">
+            <button type="button" onclick="addToCart('${eq.id}')" ${slotAvail <= 0 ? 'disabled' : ''} class="px-3 py-1.5 rounded-lg text-xs font-medium ${slotAvail > 0 ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'} flex-shrink-0">
               ${inCart ? 'Added (' + inCart.requestedQty + ')' : '+ Add'}
             </button>
           </div>
@@ -227,8 +226,8 @@
       } else {
         cart.push({
           eqDocId: eq.id,
-          sku: eq.sku,
-          name: eq.name,
+          sku: eq.sku || '',
+          name: eq.name || '',
           lab: eq.lab || 'General',
           unit: eq.unit || 'pcs',
           requestedQty: 1,
@@ -293,9 +292,9 @@
             <div class="text-[11px] text-slate-400">${item.sku} • ${item.unit}</div>
           </div>
           <div class="flex items-center gap-1.5 flex-shrink-0">
-            <button onclick="updateCartQty(${idx}, -1)" class="w-6 h-6 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold hover:bg-slate-100">-</button>
+            <button type="button" onclick="updateCartQty(${idx}, -1)" class="w-6 h-6 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold hover:bg-slate-100">-</button>
             <span class="w-6 text-center text-xs font-bold">${item.requestedQty}</span>
-            <button onclick="updateCartQty(${idx}, 1)" class="w-6 h-6 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold hover:bg-slate-100">+</button>
+            <button type="button" onclick="updateCartQty(${idx}, 1)" class="w-6 h-6 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold hover:bg-slate-100">+</button>
           </div>
         </div>
       `).join('');
@@ -318,47 +317,55 @@
         return Swal.fire('Empty Cart', 'Please add at least one item to your requisition.', 'warning');
       }
 
-      // Automatically compile involved Labs for Admin/Staff view in approve.html
-      const uniqueLabs = [...new Set(cart.map(c => c.lab).filter(Boolean))];
-      const labSummary = uniqueLabs.length > 1 ? `Multi-Lab (${uniqueLabs.join(', ')})` : (uniqueLabs[0] || 'General');
+      try {
+        const uniqueLabs = [...new Set(cart.map(c => c.lab).filter(Boolean))];
+        const labSummary = uniqueLabs.length > 1 ? `Multi-Lab (${uniqueLabs.join(', ')})` : (uniqueLabs[0] || 'General');
 
-      const nextNum = window.IPS.requests.length + 1;
-      const reqId = `REQ-${String(nextNum).padStart(3, '0')}`;
-      const hasSpecialItem = cart.some(c => c.isSpecial);
+        const nextNum = window.IPS.requests.length + 1;
+        const reqId = `REQ-${String(nextNum).padStart(3, '0')}`;
+        const hasSpecialItem = cart.some(c => c.isSpecial);
 
-      // Attach [Lab Name] to each item so Admin/Staff know exactly which lab each item is stored in
-      const formattedItems = cart.map(c => ({
-        ...c,
-        name: c.name.includes(`[${c.lab}]`) ? c.name : `${c.name} [${c.lab}]`,
-        approvedQty: 0,
-        status: 'Pending'
-      }));
+        const formattedItems = cart.map(c => ({
+          eqDocId: c.eqDocId,
+          sku: c.sku || '',
+          name: c.name.includes(`[${c.lab}]`) ? c.name : `${c.name} [${c.lab}]`,
+          lab: c.lab || 'General',
+          unit: c.unit || 'pcs',
+          requestedQty: Number(c.requestedQty) || 1,
+          approvedQty: 0,
+          isSpecial: Boolean(c.isSpecial),
+          status: 'Pending'
+        }));
 
-      const payload = {
-        reqId,
-        teacherUid: window.IPS.user.uid,
-        teacherName: window.IPS.user.name,
-        teacherEmail: window.IPS.user.email,
-        lab: labSummary,
-        labsInvolved: uniqueLabs,
-        experiment,
-        date,
-        startTime,
-        endTime,
-        notes,
-        hasSpecialItem,
-        status: 'Pending',
-        createdAt: new Date().toISOString().slice(0, 10),
-        items: formattedItems
-      };
+        const payload = {
+          reqId,
+          teacherUid: window.IPS.user.uid,
+          teacherName: window.IPS.user.name || window.IPS.user.email,
+          teacherEmail: window.IPS.user.email,
+          lab: labSummary,
+          labsInvolved: uniqueLabs,
+          experiment,
+          date,
+          startTime,
+          endTime,
+          notes,
+          hasSpecialItem,
+          status: 'Pending',
+          createdAt: new Date().toISOString().slice(0, 10),
+          items: formattedItems
+        };
 
-      await db.collection('requests').add(payload);
-      cart = [];
-      document.getElementById('reqExperiment').value = '';
-      document.getElementById('reqNotes').value = '';
-      renderCatalog();
-      renderCart();
-      Swal.fire('Requisition Submitted', `Request ${reqId} has been sent to Asset Admin for approval.`, 'success');
+        await firebase.firestore().collection('requests').add(payload);
+        cart = [];
+        document.getElementById('reqExperiment').value = '';
+        document.getElementById('reqNotes').value = '';
+        renderCatalog();
+        renderCart();
+        Swal.fire('Requisition Submitted', `Request ${reqId} has been sent to Asset Admin for approval.`, 'success');
+      } catch (err) {
+        console.error(err);
+        Swal.fire('Submission Error', err.message || 'Could not submit requisition.', 'error');
+      }
     }
 
     function renderMyRequests() {
@@ -382,7 +389,6 @@
       };
 
       tbody.innerHTML = mine.map(r => {
-        // Strip [Lab Name] tag from teacher's history view for clean display, while Admin still sees it in approve.html
         const itemsText = (r.items || []).map(i => {
           const cleanName = (i.name || '').replace(/\s*\[[^\]]+\]$/, '');
           return `${cleanName} (Req: ${i.requestedQty}${i.approvedQty ? ', Appr: ' + i.approvedQty : ''})`;
@@ -401,7 +407,7 @@
               <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold ${badgeMap[r.status] || 'bg-slate-100'}">${r.status}</span>
             </td>
             <td class="p-3.5 text-right whitespace-nowrap">
-              ${canReturn ? `<button onclick="initiateTeacherReturn('${r.id}')" class="px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-700">Return Equipment</button>` : '-'}
+              ${canReturn ? `<button type="button" onclick="initiateTeacherReturn('${r.id}')" class="px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-700">Return Equipment</button>` : '-'}
             </td>
           </tr>
         `;
@@ -422,7 +428,7 @@
         confirmButtonText: 'Notify Staff for Return Inspection'
       }).then(async res => {
         if (res.isConfirmed) {
-          await db.collection('requests').doc(docId).update({
+          await firebase.firestore().collection('requests').doc(docId).update({
             status: 'Return Pending',
             teacherReturnNote: res.value,
             returnRequestedAt: new Date().toISOString()
