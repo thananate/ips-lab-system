@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IPS Lab System | Inventory & Stock Management</title>
+  <title>IPS Asset System | Inventory & Stock</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -23,186 +23,131 @@
     <main class="flex-1 p-4 md:p-8 space-y-6">
       <div id="sharedHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
 
-      <!-- EXPIRY SUMMARY BANNER -->
-      <div id="expiryAlertBanner" class="hidden glass-card rounded-2xl p-4 border-l-4 border-l-amber-500">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-          <h4 class="font-bold text-xs text-amber-800 flex items-center gap-1.5">
-            <i data-lucide="calendar-clock" class="w-4 h-4 text-amber-600"></i> Chemical / Consumable Expiry Alerts (Expired or Expiring within 60 Days)
-          </h4>
-        </div>
-        <div id="expiryAlertList" class="flex flex-wrap gap-2"></div>
-      </div>
+      <!-- SUMMARY METRICS -->
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-3" id="stockSummaryCards"></div>
 
-      <!-- DYNAMIC LAB FILTER & ACTION BUTTONS -->
+      <!-- ACTION & FILTER BAR -->
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <div id="dynamicLabFilterBar" class="flex flex-wrap gap-1.5 bg-white/80 p-1.5 rounded-2xl border border-slate-200/70"></div>
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="labFilter" onchange="renderStockTable()" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium"></select>
+          <select id="typeFilter" onchange="renderStockTable()" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium">
+            <option value="All">All Types</option>
+            <option value="Equipment">Returnable Equipment</option>
+            <option value="Consumable">Consumable</option>
+            <option value="Chemical">Chemical</option>
+          </select>
+          <input type="text" id="searchInput" onkeyup="renderStockTable()" placeholder="Search Name, ID, Formula..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-56" />
+        </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <input type="text" id="searchInput" onkeyup="renderAll()" placeholder="Search SKU, Name, Formula, Brand..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-60" />
-          <div id="actionButtonsArea" class="flex flex-wrap gap-2"></div>
-        </div>
-      </div>
-
-      <!-- EQUIPMENT INVENTORY TABLE -->
-      <div class="glass-card rounded-2xl overflow-hidden">
-        <div class="p-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 class="font-bold text-sm text-slate-800">Laboratory Equipment & Chemical Inventory</h3>
-          <span id="eqCountBadge" class="text-[11px] text-slate-500">0 items</span>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
-                <th class="p-3.5">SKU / Photo</th>
-                <th class="p-3.5">Item Name, Formula & Specs</th>
-                <th class="p-3.5">Lab / Supplier</th>
-                <th class="p-3.5 text-center">Total</th>
-                <th class="p-3.5 text-center">Available</th>
-                <th class="p-3.5 text-center">Reserved / Damaged</th>
-                <th class="p-3.5">Status & Safety</th>
-                <th class="p-3.5 text-right admin-col">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="eqTbody" class="divide-y divide-slate-100 text-xs"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- IMMUTABLE STOCK MOVEMENT AUDIT LOG -->
-      <div id="movementSection" class="glass-card rounded-2xl overflow-hidden">
-        <div class="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h3 class="font-bold text-sm text-slate-800 flex items-center gap-1.5">
-              <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i> Immutable Stock Movement Audit Trail
-            </h3>
-            <p class="text-[11px] text-slate-400">Historical logs cannot be modified or deleted.</p>
-          </div>
-          <button id="btnRecordStock" onclick="openStockModal()" class="hidden px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 flex items-center gap-1.5">
-            <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i> Record Stock Adjustment
+          <button id="auditToggleBtn" onclick="toggleAuditMode()" class="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold hover:bg-amber-100 flex items-center gap-1.5">
+            <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+            <span id="auditToggleLabel">Stock Audit Mode</span>
+          </button>
+          <button onclick="openPrintLabelsModal()" class="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 flex items-center gap-1.5 shadow-sm">
+            <i data-lucide="printer" class="w-4 h-4 text-indigo-600"></i> Print A-12 Labels (34x79mm)
+          </button>
+          <button onclick="exportStockCSV()" class="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 flex items-center gap-1.5 shadow-sm">
+            <i data-lucide="download" class="w-4 h-4 text-emerald-600"></i> Export Excel
+          </button>
+          <button id="addItemBtn" onclick="openEquipmentModal()" class="hidden px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium shadow hover:opacity-95 flex items-center gap-1.5">
+            <i data-lucide="plus" class="w-4 h-4"></i> Add Item
           </button>
         </div>
+      </div>
+
+      <!-- AUDIT MODE BANNER -->
+      <div id="auditBanner" class="hidden glass-card rounded-2xl p-4 border-l-4 border-l-amber-500 bg-amber-50/70 flex flex-wrap items-center justify-between gap-3">
+        <div class="text-xs text-amber-950">
+          <b>📋 Physical Stock Audit Mode Active:</b> Enter the actual counted quantity in the <b>"Actual Count"</b> column, then click <b>Reconcile</b> on any mismatched row to update balances and log the audit trail.
+        </div>
+        <button onclick="toggleAuditMode()" class="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-xs font-semibold text-amber-900 hover:bg-amber-100">Exit Audit Mode</button>
+      </div>
+
+      <!-- INVENTORY TABLE -->
+      <div class="glass-card rounded-2xl overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <thead>
               <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
-                <th class="p-3.5">Timestamp</th>
-                <th class="p-3.5">Lab / Room</th>
-                <th class="p-3.5">Item</th>
-                <th class="p-3.5">Action</th>
-                <th class="p-3.5 text-center">Qty Change</th>
-                <th class="p-3.5">Staff</th>
-                <th class="p-3.5">Remarks</th>
+                <th class="p-3.5 w-8"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(this.checked)" title="Select all for A-12 label printing" /></th>
+                <th class="p-3.5">ID / Equipment</th>
+                <th class="p-3.5">Room & Type</th>
+                <th class="p-3.5 text-center">Total</th>
+                <th class="p-3.5 text-center">Available</th>
+                <th class="p-3.5 text-center">Reserved</th>
+                <th class="p-3.5 text-center">Damaged</th>
+                <th class="p-3.5 text-center">In Repair</th>
+                <th id="auditColHeader" class="hidden p-3.5 text-center bg-amber-100/70 text-amber-900">Actual Count</th>
+                <th class="p-3.5 text-right">Actions & History</th>
               </tr>
             </thead>
-            <tbody id="mvTbody" class="divide-y divide-slate-100 text-xs"></tbody>
+            <tbody id="stockTbody" class="divide-y divide-slate-100 text-xs"></tbody>
           </table>
         </div>
       </div>
     </main>
   </div>
 
-  <!-- ADD / EDIT EQUIPMENT MODAL (ADMIN ONLY) -->
+  <!-- ADD / EDIT EQUIPMENT MODAL -->
   <div id="eqModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6 shadow-2xl">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100">
         <h3 id="eqModalTitle" class="text-lg font-bold text-slate-800">Add New Equipment / Chemical</h3>
         <button onclick="closeModal('eqModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
-      <form id="eqForm" class="mt-4 space-y-4">
+      <form id="eqForm" class="mt-4 space-y-3.5">
         <input type="hidden" id="eqDocId" />
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Asset / Equipment ID *</label>
+            <input type="text" id="eqCode" required placeholder="e.g., BIO-001" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Laboratory / Room *</label>
-            <select id="eqLab" onchange="onLabSelectChange()" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
+            <select id="eqLab" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Auto-Generated SKU *</label>
-            <input type="text" id="eqId" readonly class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 font-mono font-bold text-indigo-700 text-xs cursor-not-allowed" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Item Name *</label>
-            <input type="text" id="eqName" required placeholder="e.g., Hydrochloric Acid or Geometric Solids" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+            <label class="block text-xs font-medium text-slate-600 mb-1">Equipment / Chemical Name *</label>
+            <input type="text" id="eqName" required placeholder="e.g., Compound Microscope" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Chemical Formula (Optional)</label>
-            <input type="text" id="eqFormula" placeholder="e.g., HCl, H2SO4, NaOH, C6H12O6" class="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono text-xs" />
+            <input type="text" id="eqFormula" placeholder="e.g., H2SO4, NaCl" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Category</label>
-            <input type="text" id="eqCategory" placeholder="e.g., Glassware, Liquid / Solution, Math Manipulatives" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Specification (Size / Concentration)</label>
-            <input type="text" id="eqSpec" placeholder="e.g., 0.1M (500 ml/bottle) or 3D Acrylic Set" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Brand / Manufacturer</label>
-            <input type="text" id="eqBrand" placeholder="e.g., Pyrex, Merck, Olympus, Learning Resources" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Supplier / Vendor Company</label>
-            <input type="text" id="eqSupplier" placeholder="e.g., Science Supply Co., Ltd." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Unit *</label>
-            <input type="text" id="eqUnit" required placeholder="e.g., pcs, bottles, sets, boxes" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Storage Location</label>
-            <input type="text" id="eqLocation" placeholder="e.g., Cabinet M1, Shelf 2" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Expiry Date (Optional for Chemicals)</label>
-            <input type="date" id="eqExpiryDate" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Status</label>
-            <select id="eqStatus" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Category Type *</label>
+            <select id="eqType" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+              <option value="Equipment">Returnable Equipment</option>
+              <option value="Consumable">Consumable</option>
+              <option value="Chemical">Chemical</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Total Stock (Current Balance) *</label>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Unit *</label>
+            <input type="text" id="eqUnit" required placeholder="pcs, units, bottles" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Total Stock *</label>
             <input type="number" id="eqTotal" min="0" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-            <p class="text-[10px] text-slate-400 mt-0.5">Shows latest balance. Use "Record Stock Adjustment" for daily In/Out.</p>
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Minimum Stock Alert *</label>
-            <input type="number" id="eqMin" min="0" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-          </div>
-          <div class="md:col-span-2">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Item Photo (Auto-compressed)</label>
-            <input type="file" accept="image/*" onchange="handleImgUpload(event)" class="w-full text-xs text-slate-500" />
-            <input type="hidden" id="eqImgBase64" />
-            <img id="eqImgPreview" class="mt-2 h-14 w-14 object-cover rounded-lg hidden border" />
-          </div>
-        </div>
-
-        <!-- HAZARD WARNING & SDS ATTACHMENT SECTION -->
-        <div class="p-4 rounded-xl bg-amber-50/80 border border-amber-200 space-y-3">
-          <div class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-            <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600"></i> Hazard Warning Note & Safety Document (SDS / Image / PDF)
+            <input type="number" id="eqMinStock" min="0" value="5" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
-            <label class="block text-[11px] font-medium text-slate-700 mb-1">Safety / Hazard Warning Note</label>
-            <textarea id="eqHazardNote" rows="2" placeholder="e.g., Corrosive acid. Wear nitrile gloves and safety goggles. Store in ventilated acid cabinet." class="w-full px-3 py-2 rounded-xl border border-amber-200 text-xs bg-white"></textarea>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Expiry Date (For Chemicals)</label>
+            <input type="date" id="eqExpiry" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-[11px] font-medium text-slate-700 mb-1">Upload Hazard Image or SDS PDF (Max 600 KB)</label>
-              <input type="file" accept="image/*,application/pdf" onchange="handleSafetyFileUpload(event)" class="w-full text-xs text-slate-500" />
-              <input type="hidden" id="eqSafetyFileData" />
-              <input type="hidden" id="eqSafetyFileName" />
-              <div id="safetyFileBadge" class="mt-1.5 text-[11px] text-emerald-700 font-medium hidden"></div>
-            </div>
-            <div>
-              <label class="block text-[11px] font-medium text-slate-700 mb-1">Or External SDS / Google Drive URL</label>
-              <input type="url" id="eqSafetyLink" placeholder="https://drive.google.com/..." class="w-full px-3 py-1.5 rounded-xl border border-amber-200 text-xs bg-white" />
-            </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Supplier / Brand</label>
+            <input type="text" id="eqSupplier" placeholder="Optional" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
         </div>
-
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Safety / Handling Warning Note</label>
+          <input type="text" id="eqHazardNote" placeholder="e.g., Wear acid-resistant gloves and goggles" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
         <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
           <button type="button" onclick="closeModal('eqModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
           <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Save Item</button>
@@ -211,449 +156,406 @@
     </div>
   </div>
 
-  <!-- STOCK ADJUSTMENT MODAL (STAFF / ADMIN) -->
-  <div id="stkModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+  <!-- SERVICE & REPAIR HISTORY MODAL (FOR MANAGEMENT / BOSS VISIBILITY) -->
+  <div id="historyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-        <h3 class="text-lg font-bold text-slate-800">Record Stock Movement</h3>
-        <button onclick="closeModal('stkModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <div>
+          <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="history" class="w-5 h-5 text-indigo-600"></i> Equipment Lifetime Service & Stock History
+          </h3>
+          <p id="historyModalMeta" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeModal('historyModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
-      <form id="stkForm" class="mt-4 space-y-4">
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Select Equipment / Chemical *</label>
-          <select id="stkEqSelect" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"></select>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Movement Type *</label>
-            <select id="stkAction" onchange="document.getElementById('transferDiv').classList.toggle('hidden', this.value !== 'Transferred')" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
-              <option value="Stock In">Stock In (+ Add Stock)</option>
-              <option value="Stock Out">Stock Out (- Remove Stock)</option>
-              <option value="Returned">Returned (+ Return Item)</option>
-              <option value="Damaged">Damaged (- Mark Damaged)</option>
-              <option value="Lost">Lost (- Mark Lost)</option>
-              <option value="Expired Disposal">Expired Disposal (- Remove Expired)</option>
-              <option value="Stock Adjustment">Stock Adjustment (+/-)</option>
-              <option value="Transferred">Transferred (Cross-Lab)</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Quantity *</label>
-            <input type="number" id="stkQty" min="1" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-          </div>
-        </div>
-        <div id="transferDiv" class="hidden">
-          <label class="block text-xs font-medium text-slate-600 mb-1">Destination Room *</label>
-          <select id="stkTargetLab" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"></select>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Remarks / Reference *</label>
-          <input type="text" id="stkNote" required placeholder="e.g., PO-2026-01 or Disposed expired bottle" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-        </div>
-        <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
-          <button type="button" onclick="closeModal('stkModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Confirm & Log</button>
-        </div>
-      </form>
+      <div id="historySummaryBox" class="mt-4"></div>
+      <div id="historyTimelineContainer" class="mt-4 space-y-2.5"></div>
     </div>
   </div>
 
   <script src="firebase-core.js"></script>
   <script>
-    let activeLab = 'All';
+    let isAuditMode = false;
+    let selectedEqIds = new Set();
 
     initIPSPage({
       activePage: 'stock',
       title: 'Inventory & Stock Management',
-      subtitle: 'Auto-numbered SKUs, chemical formulas, supplier/brand tracking, and SDS hazard logs',
-      allowedRoles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'],
-      onReady: (user) => {
-        const isStaffOrAdmin = ['Lab Staff', 'Admin', 'Super Admin'].includes(user.role);
-        if (isStaffOrAdmin) {
-          document.getElementById('btnRecordStock').classList.remove('hidden');
+      subtitle: 'Real-time equipment balances, physical stock audits, A-12 QR labels, and service history',
+      allowedRoles: ['Teacher', 'Staff', 'Office Staff', 'Lab Staff', 'Admin', 'Super Admin'],
+      onReady: () => {
+        const role = String((window.IPS.user || {}).role || '');
+        if (['Lab Staff', 'Admin', 'Super Admin'].includes(role)) {
+          document.getElementById('addItemBtn').classList.remove('hidden');
         }
-        populateDynamicLabDropdowns();
-        renderAll();
+        populateFilters();
+        renderStockTable();
       }
     });
 
-    function populateDynamicLabDropdowns() {
+    function populateFilters() {
       const allLabs = getAllLabNames();
-      const optionsHtml = allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
-      document.getElementById('eqLab').innerHTML = optionsHtml;
-      document.getElementById('stkTargetLab').innerHTML = optionsHtml;
+      const currentLab = document.getElementById('labFilter').value;
+      document.getElementById('labFilter').innerHTML = `<option value="All">All Rooms (${allLabs.length})</option>` +
+        allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
+      if (currentLab) document.getElementById('labFilter').value = currentLab;
+
+      document.getElementById('eqLab').innerHTML = allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
     }
 
-    function generateNextSKU(lab) {
-      const customPrefixMap = {
-        'Primary': 'PRI',
-        'Physics': 'PHY',
-        'Chemistry': 'CHM',
-        'Biology': 'BIO',
-        'Mathematics Resource': 'MAT'
-      };
-      const cleaned = (lab || 'LAB').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-      const prefix = customPrefixMap[lab] || (cleaned.slice(0, 3) || 'LAB');
+    function canManageStock() {
+      const role = String((window.IPS.user || {}).role || '');
+      return ['Lab Staff', 'Admin', 'Super Admin'].includes(role);
+    }
 
-      let maxNum = 0;
-      window.IPS.equipments.forEach(e => {
-        if ((e.equipmentId || '').startsWith(prefix + '-')) {
-          const numPart = parseInt(e.equipmentId.split('-')[1], 10);
-          if (!isNaN(numPart) && numPart > maxNum) maxNum = numPart;
+    function toggleAuditMode() {
+      if (!canManageStock()) {
+        return Swal.fire('Permission Required', 'Only Lab Staff, Admin, or Super Admin can perform Stock Audits.', 'info');
+      }
+      isAuditMode = !isAuditMode;
+      document.getElementById('auditBanner').classList.toggle('hidden', !isAuditMode);
+      document.getElementById('auditColHeader').classList.toggle('hidden', !isAuditMode);
+      document.getElementById('auditToggleLabel').innerText = isAuditMode ? 'Exit Audit Mode' : 'Stock Audit Mode';
+      renderStockTable();
+    }
+
+    function toggleSelectAll(checked) {
+      selectedEqIds.clear();
+      if (checked) {
+        getFilteredEquipments().forEach(e => selectedEqIds.add(e.id));
+      }
+      renderStockTable();
+    }
+
+    function toggleSelectOne(eqId, checked) {
+      if (checked) selectedEqIds.add(eqId);
+      else selectedEqIds.delete(eqId);
+    }
+
+    function getFilteredEquipments() {
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
+      const labF = document.getElementById('labFilter').value || 'All';
+      const typeF = document.getElementById('typeFilter').value || 'All';
+      const q = String(document.getElementById('searchInput').value || '').toLowerCase();
+
+      return (window.IPS.equipments || []).filter(eq => {
+        if (!allowedLabs.includes(eq.lab)) return false;
+        if (labF !== 'All' && eq.lab !== labF) return false;
+        if (typeF !== 'All' && (eq.type || 'Equipment') !== typeF) return false;
+        if (q) {
+          const hay = `${eq.equipmentId || ''} ${eq.name || ''} ${eq.formula || ''} ${eq.lab || ''}`.toLowerCase();
+          if (!hay.includes(q)) return false;
         }
+        return true;
       });
-      return `${prefix}-${String(maxNum + 1).padStart(3, '0')}`;
     }
 
-    function getExpiryStatus(expiryDate) {
-      if (!expiryDate) return null;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const exp = new Date(expiryDate);
-      const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
-      if (diffDays < 0) return { state: 'expired', days: Math.abs(diffDays), label: `Expired (${expiryDate})` };
-      if (diffDays <= 60) return { state: 'soon', days: diffDays, label: `Expires in ${diffDays}d (${expiryDate})` };
-      return { state: 'ok', days: diffDays, label: `Exp: ${expiryDate}` };
+    function renderStockTable() {
+      const list = getFilteredEquipments();
+      const manageOk = canManageStock();
+
+      // Summary Cards
+      const totalItems = list.length;
+      const totalAvail = list.reduce((s, e) => s + Number(e.available || 0), 0);
+      const totalDamaged = list.reduce((s, e) => s + Number(e.damaged || 0), 0);
+      const totalInRepair = list.reduce((s, e) => s + Number(e.inRepair || 0), 0);
+      const lowStockCount = list.filter(e => Number(e.available || 0) <= Number(e.minStock || 0)).length;
+
+      document.getElementById('stockSummaryCards').innerHTML = `
+        <div class="glass-card rounded-2xl p-3.5">
+          <div class="text-[11px] text-slate-500 font-medium">Total SKUs</div>
+          <div class="text-xl font-bold text-slate-800 mt-0.5">${totalItems}</div>
+        </div>
+        <div class="glass-card rounded-2xl p-3.5">
+          <div class="text-[11px] text-emerald-600 font-medium">Available Units</div>
+          <div class="text-xl font-bold text-emerald-700 mt-0.5">${totalAvail.toLocaleString()}</div>
+        </div>
+        <div class="glass-card rounded-2xl p-3.5">
+          <div class="text-[11px] text-rose-600 font-medium">Low Stock Alerts</div>
+          <div class="text-xl font-bold text-rose-700 mt-0.5">${lowStockCount}</div>
+        </div>
+        <div class="glass-card rounded-2xl p-3.5">
+          <div class="text-[11px] text-amber-600 font-medium">Damaged Units</div>
+          <div class="text-xl font-bold text-amber-700 mt-0.5">${totalDamaged}</div>
+        </div>
+        <div class="glass-card rounded-2xl p-3.5">
+          <div class="text-[11px] text-blue-600 font-medium">In Repair</div>
+          <div class="text-xl font-bold text-blue-700 mt-0.5">${totalInRepair}</div>
+        </div>
+      `;
+
+      const tbody = document.getElementById('stockTbody');
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-slate-400">No inventory items match your filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.map(eq => {
+        const isLow = Number(eq.available || 0) <= Number(eq.minStock || 0);
+        const repairCount = (window.IPS.repairs || []).filter(r => r.eqDocId === eq.id || r.equipmentName === eq.name).length;
+
+        return `
+          <tr class="hover:bg-slate-50/70 ${isLow ? 'bg-rose-50/30' : ''}">
+            <td class="p-3.5">
+              <input type="checkbox" ${selectedEqIds.has(eq.id) ? 'checked' : ''} onchange="toggleSelectOne('${eq.id}', this.checked)" />
+            </td>
+            <td class="p-3.5">
+              <div class="font-mono text-[10px] font-bold text-indigo-600">${eq.equipmentId || eq.id.slice(0, 6)}</div>
+              <div class="font-bold text-slate-800">${eq.name} ${eq.formula ? `<span class="text-blue-600 font-mono text-[11px]">(${eq.formula})</span>` : ''}</div>
+              ${isLow ? `<span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 text-[9px] font-bold">LOW STOCK (Min: ${eq.minStock || 0})</span>` : ''}
+            </td>
+            <td class="p-3.5">
+              <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-medium">${eq.lab}</span>
+              <div class="text-[10px] text-slate-400 mt-0.5">${eq.type || 'Equipment'} • ${eq.unit || 'pcs'}</div>
+            </td>
+            <td class="p-3.5 text-center font-bold text-slate-700">${eq.total || 0}</td>
+            <td class="p-3.5 text-center font-bold ${isLow ? 'text-rose-600' : 'text-emerald-600'}">${eq.available || 0}</td>
+            <td class="p-3.5 text-center text-indigo-600 font-medium">${eq.reserved || 0}</td>
+            <td class="p-3.5 text-center ${Number(eq.damaged || 0) > 0 ? 'text-amber-600 font-bold' : 'text-slate-400'}">${eq.damaged || 0}</td>
+            <td class="p-3.5 text-center ${Number(eq.inRepair || 0) > 0 ? 'text-blue-600 font-bold' : 'text-slate-400'}">${eq.inRepair || 0}</td>
+            ${isAuditMode ? `
+              <td class="p-3.5 text-center bg-amber-50/70">
+                <div class="inline-flex items-center gap-1">
+                  <input type="number" id="audit_qty_${eq.id}" min="0" value="${eq.available || 0}" class="w-16 px-2 py-1 rounded border border-amber-300 text-xs font-bold text-center bg-white" />
+                  <button type="button" onclick="reconcileAuditItem('${eq.id}')" class="px-2 py-1 rounded bg-amber-600 text-white text-[10px] font-semibold hover:bg-amber-700">Reconcile</button>
+                </div>
+              </td>
+            ` : ''}
+            <td class="p-3.5 text-right space-x-1">
+              <button type="button" onclick="openServiceHistoryModal('${eq.id}')" class="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 text-[11px] font-medium" title="View repair & movement history">
+                History ${repairCount > 0 ? `(${repairCount})` : ''}
+              </button>
+              <button type="button" onclick="printSingleA12Label('${eq.id}')" class="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-[11px] font-medium" title="Print A-12 Sticker 34x79mm">
+                Label
+              </button>
+              ${manageOk ? `
+                <button type="button" onclick="openEquipmentModal('${eq.id}')" class="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-medium">Edit</button>
+              ` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
-    function viewHazardSafety(docId) {
-      const eq = window.IPS.equipments.find(e => e.id === docId);
+    // ==================== 1. PHYSICAL STOCK AUDIT RECONCILE ====================
+    async function reconcileAuditItem(eqId) {
+      const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
       if (!eq) return;
 
-      let fileHtml = '';
-      if (eq.safetyFileData) {
-        if (eq.safetyFileData.startsWith('data:application/pdf')) {
-          fileHtml = `
-            <div class="mt-3">
-              <iframe src="${eq.safetyFileData}" class="w-full h-80 rounded-xl border"></iframe>
-              <a href="${eq.safetyFileData}" download="${eq.safetyFileName || 'SDS_Document.pdf'}" class="inline-block mt-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium">Download PDF</a>
-            </div>
-          `;
-        } else {
-          fileHtml = `<div class="mt-3"><img src="${eq.safetyFileData}" class="max-h-80 mx-auto rounded-xl border shadow-sm" /></div>`;
-        }
+      const countedAvail = Number(document.getElementById(`audit_qty_${eqId}`).value);
+      const systemAvail = Number(eq.available || 0);
+      const diff = countedAvail - systemAvail;
+
+      if (diff === 0) {
+        return Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'No variance — stock matches system!', showConfirmButton: false, timer: 1800 });
       }
 
-      if (eq.safetyLink) {
-        fileHtml += `<div class="mt-3"><a href="${eq.safetyLink}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">Open External SDS / Drive Link ↗</a></div>`;
-      }
-
-      Swal.fire({
-        title: `Safety & Hazard Info: ${eq.name} ${eq.formula ? `(${eq.formula})` : ''}`,
-        width: 650,
+      const { value: auditNote } = await Swal.fire({
+        title: `Reconcile Stock Variance: ${eq.name}`,
         html: `
           <div class="text-left text-xs space-y-2">
-            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950">
-              <b>Warning / Handling Note:</b><br>
-              ${eq.hazardNote ? eq.hazardNote.replace(/\n/g, '<br>') : 'No specific text warning recorded.'}
-            </div>
-            ${fileHtml}
+            <p>System Available: <b>${systemAvail}</b> → Actual Counted: <b>${countedAvail}</b> (Variance: <b class="${diff < 0 ? 'text-rose-600' : 'text-emerald-600'}">${diff > 0 ? '+' + diff : diff}</b>)</p>
+            <input id="swalAuditReason" class="w-full px-3 py-2 rounded-lg border border-slate-200 mt-2" placeholder="Audit reason (e.g., Semester 2 Physical Count / Found extra unit)" />
           </div>
         `,
-        confirmButtonText: 'Close'
+        showCancelButton: true,
+        confirmButtonText: 'Confirm Adjustment',
+        preConfirm: () => document.getElementById('swalAuditReason').value.trim() || 'Physical Stock Audit Adjustment'
       });
+
+      if (!auditNote) return;
+
+      const newTotal = Math.max(0, Number(eq.total || 0) + diff);
+      await db.collection('equipments').doc(eq.id).update({
+        total: newTotal,
+        available: countedAvail
+      });
+
+      await addStockMovement(
+        eq.equipmentId || '',
+        eq.name,
+        eq.lab,
+        'Stock Audit',
+        diff,
+        `Audit (${systemAvail} -> ${countedAvail}): ${auditNote}`
+      );
+
+      Swal.fire('Reconciled', `${eq.name} updated to ${countedAvail} available.`, 'success');
     }
 
-    function renderAll() {
-      const user = window.IPS.user;
-      const isAdmin = ['Admin', 'Super Admin'].includes(user.role);
-      const allLabs = getAllLabNames();
+    // ==================== 2. PRINT STICKER LABELS A-12 (34 x 79 MM) ====================
+    function printSingleA12Label(eqId) {
+      const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
+      if (eq) generateA12PrintWindow([eq]);
+    }
 
-      // Render Dynamic Lab Filter Buttons
-      const filterBar = document.getElementById('dynamicLabFilterBar');
-      const filterButtons = ['All', ...allLabs];
-      filterBar.innerHTML = filterButtons.map(lab => {
-        const isAct = activeLab === lab;
-        const label = lab === 'All' ? 'All Rooms' : lab;
+    function openPrintLabelsModal() {
+      const items = selectedEqIds.size > 0
+        ? (window.IPS.equipments || []).filter(e => selectedEqIds.has(e.id))
+        : getFilteredEquipments();
+
+      if (items.length === 0) {
+        return Swal.fire('No Items', 'Please select at least one equipment item to print labels.', 'warning');
+      }
+      generateA12PrintWindow(items);
+    }
+
+    function generateA12PrintWindow(items) {
+      const win = window.open('', '_blank', 'width=900,height=700');
+      const labelsHtml = items.map(eq => {
+        const code = eq.equipmentId || eq.id.slice(0, 8).toUpperCase();
+        const qrData = encodeURIComponent(`IPS|${code}|${eq.name}|${eq.lab}`);
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${qrData}`;
         return `
-          <button onclick="activeLab='${lab.replace(/'/g, "\\'")}'; renderAll();" class="px-3.5 py-1.5 rounded-xl text-xs font-medium transition ${isAct ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}">
-            ${label}
-          </button>
+          <div class="label-box">
+            <img src="${qrUrl}" class="qr-img" alt="QR" />
+            <div class="info">
+              <div class="school">IPS ASSET SYSTEM</div>
+              <div class="code">${code}</div>
+              <div class="name">${eq.name}</div>
+              <div class="room">Room: ${eq.lab}</div>
+            </div>
+          </div>
         `;
       }).join('');
 
-      let btnHtml = '';
-      if (isAdmin && window.IPS.equipments.length === 0) {
-        btnHtml += `<button onclick="seedSampleData()" class="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 flex items-center gap-1.5"><i data-lucide="database" class="w-3.5 h-3.5"></i> Seed Sample Items</button>`;
-      }
-      if (isAdmin) {
-        btnHtml += `<button onclick="openEqModal()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium hover:opacity-95 flex items-center gap-1.5"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Equipment</button>`;
-      }
-      document.getElementById('actionButtonsArea').innerHTML = btnHtml;
-      document.querySelectorAll('.admin-col').forEach(el => el.classList.toggle('hidden', !isAdmin));
-
-      const expiringItems = window.IPS.equipments.filter(e => {
-        if (e.status !== 'Active' || !e.expiryDate) return false;
-        if (activeLab !== 'All' && e.lab !== activeLab) return false;
-        const st = getExpiryStatus(e.expiryDate);
-        return st && (st.state === 'expired' || st.state === 'soon');
-      });
-
-      const expBanner = document.getElementById('expiryAlertBanner');
-      if (expiringItems.length > 0) {
-        expBanner.classList.remove('hidden');
-        document.getElementById('expiryAlertList').innerHTML = expiringItems.map(item => {
-          const st = getExpiryStatus(item.expiryDate);
-          const isExp = st.state === 'expired';
-          return `
-            <span class="px-2.5 py-1 rounded-lg text-[11px] font-medium border ${isExp ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-800 border-amber-200'}">
-              <b>${item.name}</b> ${item.formula ? `(${item.formula})` : ''} [${item.lab}] — ${st.label}
-            </span>
-          `;
-        }).join('');
-      } else {
-        expBanner.classList.add('hidden');
-      }
-
-      const q = (document.getElementById('searchInput').value || '').toLowerCase();
-      const filtered = window.IPS.equipments.filter(e => {
-        const labOk = activeLab === 'All' || e.lab === activeLab;
-        const searchOk = !q ||
-          (e.name || '').toLowerCase().includes(q) ||
-          (e.formula || '').toLowerCase().includes(q) ||
-          (e.equipmentId || '').toLowerCase().includes(q) ||
-          (e.spec || '').toLowerCase().includes(q) ||
-          (e.brand || '').toLowerCase().includes(q) ||
-          (e.supplier || '').toLowerCase().includes(q);
-        return labOk && searchOk;
-      });
-
-      document.getElementById('eqCountBadge').innerText = `${filtered.length} items`;
-
-      document.getElementById('eqTbody').innerHTML = filtered.length === 0
-        ? `<tr><td colspan="8" class="p-8 text-center text-slate-400">No items found. Click "Add Equipment" to populate inventory.</td></tr>`
-        : filtered.map(eq => {
-            const isLow = Number(eq.available) <= Number(eq.minStock);
-            const expSt = getExpiryStatus(eq.expiryDate);
-            const hasHazard = eq.hazardNote || eq.safetyFileData || eq.safetyLink;
-
-            let expBadge = '';
-            if (expSt) {
-              if (expSt.state === 'expired') {
-                expBadge = `<div class="mt-1"><span class="px-2 py-0.5 rounded-full bg-rose-600 text-white font-semibold text-[10px]">${expSt.label}</span></div>`;
-              } else if (expSt.state === 'soon') {
-                expBadge = `<div class="mt-1"><span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold text-[10px]">${expSt.label}</span></div>`;
-              } else {
-                expBadge = `<div class="text-[10px] text-slate-400 mt-1">${expSt.label}</div>`;
-              }
+      win.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Print Asset Labels (A-12: 34mm x 79mm)</title>
+          <style>
+            @page { margin: 8mm; }
+            body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #f8fafc; }
+            .toolbar { background: #1e293b; color: #fff; padding: 10px 16px; border-radius: 8px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+            .toolbar button { background: #4f46e5; color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+            .sheet { display: flex; flex-wrap: wrap; gap: 4mm; }
+            .label-box {
+              width: 79mm;
+              height: 34mm;
+              box-sizing: border-box;
+              border: 1px dashed #94a3b8;
+              background: #fff;
+              border-radius: 2mm;
+              padding: 2.5mm 3mm;
+              display: flex;
+              align-items: center;
+              gap: 3mm;
+              page-break-inside: avoid;
             }
+            .qr-img { width: 25mm; height: 25mm; flex-shrink: 0; }
+            .info { overflow: hidden; line-height: 1.25; }
+            .school { font-size: 7pt; font-weight: bold; color: #4f46e5; letter-spacing: 0.4px; }
+            .code { font-size: 11pt; font-weight: 800; font-family: monospace; color: #0f172a; margin: 1px 0; }
+            .name { font-size: 8.5pt; font-weight: bold; color: #1e293b; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+            .room { font-size: 7.5pt; color: #475569; margin-top: 2px; }
+            @media print {
+              body { background: #fff; padding: 0; }
+              .toolbar { display: none; }
+              .label-box { border: 0.2mm solid #e2e8f0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="toolbar">
+            <span><b>Sticker Size: A-12 (34mm x 79mm)</b> • Total Labels: ${items.length}</span>
+            <button onclick="window.print()">Print Labels Now</button>
+          </div>
+          <div class="sheet">${labelsHtml}</div>
+        </body>
+        </html>
+      `);
+      win.document.close();
+    }
 
-            return `
-              <tr class="hover:bg-indigo-50/30 transition">
-                <td class="p-3.5">
-                  <div class="flex items-center gap-2.5">
-                    ${eq.image ? `<img src="${eq.image}" class="w-10 h-10 rounded-lg object-cover border" />` : `<div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400"><i data-lucide="flask-round" class="w-5 h-5"></i></div>`}
-                    <span class="font-mono font-semibold text-indigo-700">${eq.equipmentId}</span>
-                  </div>
-                </td>
-                <td class="p-3.5">
-                  <div class="font-bold text-slate-800 flex flex-wrap items-center gap-1.5">
-                    <span>${eq.name}</span>
-                    ${eq.formula ? `<span class="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 font-mono text-[10px] font-semibold text-blue-700">${eq.formula}</span>` : ''}
-                    ${eq.brand ? `<span class="text-[11px] font-normal text-indigo-600">(${eq.brand})</span>` : ''}
-                  </div>
-                  <div class="text-[11px] text-slate-500 mt-0.5">${eq.spec || '-'} • Loc: ${eq.location || '-'}</div>
-                </td>
-                <td class="p-3.5">
-                  <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-medium text-[11px]">${eq.lab}</span>
-                  <div class="text-[11px] text-slate-500 mt-1 truncate max-w-[150px]" title="${eq.supplier || ''}">${eq.supplier || '-'}</div>
-                </td>
-                <td class="p-3.5 text-center font-semibold">${eq.total} ${eq.unit}</td>
-                <td class="p-3.5 text-center font-bold text-emerald-600">${eq.available}</td>
-                <td class="p-3.5 text-center text-slate-500">${eq.reserved || 0} / <span class="text-rose-500">${eq.damaged || 0}</span></td>
-                <td class="p-3.5">
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    ${isLow
-                      ? `<span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-medium text-[11px]">Low (Min ${eq.minStock})</span>`
-                      : `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium text-[11px]">Normal</span>`
-                    }
-                    ${hasHazard ? `<button onclick="viewHazardSafety('${eq.id}')" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200 font-semibold text-[10px] flex items-center gap-1" title="View Safety / SDS"><i data-lucide="shield-alert" class="w-3 h-3"></i> SDS / Warning</button>` : ''}
-                  </div>
-                  ${expBadge}
-                </td>
-                ${isAdmin ? `<td class="p-3.5 text-right"><button onclick="openEqModal('${eq.id}')" class="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button></td>` : ''}
-              </tr>
-            `;
-          }).join('');
+    // ==================== 3. SERVICE & REPAIR HISTORY MODAL ====================
+    function openServiceHistoryModal(eqId) {
+      const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
+      if (!eq) return;
 
-      const allowedLabs = getUserAllowedLabs(user);
-      const visibleMvs = window.IPS.movements.filter(m => {
-        const labOk = (activeLab === 'All' ? allowedLabs.includes(m.lab) : m.lab === activeLab);
-        const searchOk = !q || (m.equipmentName || '').toLowerCase().includes(q) || (m.staff || '').toLowerCase().includes(q);
-        return labOk && searchOk;
-      });
+      document.getElementById('historyModalMeta').innerText = `${eq.equipmentId || ''} | ${eq.name} (${eq.lab})`;
 
-      const badgeColors = {
-        'Stock In': 'bg-emerald-100 text-emerald-700',
-        'Returned': 'bg-blue-100 text-blue-700',
-        'Reserved': 'bg-purple-100 text-purple-700',
-        'Stock Out': 'bg-amber-100 text-amber-700',
-        'Damaged': 'bg-rose-100 text-rose-700',
-        'Lost': 'bg-rose-200 text-rose-800',
-        'Expired Disposal': 'bg-rose-600 text-white',
-        'Transferred': 'bg-indigo-100 text-indigo-700',
-        'Stock Adjustment': 'bg-slate-200 text-slate-700'
-      };
+      const repairs = (window.IPS.repairs || []).filter(r => r.eqDocId === eq.id || (r.equipmentName === eq.name && r.lab === eq.lab));
+      const totalRepairCost = repairs.reduce((s, r) => s + Number(r.cost || 0), 0);
+      const moves = (window.IPS.movements || []).filter(m => m.equipmentName === eq.name && m.lab === eq.lab).slice(-15).reverse();
 
-      document.getElementById('mvTbody').innerHTML = visibleMvs.length === 0
-        ? '<tr><td colspan="7" class="p-6 text-center text-slate-400">No stock movement logs found.</td></tr>'
-        : visibleMvs.slice().reverse().map(mv => `
-            <tr class="hover:bg-slate-50/70">
-              <td class="p-3.5 font-mono text-[11px] text-slate-500">${mv.date}</td>
-              <td class="p-3.5 font-medium">${mv.lab}</td>
-              <td class="p-3.5 font-semibold text-slate-800">${mv.equipmentName} <span class="text-[10px] text-slate-400">(${mv.equipmentId})</span></td>
-              <td class="p-3.5"><span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium ${badgeColors[mv.action] || 'bg-slate-100'}">${mv.action}</span></td>
-              <td class="p-3.5 text-center font-bold ${mv.qty >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${mv.qty >= 0 ? '+' + mv.qty : mv.qty}</td>
-              <td class="p-3.5 text-slate-600">${mv.staff}</td>
-              <td class="p-3.5 text-slate-500">${mv.note}</td>
-            </tr>
-          `).join('');
+      document.getElementById('historySummaryBox').innerHTML = `
+        <div class="grid grid-cols-3 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-blue-50 border border-blue-100">
+            <div class="text-blue-600 font-medium">Total Repair Tickets</div>
+            <div class="text-lg font-bold text-blue-900 mt-0.5">${repairs.length} time(s)</div>
+          </div>
+          <div class="p-3 rounded-xl bg-amber-50 border border-amber-100">
+            <div class="text-amber-700 font-medium">Cumulative Repair Cost</div>
+            <div class="text-lg font-bold text-amber-900 mt-0.5">${totalRepairCost.toLocaleString()} THB</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="text-slate-500 font-medium">Currently In Repair</div>
+            <div class="text-lg font-bold text-slate-800 mt-0.5">${eq.inRepair || 0} ${eq.unit || 'pcs'}</div>
+          </div>
+        </div>
+      `;
 
+      let html = '<div class="text-xs font-bold text-slate-700 mt-2">Repair Records</div>';
+      if (repairs.length === 0) {
+        html += '<div class="p-3 rounded-xl bg-slate-50 text-xs text-slate-400">No repair tickets recorded for this equipment.</div>';
+      } else {
+        html += repairs.map(r => `
+          <div class="p-3 rounded-xl border border-slate-200 bg-white text-xs flex justify-between items-center">
+            <div>
+              <b class="text-indigo-700">${r.id}</b> (${r.sentDate}) — ${r.issue}
+              <div class="text-[11px] text-slate-400">Vendor: ${r.vendor || 'Internal'} • Cost: ${Number(r.cost || 0).toLocaleString()} THB</div>
+            </div>
+            <span class="px-2 py-0.5 rounded-full bg-slate-100 font-semibold text-[10px]">${r.status}</span>
+          </div>
+        `).join('');
+      }
+
+      html += '<div class="text-xs font-bold text-slate-700 mt-4">Recent Stock Audit & Movement Log</div>';
+      if (moves.length === 0) {
+        html += '<div class="p-3 rounded-xl bg-slate-50 text-xs text-slate-400">No stock movements logged yet.</div>';
+      } else {
+        html += moves.map(m => `
+          <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-[11px] flex justify-between">
+            <span><b>[${m.action}]</b> ${m.note} <span class="text-slate-400">by ${m.staff}</span></span>
+            <span class="font-mono text-slate-500">${m.date}</span>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('historyTimelineContainer').innerHTML = html;
+      const modal = document.getElementById('historyModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
       if (window.lucide) lucide.createIcons();
     }
 
-    async function seedSampleData() {
-      const nextYear = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
-      const nextMonth = new Date(Date.now() + 25 * 86400000).toISOString().slice(0, 10);
-      const sampleItems = [
-        { equipmentId: 'PHY-001', name: 'Test Tube 500 ml', formula: '', lab: 'Physics', category: 'Glassware', spec: 'Borosilicate 500ml', brand: 'Pyrex', supplier: 'Science Supply Co., Ltd.', unit: 'pcs', total: 50, available: 50, reserved: 0, damaged: 0, minStock: 15, location: 'Cabinet P1', expiryDate: '', hazardNote: 'Handle with care. Fragile glassware.', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' },
-        { equipmentId: 'PHY-002', name: 'Beaker 250 ml', formula: '', lab: 'Physics', category: 'Glassware', spec: 'Glass 250ml', brand: 'Duran', supplier: 'LabTech Thailand', unit: 'pcs', total: 35, available: 35, reserved: 0, damaged: 0, minStock: 10, location: 'Cabinet P1', expiryDate: '', hazardNote: '', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' },
-        { equipmentId: 'CHM-001', name: 'Hydrochloric Acid', formula: 'HCl', lab: 'Chemistry', category: 'Liquid / Solution', spec: '0.1M Standard Solution (500 ml)', brand: 'Merck', supplier: 'Merck Thailand', unit: 'bottles', total: 12, available: 12, reserved: 0, damaged: 0, minStock: 5, location: 'Acid Cabinet C1', expiryDate: nextYear, hazardNote: 'CORROSIVE: Causes skin burns and eye damage. Wear goggles & acid-resistant gloves.', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' },
-        { equipmentId: 'CHM-002', name: 'Hydrogen Peroxide', formula: 'H2O2', lab: 'Chemistry', category: 'Liquid / Solution', spec: '3% w/v Reagent (500 ml)', brand: 'Ajax Finechem', supplier: 'Science Supply Co., Ltd.', unit: 'bottles', total: 6, available: 6, reserved: 0, damaged: 0, minStock: 5, location: 'Cabinet C2', expiryDate: nextMonth, hazardNote: 'OXIDIZER: Keep away from heat and direct sunlight.', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' },
-        { equipmentId: 'BIO-001', name: 'Compound Microscope', formula: '', lab: 'Biology', category: 'Optics', spec: '1600x Dual View LED', brand: 'Olympus', supplier: 'BioMed Equip Co.', unit: 'units', total: 15, available: 15, reserved: 0, damaged: 0, minStock: 5, location: 'Cabinet B1', expiryDate: '', hazardNote: 'Clean objective lenses with lens paper only.', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' },
-        { equipmentId: 'PRI-001', name: 'Plastic Beaker 250 ml', formula: '', lab: 'Primary', category: 'Plasticware', spec: 'Polypropylene 250ml', brand: 'Kartell', supplier: 'EduLab Asia', unit: 'pcs', total: 25, available: 25, reserved: 0, damaged: 0, minStock: 8, location: 'Cabinet PR1', expiryDate: '', hazardNote: '', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' },
-        { equipmentId: 'MAT-001', name: '3D Geometric Solids Set', formula: '', lab: 'Mathematics Resource', category: 'Math Manipulatives', spec: '12-Piece Transparent Acrylic', brand: 'Learning Resources', supplier: 'EduLab Asia', unit: 'sets', total: 10, available: 10, reserved: 0, damaged: 0, minStock: 3, location: 'Math Shelf M1', expiryDate: '', hazardNote: '', safetyFileData: '', safetyFileName: '', safetyLink: '', status: 'Active', image: '' }
-      ];
-      Swal.fire({ title: 'Seeding Sample Inventory...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-      const batch = db.batch();
-      sampleItems.forEach(item => batch.set(db.collection('equipments').doc(), item));
-      await batch.commit();
-      Swal.fire('Completed', 'Sample equipment & chemicals added across all rooms.', 'success');
-    }
-
-    function handleImgUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const scale = Math.min(1, 320 / img.width);
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-          const b64 = canvas.toDataURL('image/jpeg', 0.65);
-          document.getElementById('eqImgBase64').value = b64;
-          const prev = document.getElementById('eqImgPreview');
-          prev.src = b64;
-          prev.classList.remove('hidden');
-        };
-        img.src = ev.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function handleSafetyFileUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      if (file.type === 'application/pdf') {
-        if (file.size > 600 * 1024) {
-          e.target.value = '';
-          return Swal.fire('PDF Too Large', 'Please upload a PDF smaller than 600 KB, or paste a Google Drive link instead.', 'warning');
-        }
-        const reader = new FileReader();
-        reader.onload = ev => {
-          document.getElementById('eqSafetyFileData').value = ev.target.result;
-          document.getElementById('eqSafetyFileName').value = file.name;
-          const badge = document.getElementById('safetyFileBadge');
-          badge.innerText = `✓ Attached PDF: ${file.name}`;
-          badge.classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
-      } else if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = ev => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const scale = Math.min(1, 600 / img.width);
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
-            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-            const b64 = canvas.toDataURL('image/jpeg', 0.7);
-            document.getElementById('eqSafetyFileData').value = b64;
-            document.getElementById('eqSafetyFileName').value = file.name;
-            const badge = document.getElementById('safetyFileBadge');
-            badge.innerText = `✓ Attached Hazard Image: ${file.name}`;
-            badge.classList.remove('hidden');
-          };
-          img.src = ev.target.result;
-        };
-        reader.readAsDataURL(file);
-      }
-    }
-
-    function onLabSelectChange() {
-      const docId = document.getElementById('eqDocId').value;
-      if (!docId) {
-        const selectedLab = document.getElementById('eqLab').value;
-        document.getElementById('eqId').value = generateNextSKU(selectedLab);
-      }
-    }
-
-    function openEqModal(docId = null) {
-      populateDynamicLabDropdowns();
+    // ==================== ADD / EDIT EQUIPMENT ====================
+    function openEquipmentModal(eqId = null) {
+      populateFilters();
       document.getElementById('eqForm').reset();
-      document.getElementById('eqImgPreview').classList.add('hidden');
-      document.getElementById('eqImgBase64').value = '';
-      document.getElementById('eqSafetyFileData').value = '';
-      document.getElementById('eqSafetyFileName').value = '';
-      document.getElementById('safetyFileBadge').classList.add('hidden');
+      document.getElementById('eqDocId').value = eqId || '';
 
-      if (docId) {
-        const eq = window.IPS.equipments.find(x => x.id === docId);
-        document.getElementById('eqModalTitle').innerText = 'Edit Equipment / Chemical';
-        document.getElementById('eqDocId').value = eq.id;
-        document.getElementById('eqId').value = eq.equipmentId;
-        document.getElementById('eqName').value = eq.name;
-        document.getElementById('eqFormula').value = eq.formula || '';
-        document.getElementById('eqLab').value = eq.lab;
-        document.getElementById('eqCategory').value = eq.category || '';
-        document.getElementById('eqSpec').value = eq.spec || '';
-        document.getElementById('eqBrand').value = eq.brand || '';
-        document.getElementById('eqSupplier').value = eq.supplier || '';
-        document.getElementById('eqUnit').value = eq.unit;
-        document.getElementById('eqLocation').value = eq.location || '';
-        document.getElementById('eqTotal').value = eq.total;
-        document.getElementById('eqMin').value = eq.minStock;
-        document.getElementById('eqExpiryDate').value = eq.expiryDate || '';
-        document.getElementById('eqStatus').value = eq.status;
-        document.getElementById('eqHazardNote').value = eq.hazardNote || '';
-        document.getElementById('eqSafetyLink').value = eq.safetyLink || '';
-
-        if (eq.safetyFileData) {
-          document.getElementById('eqSafetyFileData').value = eq.safetyFileData;
-          document.getElementById('eqSafetyFileName').value = eq.safetyFileName || 'Attached File';
-          const badge = document.getElementById('safetyFileBadge');
-          badge.innerText = `✓ Existing Attachment: ${eq.safetyFileName || 'SDS / Hazard File'}`;
-          badge.classList.remove('hidden');
-        }
-        if (eq.image) {
-          document.getElementById('eqImgBase64').value = eq.image;
-          const p = document.getElementById('eqImgPreview');
-          p.src = eq.image;
-          p.classList.remove('hidden');
+      if (eqId) {
+        const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
+        if (eq) {
+          document.getElementById('eqModalTitle').innerText = 'Edit Equipment / Chemical';
+          document.getElementById('eqCode').value = eq.equipmentId || '';
+          document.getElementById('eqLab').value = eq.lab;
+          document.getElementById('eqName').value = eq.name || '';
+          document.getElementById('eqFormula').value = eq.formula || '';
+          document.getElementById('eqType').value = eq.type || 'Equipment';
+          document.getElementById('eqUnit').value = eq.unit || 'pcs';
+          document.getElementById('eqTotal').value = eq.total || 0;
+          document.getElementById('eqMinStock').value = eq.minStock || 5;
+          document.getElementById('eqExpiry').value = eq.expiryDate || '';
+          document.getElementById('eqSupplier').value = eq.supplier || '';
+          document.getElementById('eqHazardNote').value = eq.hazardNote || '';
         }
       } else {
         document.getElementById('eqModalTitle').innerText = 'Add New Equipment / Chemical';
-        document.getElementById('eqDocId').value = '';
-        const allLabs = getAllLabNames();
-        const defaultLab = activeLab !== 'All' ? activeLab : (allLabs[0] || 'Primary');
-        document.getElementById('eqLab').value = defaultLab;
-        document.getElementById('eqId').value = generateNextSKU(defaultLab);
       }
+
       const m = document.getElementById('eqModal');
       m.classList.remove('hidden');
       m.classList.add('flex');
@@ -662,155 +564,58 @@
     document.getElementById('eqForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const docId = document.getElementById('eqDocId').value;
-      const total = Number(document.getElementById('eqTotal').value);
-      const lab = document.getElementById('eqLab').value;
-      const name = document.getElementById('eqName').value.trim();
-      const spec = document.getElementById('eqSpec').value.trim();
+      const total = Number(document.getElementById('eqTotal').value || 0);
 
-      const data = {
-        equipmentId: docId ? document.getElementById('eqId').value.trim() : generateNextSKU(lab),
-        name,
+      const payload = {
+        equipmentId: document.getElementById('eqCode').value.trim(),
+        lab: document.getElementById('eqLab').value,
+        name: document.getElementById('eqName').value.trim(),
         formula: document.getElementById('eqFormula').value.trim(),
-        lab,
-        category: document.getElementById('eqCategory').value.trim(),
-        spec,
-        brand: document.getElementById('eqBrand').value.trim(),
-        supplier: document.getElementById('eqSupplier').value.trim(),
+        type: document.getElementById('eqType').value,
         unit: document.getElementById('eqUnit').value.trim(),
-        location: document.getElementById('eqLocation').value.trim(),
         total,
-        minStock: Number(document.getElementById('eqMin').value),
-        expiryDate: document.getElementById('eqExpiryDate').value || '',
-        status: document.getElementById('eqStatus').value,
-        image: document.getElementById('eqImgBase64').value,
+        minStock: Number(document.getElementById('eqMinStock').value || 0),
+        expiryDate: document.getElementById('eqExpiry').value,
+        supplier: document.getElementById('eqSupplier').value.trim(),
         hazardNote: document.getElementById('eqHazardNote').value.trim(),
-        safetyFileData: document.getElementById('eqSafetyFileData').value,
-        safetyFileName: document.getElementById('eqSafetyFileName').value,
-        safetyLink: document.getElementById('eqSafetyLink').value.trim()
+        status: 'Active'
       };
 
-      if (!docId) {
-        const duplicate = window.IPS.equipments.find(item =>
-          item.lab === lab &&
-          item.name.trim().toLowerCase() === name.toLowerCase() &&
-          (item.spec || '').trim().toLowerCase() === spec.toLowerCase()
-        );
-
-        if (duplicate) {
-          const choice = await Swal.fire({
-            icon: 'warning',
-            title: 'Duplicate Item Detected',
-            html: `<b>"${duplicate.name}"</b> (${duplicate.spec || 'No Spec'}) already exists in <b>${lab}</b> as <b>${duplicate.equipmentId}</b> (Current Stock: ${duplicate.total} ${duplicate.unit}).<br><br>Would you like to add <b>+${total} ${data.unit}</b> to the existing stock instead?`,
-            showDenyButton: true,
-            showCancelButton: true,
-            confirmButtonText: `Add +${total} to Existing (${duplicate.equipmentId})`,
-            denyButtonText: `Create Separate New SKU (${data.equipmentId})`,
-            cancelButtonText: 'Cancel'
-          });
-
-          if (choice.isDismissed) return;
-
-          if (choice.isConfirmed) {
-            const updates = {
-              total: Number(duplicate.total) + total,
-              available: Number(duplicate.available) + total
-            };
-            if (data.expiryDate) updates.expiryDate = data.expiryDate;
-            await db.collection('equipments').doc(duplicate.id).update(updates);
-            await addStockMovement(duplicate.equipmentId, duplicate.name, duplicate.lab, 'Stock In', total, 'Added stock via duplicate merge');
-            closeModal('eqModal');
-            return Swal.fire('Stock Merged', `Added +${total} ${duplicate.unit} to ${duplicate.equipmentId}.`, 'success');
-          }
-        }
-      }
-
       if (docId) {
-        const old = window.IPS.equipments.find(x => x.id === docId);
-        const diff = total - Number(old.total || 0);
-        await db.collection('equipments').doc(docId).update({ ...data, available: Math.max(0, Number(old.available || 0) + diff) });
+        const existing = (window.IPS.equipments || []).find(x => x.id === docId);
+        const diff = total - Number(existing.total || 0);
+        payload.available = Math.max(0, Number(existing.available || 0) + diff);
+        await db.collection('equipments').doc(docId).update(payload);
       } else {
-        await db.collection('equipments').add({ ...data, available: total, reserved: 0, damaged: 0 });
-        await addStockMovement(data.equipmentId, data.name, data.lab, 'Stock In', total, 'Initial registration');
+        payload.available = total;
+        payload.reserved = 0;
+        payload.damaged = 0;
+        payload.inRepair = 0;
+        await db.collection('equipments').add(payload);
+        await addStockMovement(payload.equipmentId, payload.name, payload.lab, 'Initial Stock', total, 'Added new item to inventory');
       }
+
       closeModal('eqModal');
-      Swal.fire('Saved', `${data.equipmentId} has been saved successfully.`, 'success');
+      Swal.fire('Saved', 'Inventory record updated.', 'success');
     });
 
-    function openStockModal() {
-      populateDynamicLabDropdowns();
-      const allowedLabs = getUserAllowedLabs(window.IPS.user);
-      document.getElementById('stkEqSelect').innerHTML = window.IPS.equipments
-        .filter(e => allowedLabs.includes(e.lab))
-        .map(e => `<option value="${e.id}">[${e.lab}] ${e.name}${e.formula ? ` (${e.formula})` : ''} [${e.equipmentId}] — Avail: ${e.available}</option>`)
-        .join('');
-      document.getElementById('stkForm').reset();
-      document.getElementById('transferDiv').classList.add('hidden');
-      const m = document.getElementById('stkModal');
-      m.classList.remove('hidden');
-      m.classList.add('flex');
+    function exportStockCSV() {
+      const today = new Date().toISOString().slice(0, 10);
+      const headers = ['Asset ID', 'Name', 'Formula', 'Room', 'Type', 'Unit', 'Total', 'Available', 'Reserved', 'Damaged', 'In Repair', 'Min Stock', 'Expiry Date', 'Supplier'];
+      const rows = getFilteredEquipments().map(e => [
+        e.equipmentId || '', e.name, e.formula || '', e.lab, e.type || 'Equipment', e.unit || 'pcs',
+        e.total || 0, e.available || 0, e.reserved || 0, e.damaged || 0, e.inRepair || 0,
+        e.minStock || 0, e.expiryDate || '', e.supplier || ''
+      ]);
+      exportDataToCSV(`IPS_Inventory_${today}.csv`, headers, rows);
     }
-
-    document.getElementById('stkForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const eqId = document.getElementById('stkEqSelect').value;
-      const action = document.getElementById('stkAction').value;
-      const qty = Number(document.getElementById('stkQty').value);
-      const note = document.getElementById('stkNote').value.trim();
-      const eq = window.IPS.equipments.find(x => x.id === eqId);
-      if (!eq) return;
-
-      let signedQty = qty;
-      let updates = {};
-
-      if (action === 'Stock In' || action === 'Stock Adjustment') {
-        updates = { total: Number(eq.total) + qty, available: Number(eq.available) + qty };
-      } else if (action === 'Returned') {
-        updates = {
-          available: Math.min(Number(eq.total) - Number(eq.damaged || 0), Number(eq.available) + qty),
-          reserved: Math.max(0, Number(eq.reserved || 0) - qty)
-        };
-      } else if (action === 'Stock Out' || action === 'Lost' || action === 'Expired Disposal') {
-        if (Number(eq.available) < qty) return Swal.fire('Insufficient Stock', 'Not enough available items.', 'error');
-        updates = { total: Number(eq.total) - qty, available: Number(eq.available) - qty };
-        signedQty = -qty;
-      } else if (action === 'Damaged') {
-        if (Number(eq.available) < qty) return Swal.fire('Insufficient Stock', 'Not enough available items.', 'error');
-        updates = { available: Number(eq.available) - qty, damaged: Number(eq.damaged || 0) + qty };
-        signedQty = -qty;
-      } else if (action === 'Transferred') {
-        const targetLab = document.getElementById('stkTargetLab').value;
-        if (targetLab === eq.lab) return Swal.fire('Invalid Room', 'Destination room must differ from source room.', 'warning');
-        if (Number(eq.available) < qty) return Swal.fire('Insufficient Stock', 'Not enough available items.', 'error');
-        updates = { total: Number(eq.total) - qty, available: Number(eq.available) - qty };
-        signedQty = -qty;
-
-        const dest = window.IPS.equipments.find(x => x.name === eq.name && x.lab === targetLab && (x.spec || '') === (eq.spec || ''));
-        if (dest) {
-          await db.collection('equipments').doc(dest.id).update({ total: Number(dest.total) + qty, available: Number(dest.available) + qty });
-          await addStockMovement(dest.equipmentId, dest.name, targetLab, 'Stock In', qty, `Transferred from ${eq.lab} (${note})`);
-        } else {
-          const newCode = generateNextSKU(targetLab);
-          await db.collection('equipments').add({
-            equipmentId: newCode, name: eq.name, formula: eq.formula || '', lab: targetLab,
-            category: eq.category || '', spec: eq.spec || '', brand: eq.brand || '', supplier: eq.supplier || '',
-            unit: eq.unit, location: 'Transfer Receiving', total: qty, available: qty, reserved: 0, damaged: 0,
-            minStock: eq.minStock || 5, expiryDate: eq.expiryDate || '', status: 'Active', image: eq.image || '',
-            hazardNote: eq.hazardNote || '', safetyFileData: eq.safetyFileData || '', safetyFileName: eq.safetyFileName || '', safetyLink: eq.safetyLink || ''
-          });
-          await addStockMovement(newCode, eq.name, targetLab, 'Stock In', qty, `Transferred from ${eq.lab} (${note})`);
-        }
-      }
-
-      await db.collection('equipments').doc(eq.id).update(updates);
-      await addStockMovement(eq.equipmentId, eq.name, eq.lab, action, signedQty, note);
-      closeModal('stkModal');
-      Swal.fire('Logged', 'Stock balance updated and recorded in audit trail.', 'success');
-    });
 
     function closeModal(id) {
       const m = document.getElementById(id);
-      m.classList.add('hidden');
-      m.classList.remove('flex');
+      if (m) {
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+      }
     }
   </script>
 </body>
