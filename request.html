@@ -306,7 +306,7 @@
         }
 
         const uniqueLabs = [...new Set(cart.map(c => c.lab).filter(Boolean))];
-        const labSummary = uniqueLabs.length > 1 ? `Multi-Lab (${uniqueLabs.join(', ')})` : (uniqueLabs[0] || 'General');
+        const labSummary = uniqueLabs[0] || 'Physics';
 
         const nextNum = (window.IPS.requests || []).length + 1;
         const reqId = `REQ-${String(nextNum).padStart(3, '0')}`;
