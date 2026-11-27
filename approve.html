@@ -31,11 +31,15 @@
           <button onclick="statusFilter='Approved'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Approved">In Use (Approved)</button>
           <button onclick="statusFilter='Return Pending'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center gap-1" data-st="Return Pending">
             <span>Return Pending</span>
-            <span id="returnPendingBadge" class="hidden px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px]">0</span>
+            <span id="returnPendingBadge" class="hidden px-1.5 py-0.2 rounded-full bg-orange-600 text-white text-[10px]">0</span>
           </button>
           <button onclick="statusFilter='Returned'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Returned">Returned</button>
+          <button onclick="statusFilter='Unpaid Damage'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center gap-1" data-st="Unpaid Damage">
+            <span>💰 Unpaid Damages</span>
+            <span id="unpaidDamageBadge" class="hidden px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px]">0</span>
+          </button>
         </div>
-        <input type="text" id="searchInput" onkeyup="renderTable()" placeholder="Search ID, Teacher, Experiment..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-64" />
+        <input type="text" id="searchInput" onkeyup="renderTable()" placeholder="Search REQ-ID, Teacher, Room..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-64" />
       </div>
 
       <!-- REQUESTS TABLE -->
@@ -45,11 +49,11 @@
             <thead>
               <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
                 <th class="p-3.5">Request ID</th>
-                <th class="p-3.5">Teacher & Experiment</th>
-                <th class="p-3.5">Labs Involved</th>
+                <th class="p-3.5">Requester & Activity</th>
+                <th class="p-3.5">Room / Lab</th>
                 <th class="p-3.5">Usage Schedule</th>
-                <th class="p-3.5">Status</th>
-                <th class="p-3.5 text-right">Actions</th>
+                <th class="p-3.5">Status & Compensation</th>
+                <th class="p-3.5 text-right">Actions & Damage Docs</th>
               </tr>
             </thead>
             <tbody id="requestsTbody" class="divide-y divide-slate-100 text-xs"></tbody>
@@ -72,7 +76,7 @@
       <div id="modalItemsContainer" class="mt-4 space-y-3"></div>
       <div class="mt-4">
         <label class="block text-xs font-medium text-slate-600 mb-1">Staff Remarks / Instructions</label>
-        <input type="text" id="staffRemarksInput" placeholder="Add notes for the teacher or purchase plan for fresh items..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        <input type="text" id="staffRemarksInput" placeholder="Add notes for the requester or purchase plan for fresh items..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
       </div>
       <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
         <span class="text-[11px] text-slate-400">Approver name and timestamp are logged automatically.</span>
@@ -101,18 +105,138 @@
 
       <div id="returnItemsContainer" class="mt-4 space-y-3"></div>
 
+      <!-- DAMAGE COMPENSATION & FORM ATTACHMENT SECTION -->
+      <div class="mt-4 p-4 rounded-xl bg-rose-50/70 border border-rose-200 space-y-3">
+        <div class="text-xs font-bold text-rose-900 flex items-center gap-1.5">
+          <i data-lucide="receipt" class="w-4 h-4 text-rose-600"></i> Damage Compensation & Signed Damage Report Form (If Any Item Damaged/Lost)
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Compensation Amount (THB)</label>
+            <input type="number" id="retCompAmount" min="0" step="0.01" value="0" placeholder="0.00" class="w-full px-3 py-1.5 rounded-lg border border-rose-200 bg-white font-bold text-rose-800" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Payment / Settlement Status</label>
+            <select id="retCompStatus" class="w-full px-3 py-1.5 rounded-lg border border-rose-200 bg-white font-medium">
+              <option value="None">No Damage Fee (0 THB)</option>
+              <option value="Unpaid">Unpaid (Pending Payment from Requester)</option>
+              <option value="Paid">Paid (Settled / Receipt Attached)</option>
+              <option value="Waived">Waived (Approved Exemption)</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block text-[11px] font-medium text-slate-600 mb-1">Attach Signed Damage Form / Slip (Google Drive Link)</label>
+            <input type="url" id="retDamageDocLink" placeholder="https://drive.google.com/..." class="w-full px-3 py-1.5 rounded-lg border border-rose-200 bg-white text-xs" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-600 mb-1">Or Upload Signed Form / Slip PDF/Image (&lt; 450 KB)</label>
+            <input type="file" id="retDamageDocFile" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:bg-white file:text-rose-700" />
+          </div>
+        </div>
+      </div>
+
       <div class="mt-4">
         <label class="block text-xs font-medium text-slate-600 mb-1">Lab Staff Inspection Remarks / Damage Details *</label>
         <input type="text" id="returnRemarksInput" placeholder="e.g., All items returned clean, or 1 Beaker cracked during titration" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
       </div>
 
       <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
-        <span class="text-[11px] text-slate-500">Good + Damaged + Lost must equal the Approved Qty for each returnable item.</span>
+        <span class="text-[11px] text-slate-500">Good + Damaged + Lost must equal Approved Qty for each item.</span>
         <div class="flex gap-2">
           <button type="button" onclick="closeModal('returnModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
           <button type="button" onclick="submitReturnInspection()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow">Confirm Return & Update Stock</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- DAMAGE FORM & PAYMENT RECEIPT FOLDER MODAL (LINKED DIRECTLY TO REQ-???) -->
+  <div id="damageDocsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="folder-heart" class="w-5 h-5 text-rose-600"></i> Damage Report & Compensation Folder
+          </h3>
+          <p id="dmgModalMeta" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeModal('damageDocsModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <!-- GOOGLE DRIVE FOLDER NAME HELPER -->
+      <div class="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div>
+          <span class="text-[10px] font-semibold text-slate-400 uppercase block">Standard Google Drive Folder (04_Damage_Compensation)</span>
+          <code id="dmgRecommendedFolder" class="font-mono font-bold text-indigo-700"></code>
+        </div>
+        <button type="button" onclick="copyDmgFolderName()" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-medium text-slate-700 hover:bg-slate-100">
+          Copy Folder Name
+        </button>
+      </div>
+
+      <!-- PAYMENT SETTLEMENT CONTROL BOX -->
+      <div class="mt-4 p-4 rounded-xl bg-amber-50/80 border border-amber-200 space-y-3">
+        <div class="text-xs font-bold text-amber-950">💰 Compensation & Payment Settlement Status</div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+          <div>
+            <label class="block text-[10px] font-semibold text-slate-600 mb-1">Amount Due (THB)</label>
+            <input type="number" id="editCompAmount" min="0" step="0.01" class="w-full px-3 py-1.5 rounded-lg border border-amber-300 bg-white font-bold text-slate-800" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-slate-600 mb-1">Payment Status</label>
+            <select id="editCompStatus" class="w-full px-3 py-1.5 rounded-lg border border-amber-300 bg-white font-semibold">
+              <option value="None">None (0 THB)</option>
+              <option value="Unpaid">Unpaid (Pending)</option>
+              <option value="Paid">Paid (Settled)</option>
+              <option value="Waived">Waived (Exempted)</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button type="button" onclick="saveCompensationUpdate()" class="w-full py-1.5 px-3 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700 shadow-sm">
+              Update Payment Status
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ATTACHED DAMAGE FORMS & PAYMENT RECEIPTS -->
+      <div class="mt-4">
+        <div class="text-xs font-semibold text-slate-700 mb-2">Attached Damage Forms & Payment Receipts for this Request</div>
+        <div id="dmgDocsListContainer" class="space-y-2"></div>
+      </div>
+
+      <!-- UPLOAD NEW DAMAGE FORM / RECEIPT -->
+      <form id="addDamageDocForm" class="mt-4 p-4 rounded-xl bg-rose-50/60 border border-rose-100 space-y-3">
+        <div class="text-xs font-bold text-rose-900 flex items-center gap-1.5">
+          <i data-lucide="plus-circle" class="w-4 h-4 text-rose-600"></i> Attach Signed Damage Form / Payment Slip / Receipt
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-medium text-slate-600 mb-1">Document Type / Title *</label>
+            <select id="dmgDocTypeSelect" class="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs">
+              <option value="Signed Equipment Damage Form">Signed Equipment Damage Form</option>
+              <option value="Payment Receipt / Transfer Slip">Payment Receipt / Transfer Slip</option>
+              <option value="Damage Evidence Photo">Damage Evidence Photo</option>
+              <option value="Fee Waiver Approval Note">Fee Waiver Approval Note</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-600 mb-1">Google Drive Link (Unlimited Size)</label>
+            <input type="url" id="dmgNewDocLink" placeholder="https://drive.google.com/..." class="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-[11px] font-medium text-slate-600 mb-1">Or Upload PDF / Image File (&lt; 450 KB)</label>
+          <input type="file" id="dmgNewDocFile" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-white file:text-rose-700" />
+        </div>
+        <div class="flex justify-end">
+          <button type="submit" class="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 shadow-sm">
+            + Save Document to REQ
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -124,7 +248,7 @@
     initIPSPage({
       activePage: 'approve',
       title: 'Asset Admin Section',
-      subtitle: 'Approve requisitions (including special fresh items), inspect returns, and log damages',
+      subtitle: 'Approve requisitions, inspect returns, and track damage forms & compensation receipts',
       allowedRoles: ['Lab Staff', 'Admin', 'Super Admin'],
       onReady: () => {
         renderTable();
@@ -135,14 +259,32 @@
       return Array.isArray(r && r.items) ? r.items : [];
     }
 
+    // Strict room-level access guard (keeps Secret ICT Vault requests hidden from unauthorized staff)
     function isRequestAllowedForUser(r, allowedLabs) {
       if (!r) return false;
       const role = String((window.IPS.user || {}).role || '');
-      if (['Super Admin', 'Admin', 'Lab Staff'].includes(role)) return true;
-      if (allowedLabs.includes(r.lab)) return true;
+      if (role === 'Super Admin') return true;
+      if (r.lab && allowedLabs.includes(r.lab)) return true;
       if (Array.isArray(r.labsInvolved) && r.labsInvolved.some(l => allowedLabs.includes(l))) return true;
-      if (safeItems(r).some(it => allowedLabs.includes(it.lab))) return true;
+      if (safeItems(r).some(it => it.lab && allowedLabs.includes(it.lab))) return true;
       return false;
+    }
+
+    function readFileAsBase64(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) return resolve(null);
+        if (file.size > 460 * 1024) {
+          return reject(new Error('File is larger than 450 KB. Please upload to Google Drive and paste the link instead.'));
+        }
+        const reader = new FileReader();
+        reader.onload = () => resolve({
+          fileName: file.name,
+          fileType: file.type,
+          fileData: reader.result
+        });
+        reader.onerror = () => reject(new Error('Failed to read selected file.'));
+        reader.readAsDataURL(file);
+      });
     }
 
     function viewItemSafety(eqDocId) {
@@ -201,22 +343,30 @@
       const retPendingCount = allReqs.filter(r => isRequestAllowedForUser(r, allowedLabs) && r.status === 'Return Pending').length;
       const badgeEl = document.getElementById('returnPendingBadge');
       if (badgeEl) {
-        if (retPendingCount > 0) {
-          badgeEl.innerText = retPendingCount;
-          badgeEl.classList.remove('hidden');
-        } else {
-          badgeEl.classList.add('hidden');
-        }
+        badgeEl.innerText = retPendingCount;
+        badgeEl.classList.toggle('hidden', retPendingCount === 0);
+      }
+
+      const unpaidCount = allReqs.filter(r => isRequestAllowedForUser(r, allowedLabs) && r.compensationStatus === 'Unpaid').length;
+      const unpaidBadgeEl = document.getElementById('unpaidDamageBadge');
+      if (unpaidBadgeEl) {
+        unpaidBadgeEl.innerText = unpaidCount;
+        unpaidBadgeEl.classList.toggle('hidden', unpaidCount === 0);
       }
 
       const list = allReqs.filter(r => {
         const labOk = isRequestAllowedForUser(r, allowedLabs);
-        const stOk = statusFilter === 'All'
-          || (statusFilter === 'Approved' ? ['Approved', 'Partial'].includes(r.status) : r.status === statusFilter);
-        const displayId = String(r.reqId || r.id || '').toLowerCase();
-        const tName = String(r.teacherName || '').toLowerCase();
-        const expName = String(r.experiment || '').toLowerCase();
-        const searchOk = !q || displayId.includes(q) || tName.includes(q) || expName.includes(q);
+        let stOk = false;
+        if (statusFilter === 'All') stOk = true;
+        else if (statusFilter === 'Approved') stOk = ['Approved', 'Partial'].includes(r.status);
+        else if (statusFilter === 'Unpaid Damage') stOk = r.compensationStatus === 'Unpaid';
+        else stOk = r.status === statusFilter;
+
+        const displayId = String(r.requestCode || r.reqId || r.id || '').toLowerCase();
+        const tName = String(r.teacherName || r.requesterName || '').toLowerCase();
+        const expName = String(r.experiment || r.subject || '').toLowerCase();
+        const roomName = String(r.lab || '').toLowerCase();
+        const searchOk = !q || displayId.includes(q) || tName.includes(q) || expName.includes(q) || roomName.includes(q);
         return labOk && stOk && searchOk;
       });
 
@@ -244,34 +394,61 @@
         const canReviewApproval = ['Pending'].includes(r.status);
         const hasCustom = itemsArr.some(i => i && (i.isCustom || i.isSpecial));
         const rawDocId = String(r.docId || r.id || '');
-        const displayId = String(r.reqId || rawDocId.slice(0, 8) || 'REQ');
+        const displayId = String(r.requestCode || r.reqId || rawDocId.slice(0, 8) || 'REQ');
         const displayDate = String(r.useDate || r.date || '-');
+        const requester = r.teacherName || r.requesterName || 'Requester';
+        const activity = r.experiment || r.subject || r.purpose || '-';
         const itemLabs = [...new Set(itemsArr.map(i => i && i.lab).filter(Boolean))];
         const labBadgeText = itemLabs.length > 1 ? `Multi-Lab (${itemLabs.join(', ')})` : (itemLabs[0] || r.lab || 'General');
 
+        const dmgDocsCount = Array.isArray(r.damageDocuments) ? r.damageDocuments.length : 0;
+        const compStatus = r.compensationStatus || 'None';
+        const compAmt = Number(r.compensationAmount || 0);
+        const hasAnyDamage = itemsArr.some(i => Number(i.returnedDamagedQty || 0) > 0 || Number(i.returnedLostQty || 0) > 0) || compStatus !== 'None' || dmgDocsCount > 0;
+
+        let compBadgeHtml = '';
+        if (compStatus === 'Unpaid') {
+          compBadgeHtml = `<div class="mt-1"><span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-bold">💰 UNPAID: ${compAmt.toLocaleString()} THB</span></div>`;
+        } else if (compStatus === 'Paid') {
+          compBadgeHtml = `<div class="mt-1"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">✅ PAID: ${compAmt.toLocaleString()} THB</span></div>`;
+        } else if (compStatus === 'Waived') {
+          compBadgeHtml = `<div class="mt-1"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold">⚪ FEE WAIVED</span></div>`;
+        }
+
         return `
-          <tr class="hover:bg-slate-50/70 ${r.status === 'Return Pending' ? 'bg-orange-50/40' : ''}">
+          <tr class="hover:bg-slate-50/70 ${compStatus === 'Unpaid' ? 'bg-rose-50/30' : (r.status === 'Return Pending' ? 'bg-orange-50/40' : '')}">
             <td class="p-3.5 font-mono font-bold text-indigo-700">
               ${displayId}
               ${hasCustom ? `<div class="mt-0.5"><span class="px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 font-sans text-[9px] font-bold">SPECIAL ITEM</span></div>` : ''}
             </td>
             <td class="p-3.5">
-              <div class="font-semibold text-slate-800">${r.teacherName || 'Teacher'}</div>
-              <div class="text-[11px] text-slate-500">${r.experiment || '-'}</div>
-              ${r.teacherReturnNote ? `<div class="text-[11px] text-orange-700 mt-0.5 font-medium">Teacher Note: "${r.teacherReturnNote}"</div>` : ''}
+              <div class="font-semibold text-slate-800">${requester}</div>
+              <div class="text-[11px] text-slate-500">${activity}</div>
+              ${r.teacherReturnNote ? `<div class="text-[11px] text-orange-700 mt-0.5 font-medium">Return Note: "${r.teacherReturnNote}"</div>` : ''}
             </td>
             <td class="p-3.5"><span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">${labBadgeText}</span></td>
             <td class="p-3.5"><b>${displayDate}</b><br><span class="text-slate-400">${r.startTime || ''} - ${r.endTime || ''}</span></td>
-            <td class="p-3.5"><span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeMap[r.status] || 'bg-slate-100'}">${r.status || 'Pending'}</span></td>
-            <td class="p-3.5 text-right space-x-1.5">
-              ${canInspectReturn ? `
-                <button onclick="openReturnModal('${rawDocId}')" class="px-3 py-1.5 rounded-xl ${r.status === 'Return Pending' ? 'bg-orange-600 hover:bg-orange-700 animate-pulse' : 'bg-blue-600 hover:bg-blue-700'} text-white font-medium">
-                  Inspect Return
-                </button>
-              ` : ''}
-              ${canReviewApproval ? `
-                <button onclick="openApprovalModal('${rawDocId}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium">Review</button>
-              ` : ''}
+            <td class="p-3.5">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeMap[r.status] || 'bg-slate-100'}">${r.status || 'Pending'}</span>
+              ${compBadgeHtml}
+            </td>
+            <td class="p-3.5 text-right">
+              <div class="inline-flex flex-wrap items-center justify-end gap-1.5">
+                ${(hasAnyDamage || r.status === 'Returned') ? `
+                  <button onclick="openDamageDocsModal('${rawDocId}')" class="px-2.5 py-1.5 rounded-xl border ${compStatus === 'Unpaid' ? 'border-rose-300 bg-rose-50 text-rose-800 font-bold' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'} text-[11px] flex items-center gap-1" title="Manage Damage Form & Compensation Receipt">
+                    <span>💰 Docs</span>
+                    <span class="px-1.5 py-0.2 rounded-full ${dmgDocsCount > 0 ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'} text-[10px]">${dmgDocsCount}</span>
+                  </button>
+                ` : ''}
+                ${canInspectReturn ? `
+                  <button onclick="openReturnModal('${rawDocId}')" class="px-3 py-1.5 rounded-xl ${r.status === 'Return Pending' ? 'bg-orange-600 hover:bg-orange-700 animate-pulse' : 'bg-blue-600 hover:bg-blue-700'} text-white font-medium">
+                    Inspect Return
+                  </button>
+                ` : ''}
+                ${canReviewApproval ? `
+                  <button onclick="openApprovalModal('${rawDocId}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium">Review</button>
+                ` : ''}
+              </div>
             </td>
           </tr>
         `;
@@ -283,15 +460,15 @@
       activeDocId = docId;
       const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === docId);
       if (!req) return;
-      const displayId = String(req.reqId || docId);
+      const displayId = String(req.requestCode || req.reqId || docId);
       const displayDate = String(req.useDate || req.date || '-');
-      document.getElementById('modalMeta').innerText = `${displayId} | Teacher: ${req.teacherName || ''} | ${displayDate} (${req.startTime || ''} - ${req.endTime || ''})`;
+      document.getElementById('modalMeta').innerText = `${displayId} | Requester: ${req.teacherName || req.requesterName || ''} | ${displayDate} (${req.startTime || ''} - ${req.endTime || ''})`;
       document.getElementById('staffRemarksInput').value = req.staffRemarks || req.notes || '';
 
       const html = safeItems(req).map((it, idx) => {
         const isSpecialItem = Boolean(it.isCustom || it.isSpecial);
         const eq = isSpecialItem ? null : (window.IPS.equipments || []).find(e => e.id === it.eqDocId);
-        const itemLab = it.lab || (eq && eq.lab) || 'General';
+        const itemLab = it.lab || req.lab || (eq && eq.lab) || 'General';
         const reqQty = Number(it.requestedQty || 0);
 
         if (isSpecialItem) {
@@ -305,7 +482,7 @@
                     ${it.spec ? `<span class="text-xs text-slate-600">[${it.spec}]</span>` : ''}
                   </div>
                   <div class="text-xs text-slate-600 mt-1">
-                    Requested: <b>${reqQty} ${it.unit || ''}</b> (To be procured/prepared by Lab Staff)
+                    Requested: <b>${reqQty} ${it.unit || ''}</b> (To be arranged by Lab Staff)
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -317,7 +494,7 @@
                   <input type="number" id="qty_${idx}" min="0" max="${reqQty}" value="${reqQty}" class="w-20 px-2.5 py-1.5 rounded-lg border border-amber-300 text-xs bg-white" />
                 </div>
               </div>
-              <input type="text" id="alt_${idx}" value="${it.alternativeNote || ''}" placeholder="Procurement note or instructions for teacher..." class="w-full px-3 py-1.5 rounded-lg border border-amber-200 text-xs bg-white" />
+              <input type="text" id="alt_${idx}" value="${it.alternativeNote || ''}" placeholder="Procurement note or instructions..." class="w-full px-3 py-1.5 rounded-lg border border-amber-200 text-xs bg-white" />
             </div>
           `;
         }
@@ -335,7 +512,6 @@
                   <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-bold">📍 ${itemLab}</span>
                   <span class="font-bold text-slate-800 text-sm">${it.name || ''}</span>
                   ${eq && eq.formula ? `<span class="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 font-mono text-[10px] font-semibold text-blue-700">${eq.formula}</span>` : ''}
-                  ${it.spec ? `<span class="text-xs text-slate-500">[${it.spec}]</span>` : ''}
                   <span class="px-2 py-0.5 rounded text-[10px] font-medium ${isCons ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-700'}">
                     ${isCons ? 'Consumable / Chemical' : 'Returnable Equipment'}
                   </span>
@@ -377,7 +553,7 @@
       const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === activeDocId);
       if (!req) return;
       const docKey = req.docId || req.id;
-      const displayId = String(req.reqId || docKey);
+      const displayId = String(req.requestCode || req.reqId || docKey);
       const displayDate = String(req.useDate || req.date || '-');
       const items = JSON.parse(JSON.stringify(safeItems(req)));
       let anyApproved = false;
@@ -436,12 +612,25 @@
       }
 
       const finalStatus = !anyApproved ? 'Rejected' : (allApproved ? 'Approved' : 'Partial');
+      const remarks = document.getElementById('staffRemarksInput').value.trim();
+
       await db.collection('requests').doc(docKey).update({
         items,
         status: finalStatus,
         approvedBy: window.IPS.user.name,
         approvalDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
-        staffRemarks: document.getElementById('staffRemarksInput').value.trim()
+        staffRemarks: remarks
+      });
+
+      // Send email notification to Requester
+      const requesterName = req.teacherName || req.requesterName || 'Requester';
+      await sendIPSEmailNotification({
+        toEmail: req.requesterEmail || '',
+        toName: requesterName,
+        subject: `[IPS Asset System] Request ${displayId} Status: ${finalStatus}`,
+        message: `Hello ${requesterName},\n\nYour equipment requisition ${displayId} (${req.lab || ''}) for ${displayDate} (${req.startTime}-${req.endTime}) has been reviewed and marked as: ${finalStatus}.\n\nRemarks: ${remarks || 'None'}\nProcessed by: ${window.IPS.user.name}`,
+        refId: displayId,
+        category: 'Requisition'
       });
 
       closeModal('approvalModal');
@@ -454,17 +643,21 @@
       activeDocId = docId;
       const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === docId);
       if (!req) return;
-      const displayId = String(req.reqId || docId);
+      const displayId = String(req.requestCode || req.reqId || docId);
       const displayDate = String(req.useDate || req.date || '-');
-      document.getElementById('returnModalMeta').innerText = `${displayId} | Teacher: ${req.teacherName || ''} | Used on ${displayDate}`;
+      document.getElementById('returnModalMeta').innerText = `${displayId} | Requester: ${req.teacherName || req.requesterName || ''} | Used on ${displayDate}`;
       document.getElementById('returnRemarksInput').value = req.teacherReturnNote || '';
+      document.getElementById('retCompAmount').value = req.compensationAmount || 0;
+      document.getElementById('retCompStatus').value = req.compensationStatus || 'None';
+      document.getElementById('retDamageDocLink').value = '';
+      document.getElementById('retDamageDocFile').value = '';
 
       const banner = document.getElementById('teacherReturnBanner');
       if (req.teacherReturnNote || req.teacherReportedDamage) {
         banner.classList.remove('hidden');
         banner.innerHTML = `
-          <b>📢 Teacher Return / Damage Report (${req.returnSubmittedAt || req.returnRequestedAt || 'Submitted'}):</b><br>
-          ${req.teacherReturnNote || 'Teacher notified that items have been returned.'}
+          <b>📢 Requester Return / Damage Report (${req.returnSubmittedAt || req.returnRequestedAt || 'Submitted'}):</b><br>
+          ${req.teacherReturnNote || 'Requester notified that items have been returned.'}
         `;
       } else {
         banner.classList.add('hidden');
@@ -473,7 +666,7 @@
       const html = safeItems(req).filter(it => Number(it.approvedQty || 0) > 0).map((it, idx) => {
         const isSpecialItem = Boolean(it.isCustom || it.isSpecial);
         const eq = isSpecialItem ? null : (window.IPS.equipments || []).find(e => e.id === it.eqDocId);
-        const itemLab = it.lab || (eq && eq.lab) || 'General';
+        const itemLab = it.lab || req.lab || (eq && eq.lab) || 'General';
         const isCons = isSpecialItem || (eq && isConsumableOrChemical(eq));
         const approved = Number(it.approvedQty || 0);
         const teacherDmg = Number(it.reportedDamagedQty || 0);
@@ -499,10 +692,9 @@
               <div>
                 <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-bold mr-1.5">📍 Return to: ${itemLab}</span>
                 <span class="font-bold text-slate-800 text-sm">${it.name || ''}</span>
-                ${it.spec ? `<span class="text-xs text-slate-500 ml-1">[${it.spec}]</span>` : ''}
                 <span class="ml-2 text-xs text-indigo-700 font-semibold">Approved Qty: ${approved}</span>
               </div>
-              ${teacherDmg > 0 ? `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-700 text-[11px] font-semibold">Teacher reported ${teacherDmg} damaged</span>` : ''}
+              ${teacherDmg > 0 ? `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-700 text-[11px] font-semibold">Requester reported ${teacherDmg} damaged</span>` : ''}
             </div>
 
             <div class="grid grid-cols-3 gap-3 text-xs">
@@ -534,7 +726,7 @@
       const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === activeDocId);
       if (!req) return;
       const docKey = req.docId || req.id;
-      const displayId = String(req.reqId || docKey);
+      const displayId = String(req.requestCode || req.reqId || docKey);
       const returnRemarks = document.getElementById('returnRemarksInput').value.trim();
       const approvedItems = safeItems(req).filter(it => Number(it.approvedQty || 0) > 0);
 
@@ -558,60 +750,274 @@
         }
       }
 
-      const updatedItems = JSON.parse(JSON.stringify(safeItems(req)));
-      let approvedIdx = 0;
+      try {
+        const dmgLink = document.getElementById('retDamageDocLink').value.trim();
+        const dmgFileInput = document.getElementById('retDamageDocFile');
+        const dmgFile = dmgFileInput.files && dmgFileInput.files[0];
+        const parsedDmgFile = await readFileAsBase64(dmgFile);
 
-      for (let i = 0; i < updatedItems.length; i++) {
-        const it = updatedItems[i];
-        if (Number(it.approvedQty || 0) <= 0) continue;
-
-        const eq = (it.isCustom || it.isSpecial) ? null : (window.IPS.equipments || []).find(e => e.id === it.eqDocId);
-        if (eq && !isConsumableOrChemical(eq)) {
-          const goodQty = Number(document.getElementById(`ret_good_${approvedIdx}`).value || 0);
-          const dmgQty = Number(document.getElementById(`ret_dmg_${approvedIdx}`).value || 0);
-          const lostQty = Number(document.getElementById(`ret_lost_${approvedIdx}`).value || 0);
-          const approved = Number(it.approvedQty || 0);
-
-          it.returnedGoodQty = goodQty;
-          it.returnedDamagedQty = dmgQty;
-          it.returnedLostQty = lostQty;
-
-          const newReserved = Math.max(0, Number(eq.reserved || 0) - approved);
-          const newDamaged = Number(eq.damaged || 0) + dmgQty;
-          const newTotal = Math.max(0, Number(eq.total || 0) - lostQty);
-          const newAvailable = Math.min(newTotal - newDamaged, Number(eq.available || 0) + goodQty);
-
-          await db.collection('equipments').doc(eq.id).update({
-            total: newTotal,
-            available: newAvailable,
-            reserved: newReserved,
-            damaged: newDamaged
+        const existingDmgDocs = Array.isArray(req.damageDocuments) ? [...req.damageDocuments] : [];
+        if (dmgLink || parsedDmgFile) {
+          existingDmgDocs.push({
+            docItemId: 'DMG-' + Date.now(),
+            title: 'Signed Damage Form / Payment Receipt (On Return)',
+            link: dmgLink || '',
+            fileName: parsedDmgFile ? parsedDmgFile.fileName : '',
+            fileData: parsedDmgFile ? parsedDmgFile.fileData : '',
+            uploadedBy: window.IPS.user.name,
+            uploadedAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
           });
-
-          if (goodQty > 0) {
-            await addStockMovement(eq.equipmentId || eq.sku || '', eq.name, eq.lab, 'Returned', goodQty, `Returned intact from ${displayId}`);
-          }
-          if (dmgQty > 0) {
-            await addStockMovement(eq.equipmentId || eq.sku || '', eq.name, eq.lab, 'Damaged', -dmgQty, `Damaged during ${displayId}: ${returnRemarks || 'Reported on return'}`);
-          }
-          if (lostQty > 0) {
-            await addStockMovement(eq.equipmentId || eq.sku || '', eq.name, eq.lab, 'Lost', -lostQty, `Lost during ${displayId}: ${returnRemarks || 'Missing on return'}`);
-          }
         }
-        approvedIdx++;
+
+        const updatedItems = JSON.parse(JSON.stringify(safeItems(req)));
+        let approvedIdx = 0;
+        let totalDamagedOrLost = 0;
+
+        for (let i = 0; i < updatedItems.length; i++) {
+          const it = updatedItems[i];
+          if (Number(it.approvedQty || 0) <= 0) continue;
+
+          const eq = (it.isCustom || it.isSpecial) ? null : (window.IPS.equipments || []).find(e => e.id === it.eqDocId);
+          if (eq && !isConsumableOrChemical(eq)) {
+            const goodQty = Number(document.getElementById(`ret_good_${approvedIdx}`).value || 0);
+            const dmgQty = Number(document.getElementById(`ret_dmg_${approvedIdx}`).value || 0);
+            const lostQty = Number(document.getElementById(`ret_lost_${approvedIdx}`).value || 0);
+            const approved = Number(it.approvedQty || 0);
+
+            totalDamagedOrLost += (dmgQty + lostQty);
+            it.returnedGoodQty = goodQty;
+            it.returnedDamagedQty = dmgQty;
+            it.returnedLostQty = lostQty;
+
+            const newReserved = Math.max(0, Number(eq.reserved || 0) - approved);
+            const newDamaged = Number(eq.damaged || 0) + dmgQty;
+            const newTotal = Math.max(0, Number(eq.total || 0) - lostQty);
+            const newAvailable = Math.min(newTotal - newDamaged, Number(eq.available || 0) + goodQty);
+
+            await db.collection('equipments').doc(eq.id).update({
+              total: newTotal,
+              available: newAvailable,
+              reserved: newReserved,
+              damaged: newDamaged
+            });
+
+            if (goodQty > 0) {
+              await addStockMovement(eq.equipmentId || eq.sku || '', eq.name, eq.lab, 'Returned', goodQty, `Returned intact from ${displayId}`);
+            }
+            if (dmgQty > 0) {
+              await addStockMovement(eq.equipmentId || eq.sku || '', eq.name, eq.lab, 'Damaged', -dmgQty, `Damaged during ${displayId}: ${returnRemarks || 'Reported on return'}`);
+            }
+            if (lostQty > 0) {
+              await addStockMovement(eq.equipmentId || eq.sku || '', eq.name, eq.lab, 'Lost', -lostQty, `Lost during ${displayId}: ${returnRemarks || 'Missing on return'}`);
+            }
+          }
+          approvedIdx++;
+        }
+
+        const compAmt = Number(document.getElementById('retCompAmount').value || 0);
+        let compStatus = document.getElementById('retCompStatus').value;
+        if (compAmt > 0 && compStatus === 'None') compStatus = 'Unpaid';
+
+        await db.collection('requests').doc(docKey).update({
+          items: updatedItems,
+          status: 'Returned',
+          returnedByStaff: window.IPS.user.name,
+          returnInspectedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          returnRemarks,
+          compensationAmount: compAmt,
+          compensationStatus: compStatus,
+          damageDocuments: existingDmgDocs
+        });
+
+        // Notify requester if damage/compensation was logged
+        if (totalDamagedOrLost > 0 || compAmt > 0) {
+          const requesterName = req.teacherName || req.requesterName || 'Requester';
+          await sendIPSEmailNotification({
+            toEmail: req.requesterEmail || '',
+            toName: requesterName,
+            subject: `[IPS Asset System] Equipment Return & Damage Summary (${displayId})`,
+            message: `Hello ${requesterName},\n\nYour return for ${displayId} (${req.lab || ''}) has been inspected.\nDamaged/Lost Units: ${totalDamagedOrLost}\nCompensation Due: ${compAmt.toLocaleString()} THB (Status: ${compStatus})\nRemarks: ${returnRemarks || 'None'}`,
+            refId: displayId,
+            category: 'Damage & Compensation'
+          });
+        }
+
+        closeModal('returnModal');
+        renderTable();
+        Swal.fire('Return Completed', 'Equipment condition inspected, stock updated, and damage records saved.', 'success');
+      } catch (err) {
+        Swal.fire('Attachment Error', err.message, 'warning');
+      }
+    }
+
+    // ==================== DAMAGE REPORT & PAYMENT FOLDER MODAL ====================
+    function openDamageDocsModal(docId) {
+      activeDocId = docId;
+      const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === docId);
+      if (!req) return;
+
+      const displayId = String(req.requestCode || req.reqId || docId);
+      const requester = req.teacherName || req.requesterName || 'Requester';
+      const roomName = req.lab || 'General';
+      const cleanRoom = roomName.replace(/[^a-zA-Z0-9ก-๙_-]+/g, '_').slice(0, 20);
+      const cleanTeacher = requester.replace(/[^a-zA-Z0-9ก-๙_-]+/g, '_').slice(0, 20);
+
+      document.getElementById('dmgModalMeta').innerText = `${displayId} | Room: ${roomName} | Requester: ${requester}`;
+      document.getElementById('dmgRecommendedFolder').innerText = `${displayId}_${cleanRoom}_${cleanTeacher}`;
+      document.getElementById('editCompAmount').value = Number(req.compensationAmount || 0);
+      document.getElementById('editCompStatus').value = req.compensationStatus || 'None';
+      document.getElementById('addDamageDocForm').reset();
+
+      renderDamageDocsList(req);
+      const m = document.getElementById('damageDocsModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function copyDmgFolderName() {
+      const code = document.getElementById('dmgRecommendedFolder').innerText;
+      navigator.clipboard.writeText(code);
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Folder name copied!', showConfirmButton: false, timer: 1500 });
+    }
+
+    function renderDamageDocsList(req) {
+      const docs = Array.isArray(req.damageDocuments) ? req.damageDocuments : [];
+      const container = document.getElementById('dmgDocsListContainer');
+
+      if (docs.length === 0) {
+        container.innerHTML = '<div class="p-4 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">No damage forms or receipts attached to this REQ yet.</div>';
+        return;
       }
 
+      container.innerHTML = docs.map((d, idx) => `
+        <div class="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div class="font-bold text-slate-800 text-xs">${d.title}</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">
+              By ${d.uploadedBy || 'Staff'} • ${d.uploadedAt || ''} ${d.fileName ? `• File: ${d.fileName}` : ''}
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            ${d.fileData ? `<button type="button" onclick="previewDmgFile(${idx})" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-medium hover:bg-indigo-700">View File</button>` : ''}
+            ${d.link ? `<a href="${d.link}" target="_blank" rel="noopener" class="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700">Open Link ↗</a>` : ''}
+            <button type="button" onclick="deleteDmgDoc(${idx})" class="px-2 py-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 text-[11px]">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function previewDmgFile(idx) {
+      const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === activeDocId);
+      if (!req || !Array.isArray(req.damageDocuments) || !req.damageDocuments[idx]) return;
+      const d = req.damageDocuments[idx];
+
+      let contentHtml = '';
+      if (String(d.fileData).startsWith('data:application/pdf')) {
+        contentHtml = `
+          <iframe src="${d.fileData}" class="w-full h-96 rounded-xl border"></iframe>
+          <a href="${d.fileData}" download="${d.fileName || 'Damage_Document.pdf'}" class="inline-block mt-3 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium">Download PDF</a>
+        `;
+      } else {
+        contentHtml = `
+          <img src="${d.fileData}" class="max-h-96 mx-auto rounded-xl border shadow-sm" />
+          <a href="${d.fileData}" download="${d.fileName || 'Receipt.png'}" class="inline-block mt-3 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium">Download Image</a>
+        `;
+      }
+      Swal.fire({ title: d.title, width: 700, html: contentHtml, confirmButtonText: 'Close' });
+    }
+
+    async function saveCompensationUpdate() {
+      if (!activeDocId) return;
+      const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === activeDocId);
+      if (!req) return;
+
+      const amt = Number(document.getElementById('editCompAmount').value || 0);
+      const st = document.getElementById('editCompStatus').value;
+      const docKey = req.docId || req.id;
+      const displayId = String(req.requestCode || req.reqId || docKey);
+
       await db.collection('requests').doc(docKey).update({
-        items: updatedItems,
-        status: 'Returned',
-        returnedByStaff: window.IPS.user.name,
-        returnInspectedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
-        returnRemarks
+        compensationAmount: amt,
+        compensationStatus: st
       });
 
-      closeModal('returnModal');
+      if (st === 'Paid') {
+        const requesterName = req.teacherName || req.requesterName || 'Requester';
+        await sendIPSEmailNotification({
+          toEmail: req.requesterEmail || '',
+          toName: requesterName,
+          subject: `[IPS Asset System] Payment Receipt Confirmed (${displayId})`,
+          message: `Hello ${requesterName},\n\nWe have recorded your damage compensation settlement of ${amt.toLocaleString()} THB for ${displayId} (${req.lab || ''}) as PAID.\n\nConfirmed by: ${window.IPS.user.name}`,
+          refId: displayId,
+          category: 'Damage & Compensation'
+        });
+      }
+
       renderTable();
-      Swal.fire('Return Completed', 'Equipment condition inspected and stock balances updated.', 'success');
+      Swal.fire('Saved', `Compensation updated to ${st} (${amt.toLocaleString()} THB).`, 'success');
+    }
+
+    document.getElementById('addDamageDocForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!activeDocId) return;
+      const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === activeDocId);
+      if (!req) return;
+
+      const title = document.getElementById('dmgDocTypeSelect').value;
+      const link = document.getElementById('dmgNewDocLink').value.trim();
+      const fileInput = document.getElementById('dmgNewDocFile');
+      const file = fileInput.files && fileInput.files[0];
+
+      if (!link && !file) {
+        return Swal.fire('Missing File/Link', 'Please select a file or paste a Google Drive link.', 'warning');
+      }
+
+      try {
+        const parsedFile = await readFileAsBase64(file);
+        const existingDocs = Array.isArray(req.damageDocuments) ? [...req.damageDocuments] : [];
+        existingDocs.push({
+          docItemId: 'DMG-' + Date.now(),
+          title,
+          link: link || '',
+          fileName: parsedFile ? parsedFile.fileName : '',
+          fileData: parsedFile ? parsedFile.fileData : '',
+          uploadedBy: window.IPS.user.name,
+          uploadedAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+        });
+
+        const docKey = req.docId || req.id;
+        await db.collection('requests').doc(docKey).update({ damageDocuments: existingDocs });
+        req.damageDocuments = existingDocs;
+        document.getElementById('addDamageDocForm').reset();
+        renderDamageDocsList(req);
+        renderTable();
+        Swal.fire('Saved', 'Damage form / payment receipt attached to this REQ.', 'success');
+      } catch (err) {
+        Swal.fire('Upload Error', err.message, 'warning');
+      }
+    });
+
+    async function deleteDmgDoc(idx) {
+      if (!activeDocId) return;
+      const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === activeDocId);
+      if (!req || !Array.isArray(req.damageDocuments)) return;
+
+      const res = await Swal.fire({
+        title: 'Remove this document?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'Yes, remove'
+      });
+      if (!res.isConfirmed) return;
+
+      const updatedDocs = req.damageDocuments.filter((_, i) => i !== idx);
+      const docKey = req.docId || req.id;
+      await db.collection('requests').doc(docKey).update({ damageDocuments: updatedDocs });
+      req.damageDocuments = updatedDocs;
+      renderDamageDocsList(req);
+      renderTable();
     }
 
     function closeModal(id) {
