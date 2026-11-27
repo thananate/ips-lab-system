@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPS Asset System | Repair & MA Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f0f4ff 0%, #f5f3ff 50%, #eef2ff 100%); min-height: 100vh; }
+    .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.7); box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.08); }
+  </style>
+</head>
+<body class="text-slate-800 antialiased">
+
+  <div class="min-h-screen flex flex-col lg:flex-row">
+    <aside id="sharedSidebar" class="bg-white/95 border-r border-slate-200/80 w-full lg:w-64 flex-shrink-0 flex flex-col justify-between"></aside>
+    <main class="flex-1 p-4 md:p-8 space-y-6">
+      <div id="sharedHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
+
+      <!-- MODULE TABS -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="inline-flex bg-white/90 p-1.5 rounded-2xl border border-slate-200/80 shadow-sm">
+          <button id="tabBtnRepair" onclick="switchMainTab('repair')" class="px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-sm flex items-center gap-2 transition">
+            <i data-lucide="wrench" class="w-4 h-4"></i>
+            <span>Repair Tickets (Corrective)</span>
+            <span id="repairOverdueBadge" class="hidden px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px]">0</span>
+          </button>
+          <button id="tabBtnMA" onclick="switchMainTab('ma')" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition">
+            <i data-lucide="shield-check" class="w-4 h-4"></i>
+            <span>MA & PM Schedule</span>
+            <span id="maDueBadge" class="hidden px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[10px]">0</span>
+          </button>
+        </div>
+
+        <button onclick="exportCurrentTabCSV()" class="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 shadow-sm">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-600"></i> Export Excel (CSV)
+        </button>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- SECTION 1: REPAIR TICKETS (CORRECTIVE MAINTENANCE)                    -->
+      <!-- ===================================================================== -->
+      <div id="sectionRepair" class="space-y-5">
+        <!-- DAMAGED STOCK QUICK BANNER -->
+        <div id="damagedBanner" class="hidden glass-card rounded-2xl p-4 border-l-4 border-l-amber-500">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+            <h4 class="font-bold text-xs text-amber-800 flex items-center gap-1.5">
+              <i data-lucide="alert-circle" class="w-4 h-4"></i> Damaged Stock Awaiting Repair Dispatch
+            </h4>
+            <span class="text-[11px] text-slate-400">Click "+ Send to Repair" to create a repair ticket from damaged stock</span>
+          </div>
+          <div id="damagedChips" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- REPAIR AGING ALERT BANNER (3 / 7 / 14 DAYS) -->
+        <div id="repairAgingBanner" class="hidden glass-card rounded-2xl p-4 border-l-4 border-l-rose-500 bg-rose-50/60">
+          <div class="flex items-center gap-2 text-xs font-bold text-rose-800 mb-1.5">
+            <i data-lucide="clock" class="w-4 h-4"></i> Repair Turnaround SLA Alerts (3 / 7 / 14+ Days)
+          </div>
+          <div id="repairAgingList" class="text-xs text-rose-900 space-y-1"></div>
+        </div>
+
+        <!-- FILTER & ACTION BAR -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap gap-1.5 bg-white/80 p-1.5 rounded-2xl border border-slate-200/70">
+            <button onclick="repairFilter='All'; renderRepairTable();" class="r-btn px-3 py-1.5 rounded-xl text-xs font-medium bg-indigo-600 text-white" data-st="All">All Tickets</button>
+            <button onclick="repairFilter='Active'; renderRepairTable();" class="r-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Active">Active / In Repair</button>
+            <button onclick="repairFilter='Completed'; renderRepairTable();" class="r-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Completed">Completed</button>
+            <button onclick="repairFilter='Unrepairable'; renderRepairTable();" class="r-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Unrepairable">Unrepairable (Write-off)</button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input type="text" id="repairSearchInput" onkeyup="renderRepairTable()" placeholder="Search REP ID, Equipment, Vendor..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-56" />
+            <button onclick="openRepairModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium shadow hover:opacity-95 flex items-center gap-1.5">
+              <i data-lucide="plus" class="w-4 h-4"></i> New Repair Ticket
+            </button>
+          </div>
+        </div>
+
+        <!-- REPAIR TICKETS TABLE -->
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                  <th class="p-3.5">Repair ID & Aging</th>
+                  <th class="p-3.5">Equipment & Room</th>
+                  <th class="p-3.5 text-center">Qty & Source</th>
+                  <th class="p-3.5">Issue & Vendor</th>
+                  <th class="p-3.5">Est. Cost & Owner</th>
+                  <th class="p-3.5">Status</th>
+                  <th class="p-3.5 text-right">Docs & Update</th>
+                </tr>
+              </thead>
+              <tbody id="repairTbody" class="divide-y divide-slate-100 text-xs"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- SECTION 2: MA & PREVENTIVE MAINTENANCE SCHEDULE                       -->
+      <!-- ===================================================================== -->
+      <div id="sectionMA" class="hidden space-y-5">
+        <!-- MA COUNTDOWN ALERT BANNER (90 / 60 / 30 / 15 / 7 DAYS) -->
+        <div id="maAlertBanner" class="hidden glass-card rounded-2xl p-4 border-l-4 border-l-orange-500 bg-orange-50/60">
+          <div class="flex items-center gap-2 text-xs font-bold text-orange-900 mb-1.5">
+            <i data-lucide="bell-ring" class="w-4 h-4"></i> MA Contract & Preventive Maintenance Countdown Alerts (90 / 60 / 30 / 15 / 7 Days)
+          </div>
+          <div id="maAlertList" class="text-xs text-orange-950 space-y-1"></div>
+        </div>
+
+        <!-- MA FILTER & ACTION BAR -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap gap-1.5 bg-white/80 p-1.5 rounded-2xl border border-slate-200/70">
+            <button onclick="maFilter='All'; renderMATable();" class="ma-btn px-3 py-1.5 rounded-xl text-xs font-medium bg-indigo-600 text-white" data-st="All">All MA Contracts</button>
+            <button onclick="maFilter='ExpiringSoon'; renderMATable();" class="ma-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="ExpiringSoon">Due / Expiring (&le; 90d)</button>
+            <button onclick="maFilter='Active'; renderMATable();" class="ma-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Active">Active</button>
+            <button onclick="maFilter='Expired'; renderMATable();" class="ma-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Expired">Expired</button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input type="text" id="maSearchInput" onkeyup="renderMATable()" placeholder="Search MA ID, System, Vendor..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-56" />
+            <button onclick="openMAModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-medium shadow hover:opacity-95 flex items-center gap-1.5">
+              <i data-lucide="plus" class="w-4 h-4"></i> New MA / PM Contract
+            </button>
+          </div>
+        </div>
+
+        <!-- MA CONTRACTS TABLE -->
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                  <th class="p-3.5">MA ID & Drive Folder</th>
+                  <th class="p-3.5">Equipment / System & Room</th>
+                  <th class="p-3.5">Vendor & Contract No.</th>
+                  <th class="p-3.5">Contract End / Next PM</th>
+                  <th class="p-3.5">Countdown Alert</th>
+                  <th class="p-3.5 text-right">Docs & Actions</th>
+                </tr>
+              </thead>
+              <tbody id="maTbody" class="divide-y divide-slate-100 text-xs"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 1: CREATE REPAIR TICKET                                         -->
+  <!-- ===================================================================== -->
+  <div id="repairModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-xl max-h-[92vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-lg font-bold text-slate-800">Create Equipment Repair Ticket</h3>
+        <button onclick="closeModal('repairModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="repairForm" class="mt-4 space-y-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Laboratory / Room *</label>
+            <select id="repLab" onchange="populateEquipmentForRepair()" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Select Equipment from Stock *</label>
+            <select id="repEqSelect" onchange="onRepairEqChange()" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Deduct Stock From *</label>
+            <select id="repSource" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+              <option value="damaged">Damaged Stock (Already Marked Damaged)</option>
+              <option value="available">Available Stock (Send Directly from Active)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Quantity to Repair *</label>
+            <input type="number" id="repQty" min="1" value="1" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Repair Vendor / Technician</label>
+            <input type="text" id="repVendor" placeholder="e.g., Internal Technician / Scientific Service Co." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Estimated Repair Cost (THB)</label>
+            <input type="number" id="repCost" min="0" step="0.01" placeholder="0.00" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Issue / Defect Description *</label>
+          <input type="text" id="repIssue" required placeholder="e.g., Display not turning on / Calibration drift / Broken power cable" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Google Drive Folder Link (Optional)</label>
+          <input type="url" id="repDriveLink" placeholder="https://drive.google.com/drive/folders/..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+        <div class="bg-amber-50/80 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900">
+          <b>Stock Impact:</b> Submitting moves the selected quantity into <b>In Repair</b>. When marked <b>Completed</b>, it automatically returns to <b>Available</b> stock.
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal('repairModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Create Repair Ticket</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 2: CREATE / EDIT MA CONTRACT                                    -->
+  <!-- ===================================================================== -->
+  <div id="maModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-xl max-h-[92vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-lg font-bold text-slate-800">Add MA Contract / PM Schedule</h3>
+        <button onclick="closeModal('maModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="maForm" class="mt-4 space-y-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Equipment / System Name *</label>
+            <input type="text" id="maTitle" required placeholder="e.g., Fume Hoods & Analytical Balances" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Laboratory / Room *</label>
+            <select id="maLab" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">MA Vendor / Contractor *</label>
+            <input type="text" id="maVendor" required placeholder="e.g., ScienceTech Service Co., Ltd." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Contract / Quotation No.</label>
+            <input type="text" id="maContractNo" placeholder="e.g., MA-2026-089" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Contract Start Date *</label>
+            <input type="date" id="maStartDate" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Contract Expiry / Next Due Date *</label>
+            <input type="date" id="maEndDate" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Annual / Contract Value (THB)</label>
+            <input type="number" id="maCost" min="0" step="0.01" placeholder="0.00" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">PM Frequency (Months)</label>
+            <select id="maInterval" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
+              <option value="3">Every 3 Months (Quarterly)</option>
+              <option value="6" selected>Every 6 Months (Semi-Annual)</option>
+              <option value="12">Every 12 Months (Annual)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Main Google Drive Folder Link (03_MA_Contracts)</label>
+          <input type="url" id="maDriveFolder" placeholder="https://drive.google.com/drive/folders/..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Scope of Service / Notes</label>
+          <input type="text" id="maNotes" placeholder="e.g., Includes 2 calibration visits/year + emergency callout" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal('maModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700">Save MA Schedule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 3: MULTI-VERSION DOCUMENT FOLDER (REPAIR & MA)                  -->
+  <!-- ===================================================================== -->
+  <div id="folderDocsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="folder-open" class="w-5 h-5 text-indigo-600"></i> Document Version Folder
+          </h3>
+          <p id="folderModalMeta" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeModal('folderDocsModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <!-- RECOMMENDED GOOGLE DRIVE FOLDER NAME HELPER -->
+      <div class="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div>
+          <span class="text-[10px] font-semibold text-slate-400 uppercase block">Standard Google Drive Folder Name</span>
+          <code id="recommendedFolderCode" class="font-mono font-bold text-indigo-700"></code>
+        </div>
+        <button type="button" onclick="copyRecommendedFolder()" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-medium text-slate-700 hover:bg-slate-100">
+          Copy Folder Name
+        </button>
+      </div>
+
+      <!-- EXISTING VERSIONS LIST -->
+      <div class="mt-4">
+        <div class="text-xs font-semibold text-slate-700 mb-2">Attached Document Versions (Chronological)</div>
+        <div id="folderDocsList" class="space-y-2"></div>
+      </div>
+
+      <!-- UPLOAD NEW VERSION FORM -->
+      <form id="folderAddDocForm" class="mt-5 p-4 rounded-xl bg-indigo-50/60 border border-indigo-100 space-y-3">
+        <div class="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+          <i data-lucide="file-plus" class="w-4 h-4 text-indigo-600"></i> Attach New Document Version
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-medium text-slate-600 mb-1">Document Version / Type *</label>
+            <select id="docVersionType" class="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs">
+              <option value="Quotation Rev.1">1. Quotation Rev.1 (Initial Quote)</option>
+              <option value="Quotation Rev.2 (Revised)">2. Quotation Rev.2 (Revised Quote)</option>
+              <option value="Signed MA Contract">3. Signed MA Contract (Official)</option>
+              <option value="Repair / Service Report">4. Repair / PM Service Report</option>
+              <option value="Tax Invoice / Receipt">5. Tax Invoice / Receipt</option>
+              <option value="Other Document">6. Other Supporting Document</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-600 mb-1">Custom Note / Label (Optional)</label>
+            <input type="text" id="docCustomLabel" placeholder="e.g., Final negotiated price 18,500 THB" class="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-[11px] font-medium text-slate-600 mb-1">Google Drive File / Folder Link (Recommended for Multi-page PDFs)</label>
+          <input type="url" id="docExternalLink" placeholder="https://drive.google.com/..." class="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-medium text-slate-600 mb-1">Or Upload Small File (&lt; 450 KB)</label>
+          <input type="file" id="docBinaryFile" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-white file:text-indigo-700 hover:file:bg-indigo-50" />
+        </div>
+        <div class="flex justify-end">
+          <button type="submit" class="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm">
+            + Save Document Version
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="firebase-core.js"></script>
+  <script>
+    let currentMainTab = 'repair';
+    let repairFilter = 'All';
+    let maFilter = 'All';
+    let activeFolderTarget = null; // { collection: 'repairs' | 'ma_schedules', docId: string }
+
+    initIPSPage({
+      activePage: 'repair',
+      title: 'Repair & Maintenance (MA)',
+      subtitle: 'Track equipment repairs, vendor SLA turnarounds, and MA contract renewals',
+      allowedRoles: ['Lab Staff', 'Staff', 'Admin', 'Super Admin'],
+      onReady: () => {
+        populateLabDropdowns();
+        renderDamagedBanner();
+        renderRepairTable();
+        renderMATable();
+      }
+    });
+
+    function switchMainTab(tab) {
+      currentMainTab = tab;
+      const btnRep = document.getElementById('tabBtnRepair');
+      const btnMA = document.getElementById('tabBtnMA');
+      const secRep = document.getElementById('sectionRepair');
+      const secMA = document.getElementById('sectionMA');
+
+      if (tab === 'repair') {
+        btnRep.className = 'px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-sm flex items-center gap-2 transition';
+        btnMA.className = 'px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition';
+        secRep.classList.remove('hidden');
+        secMA.classList.add('hidden');
+      } else {
+        btnMA.className = 'px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm flex items-center gap-2 transition';
+        btnRep.className = 'px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition';
+        secMA.classList.remove('hidden');
+        secRep.classList.add('hidden');
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function populateLabDropdowns() {
+      const allLabs = getAllLabNames();
+      const opts = allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
+      document.getElementById('repLab').innerHTML = opts;
+      document.getElementById('maLab').innerHTML = opts;
+    }
+
+    function closeModal(id) {
+      const m = document.getElementById(id);
+      if (m) {
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+      }
+    }
+
+    // =========================================================================
+    // 1. REPAIR TICKETS LOGIC
+    // =========================================================================
+    function renderDamagedBanner() {
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
+      const damagedItems = (window.IPS.equipments || []).filter(e =>
+        allowedLabs.includes(e.lab) && Number(e.damaged || 0) > 0
+      );
+
+      const banner = document.getElementById('damagedBanner');
+      if (damagedItems.length === 0) {
+        banner.classList.add('hidden');
+        return;
+      }
+      banner.classList.remove('hidden');
+      document.getElementById('damagedChips').innerHTML = damagedItems.map(item => `
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs">
+          <span class="font-semibold text-slate-800">${item.name}</span>
+          <span class="text-[11px] text-slate-600">(${item.lab}: <b>${item.damaged}</b> damaged)</span>
+          <button onclick="openRepairModal('${item.id}')" class="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-medium hover:bg-amber-700">+ Send to Repair</button>
+        </div>
+      `).join('');
+    }
+
+    function getRepairAgingBadge(rep) {
+      if (['Completed', 'Unrepairable'].includes(rep.status)) {
+        return `<span class="text-[10px] text-slate-400">Closed ${rep.completedDate || ''}</span>`;
+      }
+      const days = getDaysElapsed(rep.sentDate || rep.requestDate);
+      if (days >= 14) {
+        return `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[10px] animate-pulse">🚨 ${days} days (14d+ Overdue)</span>`;
+      }
+      if (days >= 7) {
+        return `<span class="px-2 py-0.5 rounded bg-orange-100 text-orange-800 font-semibold text-[10px]">⚠️ ${days} days (7d+ Follow-up)</span>`;
+      }
+      if (days >= 3) {
+        return `<span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-medium text-[10px]">⏱️ ${days} days (3d+ Check)</span>`;
+      }
+      return `<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px]">${days} day(s)</span>`;
+    }
+
+    function renderRepairTable() {
+      document.querySelectorAll('.r-btn').forEach(btn => {
+        if (btn.dataset.st === repairFilter) {
+          btn.classList.add('bg-indigo-600', 'text-white');
+          btn.classList.remove('text-slate-600');
+        } else {
+          btn.classList.remove('bg-indigo-600', 'text-white');
+          btn.classList.add('text-slate-600');
+        }
+      });
+
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
+      const q = String(document.getElementById('repairSearchInput').value || '').toLowerCase();
+      const allRepairs = Array.isArray(window.IPS.repairs) ? window.IPS.repairs : [];
+
+      // SLA Aging Alerts (3 / 7 / 14 days)
+      const agingAlerts = allRepairs.filter(r =>
+        allowedLabs.includes(r.lab) &&
+        !['Completed', 'Unrepairable'].includes(r.status) &&
+        getDaysElapsed(r.sentDate || r.requestDate) >= 3
+      );
+
+      const overdueBadge = document.getElementById('repairOverdueBadge');
+      const agingBanner = document.getElementById('repairAgingBanner');
+      if (agingAlerts.length > 0) {
+        overdueBadge.innerText = agingAlerts.length;
+        overdueBadge.classList.remove('hidden');
+        agingBanner.classList.remove('hidden');
+        document.getElementById('repairAgingList').innerHTML = agingAlerts.map(r => {
+          const d = getDaysElapsed(r.sentDate || r.requestDate);
+          const tier = d >= 14 ? '14+ Days Critical' : (d >= 7 ? '7+ Days Warning' : '3+ Days Notice');
+          return `<div>• <b>${r.id}</b> — ${r.equipmentName} (${r.lab}): In repair for <b>${d} days</b> [${tier}] • Vendor: ${r.vendor || 'Internal'}</div>`;
+        }).join('');
+      } else {
+        overdueBadge.classList.add('hidden');
+        agingBanner.classList.add('hidden');
+      }
+
+      const list = allRepairs.filter(r => {
+        const labOk = allowedLabs.includes(r.lab);
+        const stOk = repairFilter === 'All'
+          || (repairFilter === 'Active' ? ['Pending Diagnosis', 'In Repair'].includes(r.status) : r.status === repairFilter);
+        const searchOk = !q ||
+          String(r.id || '').toLowerCase().includes(q) ||
+          String(r.equipmentName || '').toLowerCase().includes(q) ||
+          String(r.vendor || '').toLowerCase().includes(q);
+        return labOk && stOk && searchOk;
+      });
+
+      const badgeColors = {
+        'Pending Diagnosis': 'bg-amber-100 text-amber-800',
+        'In Repair': 'bg-blue-100 text-blue-800',
+        'Completed': 'bg-emerald-100 text-emerald-800',
+        'Unrepairable': 'bg-rose-100 text-rose-800'
+      };
+
+      const tbody = document.getElementById('repairTbody');
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400">No repair tickets found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.slice().reverse().map(rep => {
+        const docsCount = Array.isArray(rep.documents) ? rep.documents.length : 0;
+        const isClosed = ['Completed', 'Unrepairable'].includes(rep.status);
+        return `
+          <tr class="hover:bg-slate-50/70">
+            <td class="p-3.5 font-mono text-[11px]">
+              <b class="text-indigo-700">${rep.id}</b><br>
+              <span class="text-slate-400">${rep.sentDate || rep.requestDate}</span>
+              <div class="mt-1">${getRepairAgingBadge(rep)}</div>
+            </td>
+            <td class="p-3.5">
+              <div class="font-bold text-slate-800">${rep.equipmentName}</div>
+              <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-medium">${rep.lab}</span>
+            </td>
+            <td class="p-3.5 text-center">
+              <div class="font-bold text-indigo-700">${rep.qty} ${rep.unit || 'pcs'}</div>
+              <div class="text-[10px] text-slate-400">From: ${rep.source === 'damaged' ? 'Damaged' : 'Available'}</div>
+            </td>
+            <td class="p-3.5">
+              <div class="text-slate-700 font-medium">${rep.issue}</div>
+              <div class="text-[11px] text-slate-400">Vendor: ${rep.vendor || 'Internal Staff'}</div>
+            </td>
+            <td class="p-3.5">
+              <div class="font-semibold text-slate-700">${Number(rep.cost || 0).toLocaleString()} THB</div>
+              <div class="text-[10px] text-slate-400">Owner: ${rep.reportedBy || '-'}</div>
+            </td>
+            <td class="p-3.5">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeColors[rep.status] || 'bg-slate-100'}">${rep.status}</span>
+            </td>
+            <td class="p-3.5 text-right">
+              <div class="inline-flex items-center justify-end gap-1.5">
+                <button type="button" onclick="openFolderModal('repairs', '${rep.docId}')" class="px-2.5 py-1.5 rounded-lg border ${docsCount > 0 ? 'border-indigo-300 bg-indigo-50 text-indigo-700 font-semibold' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'} text-xs flex items-center gap-1">
+                  <span>📎 Docs</span>
+                  <span class="px-1.5 py-0.2 rounded-full ${docsCount > 0 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'} text-[10px]">${docsCount}</span>
+                </button>
+                <select onchange="updateRepairStatus('${rep.docId}', this.value)" ${isClosed ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white disabled:opacity-60">
+                  ${['Pending Diagnosis', 'In Repair', 'Completed', 'Unrepairable'].map(st => `
+                    <option value="${st}" ${rep.status === st ? 'selected' : ''}>${st}</option>
+                  `).join('')}
+                </select>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openRepairModal(prefillEqDocId = null) {
+      populateLabDropdowns();
+      document.getElementById('repairForm').reset();
+
+      if (prefillEqDocId) {
+        const eq = (window.IPS.equipments || []).find(e => e.id === prefillEqDocId);
+        if (eq) {
+          document.getElementById('repLab').value = eq.lab;
+          populateEquipmentForRepair();
+          document.getElementById('repEqSelect').value = eq.id;
+          document.getElementById('repSource').value = Number(eq.damaged || 0) > 0 ? 'damaged' : 'available';
+          document.getElementById('repQty').value = Number(eq.damaged || 0) > 0 ? eq.damaged : 1;
+        }
+      } else {
+        populateEquipmentForRepair();
+      }
+
+      const m = document.getElementById('repairModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function populateEquipmentForRepair() {
+      const selectedLab = document.getElementById('repLab').value;
+      const eqList = (window.IPS.equipments || []).filter(e => e.lab === selectedLab && !isConsumableOrChemical(e));
+      const sel = document.getElementById('repEqSelect');
+      if (eqList.length === 0) {
+        sel.innerHTML = '<option value="">No returnable equipment in this room</option>';
+        return;
+      }
+      sel.innerHTML = eqList.map(e => `
+        <option value="${e.id}">${e.name} (Avail: ${e.available || 0}, Dmg: ${e.damaged || 0})</option>
+      `).join('');
+    }
+
+    function onRepairEqChange() {
+      const eqId = document.getElementById('repEqSelect').value;
+      const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
+      if (!eq) return;
+      if (Number(eq.damaged || 0) > 0) {
+        document.getElementById('repSource').value = 'damaged';
+        document.getElementById('repQty').value = eq.damaged;
+      } else {
+        document.getElementById('repSource').value = 'available';
+        document.getElementById('repQty').value = 1;
+      }
+    }
+
+    document.getElementById('repairForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const eqDocId = document.getElementById('repEqSelect').value;
+      const eq = (window.IPS.equipments || []).find(item => item.id === eqDocId);
+      if (!eq) return Swal.fire('Error', 'Please select a valid equipment item.', 'error');
+
+      const source = document.getElementById('repSource').value;
+      const qty = Number(document.getElementById('repQty').value || 0);
+      const maxStock = source === 'damaged' ? Number(eq.damaged || 0) : Number(eq.available || 0);
+
+      if (qty <= 0 || qty > maxStock) {
+        return Swal.fire(
+          'Invalid Quantity',
+          `Cannot send ${qty} units. Current ${source === 'damaged' ? 'Damaged' : 'Available'} balance is ${maxStock}.`,
+          'warning'
+        );
+      }
+
+      const repId = 'REP-' + String((window.IPS.repairs || []).length + 1).padStart(3, '0');
+      const today = new Date().toISOString().slice(0, 10);
+      const driveLink = document.getElementById('repDriveLink').value.trim();
+
+      // Update equipment stock balances: move to inRepair
+      const updates = {
+        inRepair: Number(eq.inRepair || 0) + qty
+      };
+      if (source === 'damaged') {
+        updates.damaged = Math.max(0, Number(eq.damaged || 0) - qty);
+      } else {
+        updates.available = Math.max(0, Number(eq.available || 0) - qty);
+      }
+      await db.collection('equipments').doc(eq.id).update(updates);
+
+      await addStockMovement(
+        eq.equipmentId || eq.sku || '',
+        eq.name,
+        eq.lab,
+        'Sent to Repair',
+        -qty,
+        `Ticket ${repId} (${source} -> In Repair): ${document.getElementById('repIssue').value.trim()}`
+      );
+
+      await db.collection('repairs').add({
+        id: repId,
+        eqDocId: eq.id,
+        equipmentId: eq.equipmentId || '',
+        equipmentName: eq.name,
+        unit: eq.unit || 'pcs',
+        lab: eq.lab,
+        qty,
+        source,
+        issue: document.getElementById('repIssue').value.trim(),
+        vendor: document.getElementById('repVendor').value.trim(),
+        cost: Number(document.getElementById('repCost').value || 0),
+        driveFolderLink: driveLink,
+        reportedBy: window.IPS.user.name,
+        reportedEmail: window.IPS.user.email || '',
+        requestDate: today,
+        sentDate: today,
+        completedDate: '',
+        status: 'In Repair',
+        documents: []
+      });
+
+      closeModal('repairModal');
+      Swal.fire('Repair Ticket Created', `${repId} logged and ${qty} unit(s) moved to In Repair.`, 'success');
+    });
+
+    async function updateRepairStatus(docId, newStatus) {
+      const rep = (window.IPS.repairs || []).find(r => r.docId === docId);
+      if (!rep) return;
+
+      const updates = { status: newStatus };
+      const today = new Date().toISOString().slice(0, 10);
+      const eq = (window.IPS.equipments || []).find(e => e.id === rep.eqDocId);
+
+      if (newStatus === 'Completed' && rep.status !== 'Completed') {
+        updates.completedDate = today;
+        if (eq) {
+          await db.collection('equipments').doc(eq.id).update({
+            inRepair: Math.max(0, Number(eq.inRepair || 0) - Number(rep.qty || 0)),
+            available: Number(eq.available || 0) + Number(rep.qty || 0)
+          });
+          await addStockMovement(eq.equipmentId || '', eq.name, eq.lab, 'Repair Completed', Number(rep.qty || 0), `Repaired & returned to stock (${rep.id})`);
+        }
+      } else if (newStatus === 'Unrepairable' && rep.status !== 'Unrepairable') {
+        updates.completedDate = today;
+        if (eq) {
+          await db.collection('equipments').doc(eq.id).update({
+            inRepair: Math.max(0, Number(eq.inRepair || 0) - Number(rep.qty || 0)),
+            total: Math.max(0, Number(eq.total || 0) - Number(rep.qty || 0))
+          });
+          await addStockMovement(eq.equipmentId || '', eq.name, eq.lab, 'Write-off / Scrap', -Number(rep.qty || 0), `Unrepairable write-off (${rep.id})`);
+        }
+      }
+
+      await db.collection('repairs').doc(docId).update(updates);
+
+      // Notify owner via email
+      await sendIPSEmailNotification({
+        toEmail: rep.reportedEmail || '',
+        toName: rep.reportedBy,
+        subject: `[IPS Asset System] Repair Ticket ${rep.id} Status Updated: ${newStatus}`,
+        message: `Hello ${rep.reportedBy},\n\nYour repair ticket ${rep.id} for "${rep.equipmentName}" (${rep.lab}) has been updated to: ${newStatus}.\n\nUpdated by: ${window.IPS.user.name} on ${today}`,
+        refId: rep.id,
+        category: 'Repair'
+      });
+
+      Swal.fire('Status Updated', `${rep.id} is now ${newStatus}. Owner notified.`, 'success');
+    }
+
+    // =========================================================================
+    // 2. MA & PM SCHEDULE LOGIC (90 / 60 / 30 / 15 / 7 DAY COUNTDOWN)
+    // =========================================================================
+    function getMACountdownBadge(daysLeft) {
+      if (daysLeft === null) return '<span class="text-slate-400">-</span>';
+      if (daysLeft < 0) {
+        return `<span class="px-2 py-0.5 rounded bg-rose-600 text-white font-bold text-[10px]">EXPIRED (${Math.abs(daysLeft)}d ago)</span>`;
+      }
+      if (daysLeft <= 7) {
+        return `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[10px] animate-pulse">🚨 ${daysLeft}d left (&le;7d Critical)</span>`;
+      }
+      if (daysLeft <= 15) {
+        return `<span class="px-2 py-0.5 rounded bg-orange-100 text-orange-800 font-bold text-[10px]">⚠️ ${daysLeft}d left (&le;15d Urgent)</span>`;
+      }
+      if (daysLeft <= 30) {
+        return `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold text-[10px]">🔔 ${daysLeft}d left (&le;30d Notice)</span>`;
+      }
+      if (daysLeft <= 60) {
+        return `<span class="px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 font-medium text-[10px]">📅 ${daysLeft}d left (&le;60d Plan)</span>`;
+      }
+      if (daysLeft <= 90) {
+        return `<span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-medium text-[10px]">ℹ️ ${daysLeft}d left (&le;90d Early)</span>`;
+      }
+      return `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium text-[10px]">✓ ${daysLeft} days remaining</span>`;
+    }
+
+    function renderMATable() {
+      document.querySelectorAll('.ma-btn').forEach(btn => {
+        if (btn.dataset.st === maFilter) {
+          btn.classList.add('bg-indigo-600', 'text-white');
+          btn.classList.remove('text-slate-600');
+        } else {
+          btn.classList.remove('bg-indigo-600', 'text-white');
+          btn.classList.add('text-slate-600');
+        }
+      });
+
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
+      const q = String(document.getElementById('maSearchInput').value || '').toLowerCase();
+      const allMAs = Array.isArray(window.IPS.maSchedules) ? window.IPS.maSchedules : [];
+
+      // Countdown alerts <= 90 days
+      const dueAlerts = allMAs.filter(m => {
+        if (!allowedLabs.includes(m.lab)) return false;
+        const dLeft = getDaysRemaining(m.endDate);
+        return dLeft !== null && dLeft <= 90;
+      });
+
+      const maDueBadge = document.getElementById('maDueBadge');
+      const maAlertBanner = document.getElementById('maAlertBanner');
+      if (dueAlerts.length > 0) {
+        maDueBadge.innerText = dueAlerts.length;
+        maDueBadge.classList.remove('hidden');
+        maAlertBanner.classList.remove('hidden');
+        document.getElementById('maAlertList').innerHTML = dueAlerts.map(m => {
+          const dLeft = getDaysRemaining(m.endDate);
+          const msg = dLeft < 0 ? `EXPIRED ${Math.abs(dLeft)} days ago` : `Expires in ${dLeft} days (${m.endDate})`;
+          return `<div>• <b>${m.id}</b> — ${m.title} (${m.lab}): <b>${msg}</b> • Vendor: ${m.vendor}</div>`;
+        }).join('');
+      } else {
+        maDueBadge.classList.add('hidden');
+        maAlertBanner.classList.add('hidden');
+      }
+
+      const list = allMAs.filter(m => {
+        const labOk = allowedLabs.includes(m.lab);
+        const dLeft = getDaysRemaining(m.endDate);
+        let stOk = true;
+        if (maFilter === 'ExpiringSoon') stOk = dLeft !== null && dLeft >= 0 && dLeft <= 90;
+        else if (maFilter === 'Active') stOk = dLeft === null || dLeft > 0;
+        else if (maFilter === 'Expired') stOk = dLeft !== null && dLeft < 0;
+
+        const searchOk = !q ||
+          String(m.id || '').toLowerCase().includes(q) ||
+          String(m.title || '').toLowerCase().includes(q) ||
+          String(m.vendor || '').toLowerCase().includes(q) ||
+          String(m.contractNo || '').toLowerCase().includes(q);
+        return labOk && stOk && searchOk;
+      });
+
+      const tbody = document.getElementById('maTbody');
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400">No MA contracts or PM schedules found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.slice().reverse().map(ma => {
+        const dLeft = getDaysRemaining(ma.endDate);
+        const docsCount = Array.isArray(ma.documents) ? ma.documents.length : 0;
+        const hasSignedContract = Array.isArray(ma.documents) && ma.documents.some(d => String(d.versionType || '').includes('Signed MA Contract'));
+
+        return `
+          <tr class="hover:bg-slate-50/70">
+            <td class="p-3.5 font-mono text-[11px]">
+              <b class="text-emerald-700">${ma.id}</b>
+              ${hasSignedContract ? `<div class="mt-0.5"><span class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-sans text-[9px] font-bold">CONTRACT SIGNED</span></div>` : ''}
+              ${ma.driveFolderLink ? `<div class="mt-1"><a href="${ma.driveFolderLink}" target="_blank" rel="noopener" class="font-sans text-[10px] text-blue-600 hover:underline">Open Drive Folder ↗</a></div>` : ''}
+            </td>
+            <td class="p-3.5">
+              <div class="font-bold text-slate-800">${ma.title}</div>
+              <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-medium">${ma.lab}</span>
+              ${ma.notes ? `<div class="text-[10px] text-slate-400 mt-0.5">${ma.notes}</div>` : ''}
+            </td>
+            <td class="p-3.5">
+              <div class="font-semibold text-slate-700">${ma.vendor}</div>
+              <div class="text-[11px] text-slate-400">Contract: ${ma.contractNo || '-'} • ${Number(ma.cost || 0).toLocaleString()} THB</div>
+            </td>
+            <td class="p-3.5">
+              <div class="font-bold text-slate-800">${ma.endDate}</div>
+              <div class="text-[10px] text-slate-400">Start: ${ma.startDate || '-'} (Every ${ma.intervalMonths || 6}m)</div>
+            </td>
+            <td class="p-3.5">${getMACountdownBadge(dLeft)}</td>
+            <td class="p-3.5 text-right">
+              <div class="inline-flex items-center justify-end gap-1.5">
+                <button type="button" onclick="openFolderModal('ma_schedules', '${ma.docId}')" class="px-2.5 py-1.5 rounded-lg border ${docsCount > 0 ? 'border-indigo-300 bg-indigo-50 text-indigo-700 font-semibold' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'} text-xs flex items-center gap-1" title="Manage Quotation Rev.1, Rev.2, Signed Contract">
+                  <span>📎 Docs</span>
+                  <span class="px-1.5 py-0.2 rounded-full ${docsCount > 0 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'} text-[10px]">${docsCount}</span>
+                </button>
+                <button type="button" onclick="logMAServiceVisit('${ma.docId}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-medium">
+                  + Log Service
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openMAModal() {
+      populateLabDropdowns();
+      document.getElementById('maForm').reset();
+      document.getElementById('maStartDate').value = new Date().toISOString().slice(0, 10);
+      const m = document.getElementById('maModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    document.getElementById('maForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const maId = 'MA-' + String((window.IPS.maSchedules || []).length + 1).padStart(3, '0');
+      await db.collection('ma_schedules').add({
+        id: maId,
+        title: document.getElementById('maTitle').value.trim(),
+        lab: document.getElementById('maLab').value,
+        vendor: document.getElementById('maVendor').value.trim(),
+        contractNo: document.getElementById('maContractNo').value.trim(),
+        startDate: document.getElementById('maStartDate').value,
+        endDate: document.getElementById('maEndDate').value,
+        cost: Number(document.getElementById('maCost').value || 0),
+        intervalMonths: Number(document.getElementById('maInterval').value || 6),
+        driveFolderLink: document.getElementById('maDriveFolder').value.trim(),
+        notes: document.getElementById('maNotes').value.trim(),
+        ownerName: window.IPS.user.name,
+        ownerEmail: window.IPS.user.email || '',
+        documents: []
+      });
+      closeModal('maModal');
+      Swal.fire('MA Schedule Added', `${maId} created. You can now attach Quotation Rev.1, Rev.2, and the Signed Contract under "📎 Docs".`, 'success');
+    });
+
+    async function logMAServiceVisit(docId) {
+      const ma = (window.IPS.maSchedules || []).find(m => m.docId === docId);
+      if (!ma) return;
+
+      const nextSuggested = new Date();
+      nextSuggested.setMonth(nextSuggested.getMonth() + Number(ma.intervalMonths || 6));
+      const defaultNextDate = nextSuggested.toISOString().slice(0, 10);
+
+      const { value: formValues } = await Swal.fire({
+        title: `Log PM / MA Service: ${ma.id}`,
+        html: `
+          <div class="text-left text-xs space-y-3">
+            <div>
+              <label class="block font-semibold text-slate-600 mb-1">Service / Calibration Summary *</label>
+              <input id="swalServiceNote" class="w-full px-3 py-2 rounded-lg border border-slate-200" placeholder="e.g., Semi-annual PM completed, all units calibrated" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-600 mb-1">Next Due / Contract Renewal Date *</label>
+              <input id="swalNextDate" type="date" value="${defaultNextDate}" class="w-full px-3 py-2 rounded-lg border border-slate-200" />
+            </div>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Save Service Log',
+        preConfirm: () => {
+          const note = document.getElementById('swalServiceNote').value.trim();
+          const nextDate = document.getElementById('swalNextDate').value;
+          if (!note || !nextDate) {
+            Swal.showValidationMessage('Please fill in both the service summary and next due date.');
+            return false;
+          }
+          return { note, nextDate };
+        }
+      });
+
+      if (!formValues) return;
+
+      const serviceHistory = Array.isArray(ma.serviceHistory) ? [...ma.serviceHistory] : [];
+      serviceHistory.push({
+        date: new Date().toISOString().slice(0, 10),
+        note: formValues.note,
+        loggedBy: window.IPS.user.name
+      });
+
+      await db.collection('ma_schedules').doc(docId).update({
+        endDate: formValues.nextDate,
+        notes: formValues.note,
+        serviceHistory
+      });
+
+      Swal.fire('Service Logged', `Next due date updated to ${formValues.nextDate}.`, 'success');
+    }
+
+    // =========================================================================
+    // 3. MULTI-VERSION DOCUMENT FOLDER (REPAIR & MA)
+    // =========================================================================
+    function readSmallFile(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) return resolve(null);
+        if (file.size > 460 * 1024) {
+          return reject(new Error('File exceeds 450 KB. Please upload to your Google Drive folder and paste the link instead.'));
+        }
+        const reader = new FileReader();
+        reader.onload = () => resolve({ fileName: file.name, fileData: reader.result });
+        reader.onerror = () => reject(new Error('Could not read file.'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function openFolderModal(collection, docId) {
+      activeFolderTarget = { collection, docId };
+      const list = collection === 'repairs' ? window.IPS.repairs : window.IPS.maSchedules;
+      const item = (list || []).find(x => x.docId === docId);
+      if (!item) return;
+
+      const title = item.equipmentName || item.title || '';
+      const cleanTitle = title.replace(/[^a-zA-Z0-9ก-๙_-]+/g, '_').slice(0, 30);
+      const year = new Date().getFullYear();
+      const folderSuggestion = collection === 'repairs'
+        ? `${item.id}_${cleanTitle}_${item.sentDate || year}`
+        : `${item.id}_${cleanTitle}_${year}`;
+
+      document.getElementById('folderModalMeta').innerText = `${item.id} | ${title} (${item.lab})`;
+      document.getElementById('recommendedFolderCode').innerText = folderSuggestion;
+      document.getElementById('folderAddDocForm').reset();
+
+      renderFolderDocs(item);
+
+      const m = document.getElementById('folderDocsModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function copyRecommendedFolder() {
+      const code = document.getElementById('recommendedFolderCode').innerText;
+      navigator.clipboard.writeText(code);
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Folder name copied!', showConfirmButton: false, timer: 1500 });
+    }
+
+    function renderFolderDocs(item) {
+      const docs = Array.isArray(item.documents) ? item.documents : [];
+      const container = document.getElementById('folderDocsList');
+
+      if (docs.length === 0) {
+        container.innerHTML = `
+          <div class="p-5 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
+            No document versions attached yet. Add Quotation Rev.1, Rev.2, or Signed Contract below.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = docs.map((d, idx) => {
+        const isSigned = String(d.versionType || '').includes('Signed MA Contract');
+        return `
+          <div class="p-3 rounded-xl border ${isSigned ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-slate-50/70'} flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded ${isSigned ? 'bg-emerald-600 text-white' : 'bg-indigo-100 text-indigo-800'} text-[10px] font-bold">
+                  ${d.versionType || 'Document'}
+                </span>
+                ${d.customLabel ? `<span class="font-semibold text-slate-800 text-xs">${d.customLabel}</span>` : ''}
+              </div>
+              <div class="text-[11px] text-slate-400 mt-0.5">
+                Added by ${d.uploadedBy || 'Staff'} • ${d.uploadedAt || ''} ${d.fileName ? `• ${d.fileName}` : ''}
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              ${d.fileData ? `<button type="button" onclick="previewFolderFile(${idx})" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-medium hover:bg-indigo-700">View File</button>` : ''}
+              ${d.link ? `<a href="${d.link}" target="_blank" rel="noopener" class="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700">Open Link ↗</a>` : ''}
+              <button type="button" onclick="deleteFolderDoc(${idx})" class="px-2 py-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 text-[11px]">Delete</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function previewFolderFile(idx) {
+      if (!activeFolderTarget) return;
+      const list = activeFolderTarget.collection === 'repairs' ? window.IPS.repairs : window.IPS.maSchedules;
+      const item = (list || []).find(x => x.docId === activeFolderTarget.docId);
+      if (!item || !Array.isArray(item.documents) || !item.documents[idx]) return;
+      const d = item.documents[idx];
+
+      const html = String(d.fileData).startsWith('data:application/pdf')
+        ? `<iframe src="${d.fileData}" class="w-full h-96 rounded-xl border"></iframe><a href="${d.fileData}" download="${d.fileName || 'Document.pdf'}" class="inline-block mt-3 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium">Download PDF</a>`
+        : `<img src="${d.fileData}" class="max-h-96 mx-auto rounded-xl border shadow-sm" /><a href="${d.fileData}" download="${d.fileName || 'Image.png'}" class="inline-block mt-3 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium">Download Image</a>`;
+
+      Swal.fire({ title: `${d.versionType}${d.customLabel ? ' - ' + d.customLabel : ''}`, width: 700, html, confirmButtonText: 'Close' });
+    }
+
+    document.getElementById('folderAddDocForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!activeFolderTarget) return;
+      const { collection, docId } = activeFolderTarget;
+      const list = collection === 'repairs' ? window.IPS.repairs : window.IPS.maSchedules;
+      const item = (list || []).find(x => x.docId === docId);
+      if (!item) return;
+
+      const versionType = document.getElementById('docVersionType').value;
+      const customLabel = document.getElementById('docCustomLabel').value.trim();
+      const link = document.getElementById('docExternalLink').value.trim();
+      const fileInput = document.getElementById('docBinaryFile');
+      const file = fileInput.files && fileInput.files[0];
+
+      if (!link && !file) {
+        return Swal.fire('Missing File or Link', 'Please attach a small file or paste a Google Drive link.', 'warning');
+      }
+
+      try {
+        const parsed = await readSmallFile(file);
+        const docs = Array.isArray(item.documents) ? [...item.documents] : [];
+        docs.push({
+          docItemId: 'VER-' + Date.now(),
+          versionType,
+          customLabel,
+          link: link || '',
+          fileName: parsed ? parsed.fileName : '',
+          fileData: parsed ? parsed.fileData : '',
+          uploadedBy: window.IPS.user.name,
+          uploadedAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+        });
+
+        await db.collection(collection).doc(docId).update({ documents: docs });
+        item.documents = docs;
+        document.getElementById('folderAddDocForm').reset();
+        renderFolderDocs(item);
+        if (collection === 'repairs') renderRepairTable();
+        else renderMATable();
+        Swal.fire('Saved', 'Document version added to folder.', 'success');
+      } catch (err) {
+        Swal.fire('Upload Limit', err.message, 'warning');
+      }
+    });
+
+    async function deleteFolderDoc(idx) {
+      if (!activeFolderTarget) return;
+      const { collection, docId } = activeFolderTarget;
+      const list = collection === 'repairs' ? window.IPS.repairs : window.IPS.maSchedules;
+      const item = (list || []).find(x => x.docId === docId);
+      if (!item || !Array.isArray(item.documents)) return;
+
+      const res = await Swal.fire({
+        title: 'Delete this document version?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'Yes, delete'
+      });
+      if (!res.isConfirmed) return;
+
+      const updated = item.documents.filter((_, i) => i !== idx);
+      await db.collection(collection).doc(docId).update({ documents: updated });
+      item.documents = updated;
+      renderFolderDocs(item);
+      if (collection === 'repairs') renderRepairTable();
+      else renderMATable();
+    }
+
+    // =========================================================================
+    // 4. EXCEL / CSV EXPORT
+    // =========================================================================
+    function exportCurrentTabCSV() {
+      const today = new Date().toISOString().slice(0, 10);
+      if (currentMainTab === 'repair') {
+        const headers = ['Repair ID', 'Sent Date', 'Equipment', 'Lab', 'Qty', 'Source', 'Issue', 'Vendor', 'Est. Cost (THB)', 'Status', 'Completed Date', 'Owner'];
+        const rows = (window.IPS.repairs || []).map(r => [
+          r.id, r.sentDate, r.equipmentName, r.lab, r.qty, r.source, r.issue, r.vendor, r.cost || 0, r.status, r.completedDate || '-', r.reportedBy
+        ]);
+        exportDataToCSV(`IPS_Repairs_${today}.csv`, headers, rows);
+      } else {
+        const headers = ['MA ID', 'System / Equipment', 'Lab', 'Vendor', 'Contract No.', 'Start Date', 'Expiry / Next Due', 'Days Remaining', 'Contract Value (THB)', 'Drive Folder'];
+        const rows = (window.IPS.maSchedules || []).map(m => [
+          m.id, m.title, m.lab, m.vendor, m.contractNo, m.startDate, m.endDate, getDaysRemaining(m.endDate), m.cost || 0, m.driveFolderLink || ''
+        ]);
+        exportDataToCSV(`IPS_MA_Schedules_${today}.csv`, headers, rows);
+      }
+    }
+  </script>
+</body>
+</html>
