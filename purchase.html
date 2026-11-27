@@ -620,4 +620,16 @@
     }
 
     function exportPurchaseCSV() {
-      const allowedLabs = getUserAllowedLabs
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
+      const today = new Date().toISOString().slice(0, 10);
+      const headers = ['PR ID', 'Request Date', 'Equipment', 'Lab / Room', 'Qty', 'Unit', 'Est. Cost (THB)', 'Supplier', 'Reason', 'Status', 'Received Date', 'Requested By'];
+      const rows = (window.IPS.purchases || [])
+        .filter(p => allowedLabs.includes(p.lab))
+        .map(p => [
+          p.id, p.requestDate, p.equipmentName, p.lab, p.qty, p.unit, p.price || 0, p.supplier || '', p.reason || '', p.status, p.receivedDate || '-', p.requestedBy || ''
+        ]);
+      exportDataToCSV(`IPS_Procurement_${today}.csv`, headers, rows);
+    }
+  </script>
+</body>
+</html>
