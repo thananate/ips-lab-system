@@ -124,7 +124,7 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
 const menus = [
     { href: 'index.html', id: 'index', label: 'Dashboard (Home)', icon: 'layout-dashboard', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
     { href: 'request.html', id: 'request', label: 'Equipment Request', icon: 'file-plus-2', roles: ['Teacher', 'Admin', 'Super Admin'] },
-    { href: 'approve.html', id: 'approve', label: 'Device Borrowing Admin Section', icon: 'check-square', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
+    { href: 'approve.html', id: 'approve', label: 'Asset Borrowing Admin Section', icon: 'check-square', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
     { href: 'stock.html', id: 'stock', label: 'Inventory & Stock', icon: 'boxes', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
     { href: 'purchase.html', id: 'purchase', label: 'Procurement (Purchase)', icon: 'shopping-cart', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
     { href: 'report.html', id: 'report', label: 'Analytics & Reports', icon: 'bar-chart-3', roles: ['Admin', 'Super Admin'] },
@@ -153,7 +153,7 @@ const menus = [
           <a href="index.html" class="flex items-center gap-3">
             <img src="IPS.png" alt="IPS Lab Logo" class="w-10 h-10 object-contain rounded-xl bg-white p-0.5 shadow-sm border border-slate-100" />
             <div>
-              <div class="font-bold text-slate-800 leading-tight">Device Borrowing IPS</div>
+              <div class="font-bold text-slate-800 leading-tight">Asset Borrowing IPS</div>
               <div class="text-[11px] text-emerald-600 font-medium">● Admin Panel (Firebase Live)</div>
             </div>
           </a>
