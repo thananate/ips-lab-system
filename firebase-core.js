@@ -1,436 +1,298 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IPS Asset System | Equipment Request</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <style>
-    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f0f4ff 0%, #f5f3ff 50%, #eef2ff 100%); min-height: 100vh; }
-    .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.7); box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.08); }
-  </style>
-</head>
-<body class="text-slate-800 antialiased">
+// =========================================================================
+// IPS ASSET SYSTEM - SHARED FIREBASE CORE & DYNAMIC LABS GUARD
+// =========================================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyCRotp0yrhYGc8zctl1Yo7Fknxz0AJnEZU",
+  authDomain: "ips-lab-system.firebaseapp.com",
+  projectId: "ips-lab-system",
+  storageBucket: "ips-lab-system.firebasestorage.app",
+  messagingSenderId: "475418589571",
+  appId: "1:475418589571:web:ae676ffffee084c4b31eb6"
+};
 
-  <div class="min-h-screen flex flex-col lg:flex-row">
-    <aside id="sharedSidebar" class="bg-white/95 border-r border-slate-200/80 w-full lg:w-64 flex-shrink-0 flex flex-col justify-between"></aside>
-    <main class="flex-1 p-4 md:p-8 space-y-6">
-      <div id="sharedHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 
-      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <!-- LEFT 2 COLS: REQUISITION FORM & UNIFIED EQUIPMENT CATALOG -->
-        <div class="xl:col-span-2 space-y-5">
-          <!-- Booking Details -->
-          <div class="glass-card rounded-2xl p-6 space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                <i data-lucide="calendar-clock" class="w-4 h-4 text-indigo-600"></i> 1. Experiment & Schedule Details
-              </h3>
-            </div>
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Experiment / Lesson Title *</label>
-              <input type="text" id="reqExperiment" placeholder="e.g., Grade 9 Optics & Lenses" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            </div>
+const DEFAULT_LABS = ['Primary', 'Physics', 'Chemistry', 'Biology', 'Mathematics Resource'];
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Usage Date *</label>
-                <input type="date" id="reqDate" onchange="renderCatalog()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Start Time *</label>
-                <input type="time" id="reqStartTime" value="09:00" onchange="renderCatalog()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">End Time *</label>
-                <input type="time" id="reqEndTime" value="10:30" onchange="renderCatalog()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-            </div>
-          </div>
+window.IPS = {
+  user: null,
+  labs: [...DEFAULT_LABS],
+  labDocs: [],
+  equipments: [],
+  requests: [],
+  movements: [],
+  purchases: [],
+  users: []
+};
 
-          <!-- Equipment Catalog (All Equipment Search) -->
-          <div class="glass-card rounded-2xl p-6 space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-              <div>
-                <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                  <i data-lucide="package-search" class="w-4 h-4 text-indigo-600"></i> 2. Search & Select Equipment
-                </h3>
-                <p class="text-[11px] text-slate-400">Search all school equipment — Asset Admin will automatically see each item's lab location</p>
-              </div>
-              <input type="text" id="catalogSearch" onkeyup="renderCatalog()" placeholder="Search item name, SKU, formula..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            </div>
+// Get all active laboratory names dynamically
+function getAllLabNames() {
+  return (window.IPS.labs && window.IPS.labs.length > 0) ? window.IPS.labs : DEFAULT_LABS;
+}
 
-            <div id="catalogGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[430px] overflow-y-auto pr-1"></div>
-          </div>
+// Get allowed labs: Super Admin, Admin, Lab Staff, and Teachers access all labs
+function getUserAllowedLabs(user) {
+  const allLabs = getAllLabNames();
+  if (!user) return [];
+  if (['Super Admin', 'Admin', 'Lab Staff', 'Teacher'].includes(user.role)) {
+    return allLabs;
+  }
+  const labs = [];
+  allLabs.forEach(l => {
+    const inArray = Array.isArray(user.allowedLabs) && user.allowedLabs.includes(l);
+    const inProp = user[l] === true || user[l] === 'true' || user[l] === 'Yes' || user[l] === '1';
+    if (inArray || inProp) {
+      labs.push(l);
+    }
+  });
+  return labs;
+}
 
-          <!-- Special Non-Catalog / Fresh Item Request -->
-          <div class="glass-card rounded-2xl p-6 space-y-3 border-l-4 border-amber-400">
-            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i> 3. Special / Non-Catalog Request (Optional)
-            </h3>
-            <p class="text-xs text-slate-500">Need fresh specimens, ice, custom materials, or items not listed above? Specify below.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <input type="text" id="specialItemName" placeholder="e.g., Fresh Elodea plants" class="sm:col-span-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs" />
-              <input type="number" id="specialItemQty" min="1" value="1" placeholder="Qty" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs" />
-              <button type="button" onclick="addSpecialItem()" class="px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-medium hover:bg-amber-600">+ Add Special Item</button>
-            </div>
-          </div>
-        </div>
+// Helper: Determine if item is consumable/chemical (deducted permanently on approval)
+function isConsumableOrChemical(eq) {
+  if (!eq) return false;
+  if (eq.expiryDate && eq.expiryDate.trim() !== '') return true;
+  if (['Consumable', 'Chemical'].includes(eq.type)) return true;
+  return false;
+}
 
-        <!-- RIGHT COL: CART & SUBMISSION -->
-        <div class="space-y-5">
-          <div class="glass-card rounded-2xl p-6 space-y-4 sticky top-6">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                <i data-lucide="shopping-bag" class="w-4 h-4 text-indigo-600"></i> Requisition Cart
-              </h3>
-              <span id="cartCountBadge" class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">0 items</span>
-            </div>
+// Time-Slot Overlap Prevention Engine
+function getAvailableForTimeSlot(eqDocId, targetDate, startTime, endTime, excludeReqId = null) {
+  const eq = window.IPS.equipments.find(e => e.id === eqDocId);
+  if (!eq) return 0;
+  if (isConsumableOrChemical(eq)) return Number(eq.available || 0);
 
-            <div id="cartItemsList" class="space-y-2.5 max-h-[360px] overflow-y-auto">
-              <div class="text-center py-8 text-xs text-slate-400">No items selected yet.<br/>Search and pick equipment on the left.</div>
-            </div>
+  const maxUsable = Number(eq.total || 0) - Number(eq.damaged || 0);
+  if (!targetDate || !startTime || !endTime) return Number(eq.available || 0);
 
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Additional Notes for Staff</label>
-              <textarea id="reqNotes" rows="2" placeholder="Setup instructions, group count, or special notes..." class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-            </div>
+  let overlappingReserved = 0;
+  window.IPS.requests.forEach(req => {
+    if (req.docId === excludeReqId || req.id === excludeReqId) return;
+    if (!['Pending', 'Approved', 'Partial'].includes(req.status)) return;
+    if ((req.useDate || req.date) !== targetDate) return;
 
-            <button type="button" onclick="submitRequisition()" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-sm shadow-md hover:opacity-95 transition flex items-center justify-center gap-2">
-              <i data-lucide="send" class="w-4 h-4"></i> Submit Requisition
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- MY REQUISITION HISTORY -->
-      <div class="glass-card rounded-2xl overflow-hidden">
-        <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h3 class="font-bold text-slate-800">My Requisition History & Return Tracking</h3>
-            <p class="text-xs text-slate-400">Track status and report returns once your class concludes</p>
-          </div>
-          <span id="myReqCount" class="text-xs text-slate-500">0 requests</span>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="bg-slate-50/80 border-b border-slate-200/70 text-[11px] font-semibold text-slate-500 uppercase">
-                <th class="p-3.5">Req ID</th>
-                <th class="p-3.5">Experiment / Lesson</th>
-                <th class="p-3.5">Schedule</th>
-                <th class="p-3.5">Items Requested</th>
-                <th class="p-3.5">Status</th>
-                <th class="p-3.5 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody id="myRequestsTbody" class="divide-y divide-slate-100 text-xs"></tbody>
-          </table>
-        </div>
-      </div>
-    </main>
-  </div>
-
-  <script src="firebase-core.js"></script>
-  <script>
-    let cart = [];
-
-    initIPSPage({
-      activePage: 'request',
-      title: 'Equipment Request',
-      subtitle: 'Search all available equipment across the school and submit a single requisition',
-      allowedRoles: ['Teacher', 'Admin', 'Super Admin'],
-      onReady: () => {
-        const today = new Date().toISOString().slice(0, 10);
-        if (!document.getElementById('reqDate').value) document.getElementById('reqDate').value = today;
-        renderCatalog();
-        renderMyRequests();
+    if (startTime < req.endTime && endTime > req.startTime) {
+      const matchedItem = (req.items || []).find(i => i.eqDocId === eqDocId);
+      if (matchedItem) {
+        const qty = Number(matchedItem.approvedQty || matchedItem.requestedQty || 0);
+        overlappingReserved += qty;
       }
+    }
+  });
+  return Math.max(0, maxUsable - overlappingReserved);
+}
+
+// Immutable Stock Movement Audit Log
+async function addStockMovement(equipmentId, equipmentName, lab, action, qty, note) {
+  const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  await db.collection('movements').add({
+    timestamp: Date.now(),
+    date: now,
+    equipmentId,
+    equipmentName,
+    lab,
+    action,
+    qty,
+    staff: window.IPS.user ? window.IPS.user.name : 'System',
+    note
+  });
+}
+
+// Automatically set IPS.png as browser tab Favicon on every page
+(function setIPSLogoFavicon() {
+  let link = document.querySelector("link[rel~='icon']");
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.href = 'IPS.png';
+})();
+
+// Shared Sidebar & Header Layout
+function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
+  const user = window.IPS.user;
+  const role = user.role;
+  const allLabs = getAllLabNames();
+  const allowedLabs = getUserAllowedLabs(user);
+
+  const menus = [
+    { href: 'index.html', id: 'index', label: 'Dashboard (Home)', icon: 'layout-dashboard', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
+    { href: 'request.html', id: 'request', label: 'Equipment Request', icon: 'file-plus-2', roles: ['Teacher', 'Admin', 'Super Admin'] },
+    { href: 'approve.html', id: 'approve', label: 'Asset Admin Section', icon: 'check-square', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
+    { href: 'stock.html', id: 'stock', label: 'Inventory & Stock', icon: 'boxes', roles: ['Teacher', 'Lab Staff', 'Admin', 'Super Admin'] },
+    { href: 'purchase.html', id: 'purchase', label: 'Procurement (Purchase)', icon: 'shopping-cart', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
+    { href: 'report.html', id: 'report', label: 'Analytics & Reports', icon: 'bar-chart-3', roles: ['Admin', 'Super Admin'] },
+    { href: 'admin.html', id: 'admin', label: 'User & Lab Management', icon: 'users', roles: ['Super Admin'] }
+  ];
+
+  const navLinks = menus.filter(m => m.roles.includes(role)).map(m => {
+    const isActive = m.id === activePage;
+    return `
+      <a href="${m.href}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition ${isActive ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'}">
+        <i data-lucide="${m.icon}" class="w-4 h-4"></i>
+        <span>${m.label}</span>
+      </a>
+    `;
+  }).join('');
+
+  const sidebarEl = document.getElementById('sharedSidebar');
+  if (sidebarEl) {
+    const labDisplay = allowedLabs.length === allLabs.length
+      ? `Access: All ${allLabs.length} Rooms`
+      : (allowedLabs.length > 0 ? 'Lab: ' + allowedLabs.join(', ') : 'No Lab Assigned Yet');
+
+    sidebarEl.innerHTML = `
+      <div>
+        <div class="p-5 flex items-center justify-between border-b border-slate-100">
+          <a href="index.html" class="flex items-center gap-3">
+            <img src="IPS.png" alt="IPS Lab Logo" class="w-10 h-10 object-contain rounded-xl bg-white p-0.5 shadow-sm border border-slate-100" />
+            <div>
+              <div class="font-bold text-slate-800 leading-tight">IPS Asset System</div>
+              <div class="text-[11px] text-emerald-600 font-medium">● Admin Panel (Firebase Live)</div>
+            </div>
+          </a>
+          <button onclick="document.getElementById('mobileNavMenu').classList.toggle('hidden')" class="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <nav id="mobileNavMenu" class="hidden lg:block p-4 space-y-1.5">${navLinks}</nav>
+      </div>
+      <div class="p-4 border-t border-slate-100 hidden lg:block">
+        <div class="bg-slate-50 rounded-xl p-3 mb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-sm">${(user.name || 'U').charAt(0).toUpperCase()}</div>
+            <div class="overflow-hidden">
+              <div class="text-xs font-semibold text-slate-800 truncate">${user.name}</div>
+              <div class="text-[11px] text-indigo-600 font-medium">${user.role}</div>
+              <div class="text-[10px] ${allowedLabs.length === 0 ? 'text-rose-500 font-medium' : 'text-slate-400'} truncate">${labDisplay}</div>
+            </div>
+          </div>
+        </div>
+        <button onclick="auth.signOut().then(() => location.href='index.html')" class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i> Sign Out
+        </button>
+      </div>
+    `;
+  }
+
+  const headerEl = document.getElementById('sharedHeader');
+  if (headerEl) {
+    headerEl.innerHTML = `
+      <div>
+        <h2 class="text-xl md:text-2xl font-bold text-slate-800">${pageTitle}</h2>
+        <p class="text-xs md:text-sm text-slate-500">${pageSubtitle}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="index.html" class="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 shadow-sm">
+          <i data-lucide="home" class="w-3.5 h-3.5 text-indigo-600"></i> Back to Directory
+        </a>
+      </div>
+    `;
+  }
+}
+
+// Seed default labs if Firestore 'labs' collection is empty
+async function ensureDefaultLabsSeeded() {
+  const snap = await db.collection('labs').get();
+  if (snap.empty) {
+    for (let i = 0; i < DEFAULT_LABS.length; i++) {
+      await db.collection('labs').add({
+        name: DEFAULT_LABS[i],
+        order: i + 1,
+        createdAt: new Date().toISOString().slice(0, 10)
+      });
+    }
+  }
+}
+
+// Page Bootloader & Real-time Firestore Sync
+function initIPSPage({ activePage, title, subtitle, allowedRoles = null, requireLogin = true, onReady }) {
+  auth.onAuthStateChanged(async (firebaseUser) => {
+    if (!firebaseUser) {
+      if (requireLogin) {
+        window.location.href = 'index.html';
+      } else if (onReady) {
+        onReady(null);
+      }
+      return;
+    }
+
+    await ensureDefaultLabsSeeded();
+
+    const userDoc = await db.collection('user').doc(firebaseUser.uid).get();
+    let profile = {
+      uid: firebaseUser.uid,
+      email: firebaseUser.email,
+      name: firebaseUser.email.split('@')[0],
+      role: 'Teacher',
+      allowedLabs: []
+    };
+    if (userDoc.exists) {
+      profile = { ...profile, ...userDoc.data(), uid: firebaseUser.uid };
+    } else {
+      await db.collection('user').doc(firebaseUser.uid).set(profile);
+    }
+
+    if (allowedRoles && !allowedRoles.includes(profile.role)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Access Denied',
+        text: `Your role (${profile.role}) does not have permission to access this page.`
+      }).then(() => {
+        window.location.href = 'index.html';
+      });
+      return;
+    }
+
+    window.IPS.user = profile;
+
+    let loadedCollections = new Set();
+    const triggerReady = (colName) => {
+      loadedCollections.add(colName);
+      if (loadedCollections.size >= 5) {
+        renderSharedLayout(activePage, title, subtitle);
+        if (onReady) onReady(profile);
+        if (window.lucide) lucide.createIcons();
+      }
+    };
+
+    db.collection('labs').orderBy('order', 'asc').onSnapshot(snap => {
+      window.IPS.labDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      window.IPS.labs = window.IPS.labDocs.length > 0
+        ? window.IPS.labDocs.map(l => l.name)
+        : [...DEFAULT_LABS];
+      triggerReady('labs');
     });
 
-    function getSlotAvail(eq) {
-      const date = document.getElementById('reqDate').value;
-      const start = document.getElementById('reqStartTime').value;
-      const end = document.getElementById('reqEndTime').value;
-      if (typeof getAvailableForTimeSlot === 'function') {
-        return getAvailableForTimeSlot(eq.id, date, start, end);
-      }
-      return Number(eq.available ?? eq.total ?? 0);
-    }
+    db.collection('equipments').onSnapshot(snap => {
+      window.IPS.equipments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      triggerReady('equipments');
+    });
 
-    function renderCatalog() {
-      const q = (document.getElementById('catalogSearch').value || '').toLowerCase();
-      const grid = document.getElementById('catalogGrid');
+    db.collection('requests').onSnapshot(snap => {
+      window.IPS.requests = snap.docs.map(d => ({ docId: d.id, id: d.id, ...d.data() }));
+      triggerReady('requests');
+    });
 
-      const items = (window.IPS.equipments || []).filter(e => {
-        if (q && !(e.name || '').toLowerCase().includes(q) && !(e.sku || '').toLowerCase().includes(q) && !(e.formula || '').toLowerCase().includes(q)) return false;
-        return true;
-      });
+    db.collection('movements').orderBy('timestamp', 'asc').onSnapshot(snap => {
+      window.IPS.movements = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      triggerReady('movements');
+    });
 
-      if (items.length === 0) {
-        grid.innerHTML = '<div class="col-span-2 text-center py-8 text-xs text-slate-400">No matching equipment found.</div>';
-        return;
-      }
+    db.collection('purchases').onSnapshot(snap => {
+      window.IPS.purchases = snap.docs.map(d => ({ docId: d.id, id: d.id, ...d.data() }));
+      triggerReady('purchases');
+    });
 
-      grid.innerHTML = items.map(eq => {
-        const slotAvail = getSlotAvail(eq);
-        const inCart = cart.find(c => c.eqDocId === eq.id);
-        return `
-          <div class="p-3.5 rounded-xl border ${inCart ? 'border-indigo-400 bg-indigo-50/40' : 'border-slate-200/80 bg-white/80'} flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-1.5">
-                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">${eq.sku || 'N/A'}</span>
-                ${eq.isHazardous ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">HAZARD</span>' : ''}
-              </div>
-              <div class="font-semibold text-sm text-slate-800 truncate mt-1">${eq.name}</div>
-              <div class="text-[11px] text-slate-500">Available for slot: <b class="${slotAvail > 0 ? 'text-emerald-600' : 'text-rose-600'}">${slotAvail} ${eq.unit || 'pcs'}</b></div>
-            </div>
-            <button type="button" onclick="addToCart('${eq.id}')" ${slotAvail <= 0 ? 'disabled' : ''} class="px-3 py-1.5 rounded-lg text-xs font-medium ${slotAvail > 0 ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'} flex-shrink-0">
-              ${inCart ? 'Added (' + inCart.requestedQty + ')' : '+ Add'}
-            </button>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function addToCart(eqDocId) {
-      const eq = (window.IPS.equipments || []).find(e => e.id === eqDocId);
-      if (!eq) return;
-      const slotAvail = getSlotAvail(eq);
-      const existing = cart.find(c => c.eqDocId === eqDocId);
-      if (existing) {
-        if (existing.requestedQty + 1 > slotAvail) {
-          return Swal.fire('Limit Reached', `Only ${slotAvail} ${eq.unit || 'pcs'} available for this time slot.`, 'warning');
-        }
-        existing.requestedQty += 1;
-      } else {
-        cart.push({
-          eqDocId: String(eq.id || ''),
-          sku: String(eq.sku || ''),
-          name: String(eq.name || ''),
-          lab: String(eq.lab || 'General'),
-          unit: String(eq.unit || 'pcs'),
-          requestedQty: 1,
-          isSpecial: false
-        });
-      }
-      renderCatalog();
-      renderCart();
-    }
-
-    function addSpecialItem() {
-      const name = document.getElementById('specialItemName').value.trim();
-      const qty = parseInt(document.getElementById('specialItemQty').value) || 1;
-      if (!name) return Swal.fire('Missing Name', 'Please enter the special item description.', 'warning');
-
-      cart.push({
-        eqDocId: 'SPECIAL-' + Date.now(),
-        sku: 'SPECIAL',
-        name: name,
-        lab: 'Special Request',
-        unit: 'lot',
-        requestedQty: qty,
-        isSpecial: true
-      });
-      document.getElementById('specialItemName').value = '';
-      document.getElementById('specialItemQty').value = 1;
-      renderCart();
-    }
-
-    function updateCartQty(idx, delta) {
-      const item = cart[idx];
-      if (!item) return;
-      const newQty = item.requestedQty + delta;
-      if (newQty <= 0) {
-        cart.splice(idx, 1);
-      } else {
-        if (!item.isSpecial) {
-          const eq = (window.IPS.equipments || []).find(e => e.id === item.eqDocId);
-          const maxAvail = eq ? getSlotAvail(eq) : 999;
-          if (newQty > maxAvail) return Swal.fire('Exceeds Availability', `Max available for slot is ${maxAvail}.`, 'warning');
-        }
-        item.requestedQty = newQty;
-      }
-      renderCatalog();
-      renderCart();
-    }
-
-    function renderCart() {
-      const list = document.getElementById('cartItemsList');
-      document.getElementById('cartCountBadge').innerText = `${cart.length} items`;
-      if (cart.length === 0) {
-        list.innerHTML = '<div class="text-center py-8 text-xs text-slate-400">No items selected yet.<br/>Search and pick equipment on the left.</div>';
-        return;
-      }
-      list.innerHTML = cart.map((item, idx) => `
-        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
-          <div class="min-w-0">
-            <div class="text-xs font-semibold text-slate-800 truncate">
-              ${item.name}
-              ${item.isSpecial ? '<span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded ml-1">Special</span>' : ''}
-            </div>
-            <div class="text-[11px] text-slate-400">${item.sku} • ${item.unit}</div>
-          </div>
-          <div class="flex items-center gap-1.5 flex-shrink-0">
-            <button type="button" onclick="updateCartQty(${idx}, -1)" class="w-6 h-6 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold hover:bg-slate-100">-</button>
-            <span class="w-6 text-center text-xs font-bold">${item.requestedQty}</span>
-            <button type="button" onclick="updateCartQty(${idx}, 1)" class="w-6 h-6 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold hover:bg-slate-100">+</button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    async function submitRequisition() {
-      try {
-        const experiment = document.getElementById('reqExperiment').value.trim();
-        const useDate = document.getElementById('reqDate').value;
-        const startTime = document.getElementById('reqStartTime').value;
-        const endTime = document.getElementById('reqEndTime').value;
-        const notes = document.getElementById('reqNotes').value.trim();
-
-        if (!experiment || !useDate || !startTime || !endTime) {
-          return Swal.fire('Incomplete Details', 'Please fill in Experiment Title, Date, Start Time, and End Time.', 'warning');
-        }
-        if (startTime >= endTime) {
-          return Swal.fire('Invalid Time Range', 'End Time must be later than Start Time.', 'warning');
-        }
-        if (!cart || cart.length === 0) {
-          return Swal.fire('Empty Cart', 'Please add at least one item to your requisition.', 'warning');
-        }
-
-        const uniqueLabs = [...new Set(cart.map(c => c.lab).filter(Boolean))];
-        const labSummary = uniqueLabs.length > 1 ? `Multi-Lab (${uniqueLabs.join(', ')})` : (uniqueLabs[0] || 'General');
-
-        const nextNum = (window.IPS.requests || []).length + 1;
-        const reqId = `REQ-${String(nextNum).padStart(3, '0')}`;
-        const hasSpecialItem = cart.some(c => c.isSpecial);
-
-        // Include [Lab Name] in item name so Asset Admin sees exact lab location for every item
-        const formattedItems = cart.map(c => ({
-          eqDocId: String(c.eqDocId || ''),
-          sku: String(c.sku || ''),
-          name: (c.name || '').includes(`[${c.lab}]`) ? String(c.name) : `${c.name || 'Item'} [${c.lab || 'General'}]`,
-          lab: String(c.lab || 'General'),
-          unit: String(c.unit || 'pcs'),
-          requestedQty: Number(c.requestedQty) || 1,
-          approvedQty: 0,
-          isSpecial: Boolean(c.isSpecial),
-          itemStatus: 'Pending',
-          status: 'Pending'
-        }));
-
-        const payload = JSON.parse(JSON.stringify({
-          reqId,
-          teacherUid: String(window.IPS.user.uid || ''),
-          teacherName: String(window.IPS.user.name || window.IPS.user.email || 'Teacher'),
-          teacherEmail: String(window.IPS.user.email || ''),
-          lab: String(labSummary),
-          labsInvolved: uniqueLabs,
-          experiment: String(experiment),
-          useDate: String(useDate),
-          date: String(useDate),
-          startTime: String(startTime),
-          endTime: String(endTime),
-          notes: String(notes || ''),
-          hasSpecialItem: Boolean(hasSpecialItem),
-          status: 'Pending',
-          createdAt: new Date().toISOString().slice(0, 10),
-          items: formattedItems
-        }));
-
-        await db.collection('requests').add(payload);
-
-        cart = [];
-        document.getElementById('reqExperiment').value = '';
-        document.getElementById('reqNotes').value = '';
-        renderCatalog();
-        renderCart();
-        renderMyRequests();
-        Swal.fire('Requisition Submitted', `Request ${reqId} has been sent to Asset Admin for approval.`, 'success');
-      } catch (err) {
-        console.error('Submit Error:', err);
-        Swal.fire('Submission Error', err.message || 'Could not submit requisition.', 'error');
-      }
-    }
-
-    function renderMyRequests() {
-      const uid = window.IPS.user.uid;
-      const mine = (window.IPS.requests || []).filter(r => r.teacherUid === uid);
-      document.getElementById('myReqCount').innerText = `${mine.length} requests`;
-      const tbody = document.getElementById('myRequestsTbody');
-
-      if (mine.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400">You have not submitted any requisitions yet.</td></tr>';
-        return;
-      }
-
-      const badgeMap = {
-        'Pending': 'bg-amber-100 text-amber-700',
-        'Approved': 'bg-emerald-100 text-emerald-700',
-        'Partial': 'bg-blue-100 text-blue-700',
-        'Return Pending': 'bg-purple-100 text-purple-700',
-        'Returned': 'bg-slate-200 text-slate-700',
-        'Rejected': 'bg-rose-100 text-rose-700'
-      };
-
-      tbody.innerHTML = mine.map(r => {
-        const itemsText = (r.items || []).map(i => {
-          const cleanName = (i.name || '').replace(/\s*\[[^\]]+\]$/, '');
-          return `${cleanName} (Req: ${i.requestedQty}${i.approvedQty ? ', Appr: ' + i.approvedQty : ''})`;
-        }).join(', ');
-        const canReturn = ['Approved', 'Partial'].includes(r.status);
-        const docKey = r.docId || r.id;
-        return `
-          <tr class="hover:bg-slate-50/70">
-            <td class="p-3.5 font-bold text-indigo-700 whitespace-nowrap">${r.reqId || docKey.slice(0, 6)}</td>
-            <td class="p-3.5 font-semibold text-slate-800">${r.experiment}</td>
-            <td class="p-3.5 whitespace-nowrap">
-              <div>${r.useDate || r.date || '-'}</div>
-              <div class="text-[11px] text-slate-400">${r.startTime} - ${r.endTime}</div>
-            </td>
-            <td class="p-3.5 max-w-xs text-slate-600">${itemsText}</td>
-            <td class="p-3.5 whitespace-nowrap">
-              <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold ${badgeMap[r.status] || 'bg-slate-100'}">${r.status}</span>
-            </td>
-            <td class="p-3.5 text-right whitespace-nowrap">
-              ${canReturn ? `<button type="button" onclick="initiateTeacherReturn('${docKey}')" class="px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-700">Return Equipment</button>` : '-'}
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function initiateTeacherReturn(docId) {
-      Swal.fire({
-        title: 'Submit Equipment Return?',
-        input: 'select',
-        inputOptions: {
-          'All items returned intact and in good condition.': 'All items intact (Good condition)',
-          'Reported damaged equipment on return.': 'Some items damaged / broken',
-          'Reported missing/lost item(s) on return.': 'Some items missing / lost'
-        },
-        inputLabel: 'Condition Summary for Staff Inspection',
-        showCancelButton: true,
-        confirmButtonText: 'Notify Staff for Return Inspection'
-      }).then(async res => {
-        if (res.isConfirmed) {
-          await db.collection('requests').doc(docId).update({
-            status: 'Return Pending',
-            teacherReturnNote: res.value,
-            returnRequestedAt: new Date().toISOString()
-          });
-          renderMyRequests();
-          Swal.fire('Return Submitted', 'Staff have been notified to inspect and close your requisition.', 'success');
-        }
-      });
-    }
-  </script>
-</body>
-</html>
+    db.collection('user').onSnapshot(snap => {
+      window.IPS.users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+      if (loadedCollections.size >= 5 && onReady) onReady(profile);
+    });
+  });
+}
