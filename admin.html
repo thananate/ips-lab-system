@@ -27,16 +27,33 @@
       <div class="glass-card rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
         <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
           <div class="font-bold text-slate-800">Teacher / Staff / Office Staff</div>
-          <div class="text-[11px] text-slate-500 mt-0.5">Access Dashboard, Equipment Request, and Inventory Stock. (<b>Staff</b> also accesses Repair & MA).</div>
+          <div class="text-[11px] text-slate-500 mt-0.5">Access Dashboard, Equipment Request, and public Inventory Rooms. (<b>Staff</b> also accesses Repair & MA).</div>
         </div>
         <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200">
           <div class="font-bold text-indigo-900">Lab Staff</div>
           <div class="text-[11px] text-indigo-700 mt-0.5">Ordered workflow: 1. Stock → 2. Purchase → 3. Asset Admin Section → 4. Repair & MA → 5. Home.</div>
         </div>
         <div class="p-3 rounded-xl bg-purple-50/70 border border-purple-200">
-          <div class="font-bold text-purple-900">Admin / Super Admin</div>
-          <div class="text-[11px] text-purple-700 mt-0.5">Full operational control, Analytics & Reports, and User/Lab system configuration.</div>
+          <div class="font-bold text-purple-900">Super Admin & Secret Rooms 🔒</div>
+          <div class="text-[11px] text-purple-700 mt-0.5">Restricted rooms (e.g., ICT Hosting/Domain/Licenses) are completely hidden unless explicitly unlocked per user.</div>
         </div>
+      </div>
+
+      <!-- DYNAMIC ROOMS / LABORATORIES & SECRET ROOMS MANAGEMENT -->
+      <div class="glass-card rounded-2xl p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
+              <i data-lucide="building-2" class="w-4 h-4 text-purple-600"></i> Rooms, Laboratories & Secret Vaults 🔒
+            </h3>
+            <p class="text-[11px] text-slate-400">Toggle "Secret / Restricted" to hide sensitive ICT rooms (Domains, Hosting, Software Licenses) from standard staff</p>
+          </div>
+          <button onclick="addNewLabRoom()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-semibold hover:opacity-95 flex items-center gap-1.5 shadow-sm">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add New Room / Secret Vault
+          </button>
+        </div>
+
+        <div id="labsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
       </div>
 
       <!-- USER & ROLE MANAGEMENT TABLE -->
@@ -46,7 +63,7 @@
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
               <i data-lucide="users" class="w-4 h-4 text-indigo-600"></i> Registered Staff & Role Assignments
             </h3>
-            <p class="text-[11px] text-slate-400">Assign roles including Teacher, Staff, Office Staff, Lab Staff, Admin, and Super Admin</p>
+            <p class="text-[11px] text-slate-400">Assign roles and manage secret room access keys</p>
           </div>
           <div class="flex items-center gap-2">
             <select id="roleFilter" onchange="renderUsersTable()" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs">
@@ -69,29 +86,13 @@
                 <th class="p-3.5">Staff Member</th>
                 <th class="p-3.5">Email Address</th>
                 <th class="p-3.5">Current Role</th>
+                <th class="p-3.5">Secret Room Keys</th>
                 <th class="p-3.5 text-right">Change Role</th>
               </tr>
             </thead>
             <tbody id="usersTbody" class="divide-y divide-slate-100 text-xs"></tbody>
           </table>
         </div>
-      </div>
-
-      <!-- DYNAMIC ROOMS / LABORATORIES MANAGEMENT -->
-      <div class="glass-card rounded-2xl p-5 space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
-              <i data-lucide="building-2" class="w-4 h-4 text-purple-600"></i> Rooms & Laboratories Configuration
-            </h3>
-            <p class="text-[11px] text-slate-400">Rooms added here immediately appear across Stock, Requests, Purchase, and Repair & MA</p>
-          </div>
-          <button onclick="addNewLabRoom()" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 flex items-center gap-1.5 shadow-sm">
-            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add New Room / Department
-          </button>
-        </div>
-
-        <div id="labsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
       </div>
     </main>
   </div>
@@ -103,7 +104,7 @@
     initIPSPage({
       activePage: 'admin',
       title: 'User & Lab Management',
-      subtitle: 'Manage staff roles (Teacher, Staff, Office Staff, Lab Staff, Admin) and rooms',
+      subtitle: 'Manage staff roles, rooms, and restricted ICT asset vaults',
       allowedRoles: ['Super Admin'],
       onReady: () => {
         renderUsersTable();
@@ -115,6 +116,7 @@
       const roleF = document.getElementById('roleFilter').value || 'All';
       const q = String(document.getElementById('userSearchInput').value || '').toLowerCase();
       const users = Array.isArray(window.IPS.users) ? window.IPS.users : [];
+      const restrictedRooms = (window.IPS.labDocs || []).filter(l => l.isRestricted).map(l => l.name);
 
       const roleBadges = {
         'Teacher': 'bg-slate-100 text-slate-700',
@@ -137,13 +139,22 @@
 
       const tbody = document.getElementById('usersTbody');
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-slate-400">No users found matching your filter.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-400">No users found matching your filter.</td></tr>';
         return;
       }
 
       tbody.innerHTML = filtered.map(u => {
         const uRole = u.role || 'Teacher';
         const isSelf = u.uid === (window.IPS.user || {}).uid;
+        const userKeys = (Array.isArray(u.allowedLabs) ? u.allowedLabs : []).filter(r => restrictedRooms.includes(r));
+
+        let keysBadge = '<span class="text-[10px] text-slate-400">None</span>';
+        if (uRole === 'Super Admin') {
+          keysBadge = '<span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-bold">🔓 Master Access (All)</span>';
+        } else if (userKeys.length > 0) {
+          keysBadge = userKeys.map(k => `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-semibold mr-1">🔑 ${k}</span>`).join('');
+        }
+
         return `
           <tr class="hover:bg-slate-50/70">
             <td class="p-3.5">
@@ -160,6 +171,7 @@
             <td class="p-3.5">
               <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${roleBadges[uRole] || 'bg-slate-100 text-slate-700'}">${uRole}</span>
             </td>
+            <td class="p-3.5">${keysBadge}</td>
             <td class="p-3.5 text-right">
               <select onchange="updateUserRole('${u.uid}', this.value)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white font-medium">
                 ${ALL_ROLES.map(r => `<option value="${r}" ${uRole === r ? 'selected' : ''}>${r}</option>`).join('')}
@@ -194,42 +206,160 @@
         return;
       }
 
-      container.innerHTML = labDocs.map((lab, idx) => `
-        <div class="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
-          <div>
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Room #${idx + 1}</div>
-            <div class="font-bold text-slate-800 text-sm">${lab.name}</div>
+      container.innerHTML = labDocs.map((lab, idx) => {
+        const isSecret = Boolean(lab.isRestricted);
+        const permittedUsers = (window.IPS.users || []).filter(u =>
+          u.role !== 'Super Admin' && Array.isArray(u.allowedLabs) && u.allowedLabs.includes(lab.name)
+        );
+
+        return `
+          <div class="p-4 rounded-xl border ${isSecret ? 'border-purple-300 bg-purple-50/40' : 'border-slate-200 bg-white'} flex flex-col justify-between gap-3">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase">Room #${idx + 1}</span>
+                  ${isSecret
+                    ? '<span class="px-2 py-0.5 rounded bg-purple-700 text-white text-[9px] font-bold tracking-wide">🔒 SECRET / RESTRICTED</span>'
+                    : '<span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-semibold">🌐 PUBLIC ROOM</span>'}
+                </div>
+                <div class="font-bold text-slate-800 text-sm mt-1">${lab.name}</div>
+                ${isSecret ? `<div class="text-[10px] text-purple-800 mt-0.5">Visible to: Super Admin${permittedUsers.length > 0 ? ' + ' + permittedUsers.map(u => u.name).join(', ') : ' Only'}</div>` : ''}
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
+              <button type="button" onclick="toggleRoomRestriction('${lab.id}', ${!isSecret})" class="px-2.5 py-1 rounded-lg ${isSecret ? 'bg-amber-100 text-amber-900 hover:bg-amber-200' : 'bg-purple-100 text-purple-800 hover:bg-purple-200'} text-[11px] font-semibold">
+                ${isSecret ? '🔓 Make Public' : '🔒 Lock as Secret'}
+              </button>
+              ${isSecret ? `
+                <button type="button" onclick="manageSecretRoomKeys('${lab.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-[11px] font-semibold">
+                  🔑 Keys (${permittedUsers.length})
+                </button>
+              ` : ''}
+              <button type="button" onclick="renameLabRoom('${lab.id}', '${lab.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-medium">
+                Rename
+              </button>
+              <button type="button" onclick="deleteLabRoom('${lab.id}', '${lab.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 text-[11px] font-medium">
+                Delete
+              </button>
+            </div>
           </div>
-          <div class="flex items-center gap-1.5">
-            <button type="button" onclick="renameLabRoom('${lab.id}', '${lab.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 text-[11px] font-medium">
-              Rename
-            </button>
-            <button type="button" onclick="deleteLabRoom('${lab.id}', '${lab.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 text-[11px] font-medium">
-              Delete
-            </button>
+        `;
+      }).join('');
+    }
+
+    async function toggleRoomRestriction(docId, makeRestricted) {
+      await db.collection('labs').doc(docId).update({ isRestricted: makeRestricted });
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: makeRestricted ? 'Room locked as Secret (Super Admin Only)' : 'Room is now Public',
+        showConfirmButton: false,
+        timer: 2000
+      });
+    }
+
+    async function manageSecretRoomKeys(roomName) {
+      const nonSuperUsers = (window.IPS.users || []).filter(u => u.role !== 'Super Admin');
+      if (nonSuperUsers.length === 0) {
+        return Swal.fire('No Other Staff', 'Only Super Admin accounts exist currently.', 'info');
+      }
+
+      const checkboxesHtml = nonSuperUsers.map(u => {
+        const hasKey = Array.isArray(u.allowedLabs) && u.allowedLabs.includes(roomName);
+        return `
+          <label class="flex items-center justify-between p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+            <div>
+              <div class="font-bold text-slate-800 text-xs">${u.name || u.email}</div>
+              <div class="text-[10px] text-slate-400">${u.email} • ${u.role}</div>
+            </div>
+            <input type="checkbox" class="secret-key-cb w-4 h-4 accent-indigo-600" value="${u.uid}" ${hasKey ? 'checked' : ''} />
+          </label>
+        `;
+      }).join('');
+
+      const { isConfirmed } = await Swal.fire({
+        title: `🔑 Secret Room Access: ${roomName}`,
+        html: `
+          <div class="text-left text-xs space-y-2">
+            <p class="text-slate-500 mb-2"><b>Super Admin</b> always has access. Select any additional staff who should be allowed to view and manage assets in <b>${roomName}</b>:</p>
+            <div class="max-h-64 overflow-y-auto space-y-1.5">${checkboxesHtml}</div>
           </div>
-        </div>
-      `).join('');
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Save Access Keys'
+      });
+
+      if (!isConfirmed) return;
+
+      const checkedUids = new Set(
+        Array.from(document.querySelectorAll('.secret-key-cb:checked')).map(cb => cb.value)
+      );
+
+      for (const u of nonSuperUsers) {
+        const currentLabs = Array.isArray(u.allowedLabs) ? [...u.allowedLabs] : [];
+        const shouldHave = checkedUids.has(u.uid);
+        const alreadyHas = currentLabs.includes(roomName);
+
+        if (shouldHave && !alreadyHas) {
+          currentLabs.push(roomName);
+          await db.collection('user').doc(u.uid).update({ allowedLabs: currentLabs });
+        } else if (!shouldHave && alreadyHas) {
+          const filtered = currentLabs.filter(l => l !== roomName);
+          await db.collection('user').doc(u.uid).update({ allowedLabs: filtered });
+        }
+      }
+
+      Swal.fire('Access Updated', `Updated secret room permissions for "${roomName}".`, 'success');
     }
 
     async function addNewLabRoom() {
-      const { value: roomName } = await Swal.fire({
-        title: 'Add New Room / Department',
-        input: 'text',
-        inputPlaceholder: 'e.g., IT & Computer Lab, Admin Office, Art Room',
+      const { value: formValues } = await Swal.fire({
+        title: 'Add New Room / Secret Vault',
+        html: `
+          <div class="text-left text-xs space-y-3">
+            <div>
+              <label class="block font-semibold text-slate-600 mb-1">Room / Vault Name *</label>
+              <input id="swalRoomName" class="w-full px-3 py-2 rounded-lg border border-slate-200" placeholder="e.g., ICT & IT Infrastructure" />
+            </div>
+            <label class="flex items-start gap-2.5 p-3 rounded-xl bg-purple-50 border border-purple-200 cursor-pointer">
+              <input id="swalRoomSecret" type="checkbox" class="mt-0.5 w-4 h-4 accent-purple-700" />
+              <div>
+                <div class="font-bold text-purple-900">🔒 Secret / Restricted Room</div>
+                <div class="text-[11px] text-purple-700">Hide completely from Teachers, Staff, and Lab Staff. Only visible to Super Admin (and users you grant a Key to).</div>
+              </div>
+            </label>
+          </div>
+        `,
         showCancelButton: true,
-        confirmButtonText: 'Add Room',
-        inputValidator: (v) => !v || !v.trim() ? 'Please enter a room name.' : null
+        confirmButtonText: 'Create Room',
+        preConfirm: () => {
+          const name = document.getElementById('swalRoomName').value.trim();
+          const isRestricted = document.getElementById('swalRoomSecret').checked;
+          if (!name) {
+            Swal.showValidationMessage('Please enter a room name.');
+            return false;
+          }
+          return { name, isRestricted };
+        }
       });
-      if (!roomName) return;
+
+      if (!formValues) return;
 
       const nextOrder = (window.IPS.labDocs || []).length + 1;
       await db.collection('labs').add({
-        name: roomName.trim(),
+        name: formValues.name,
         order: nextOrder,
+        isRestricted: formValues.isRestricted,
         createdAt: new Date().toISOString().slice(0, 10)
       });
-      Swal.fire('Added', `"${roomName.trim()}" is now available across all modules.`, 'success');
+
+      Swal.fire(
+        formValues.isRestricted ? 'Secret Vault Created 🔒' : 'Room Created',
+        `"${formValues.name}" has been added.`,
+        'success'
+      );
     }
 
     async function renameLabRoom(docId, currentName) {
