@@ -1,1 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPS Asset System | Asset Admin Section</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f0f4ff 0%, #f5f3ff 50%, #eef2ff 100%); min-height: 100vh; }
+    .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.7); box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.08); }
+  </style>
+</head>
+<body class="text-slate-800 antialiased">
 
+  <div class="min-h-screen flex flex-col lg:flex-row">
+    <aside id="sharedSidebar" class="bg-white/95 border-r border-slate-200/80 w-full lg:w-64 flex-shrink-0 flex flex-col justify-between"></aside>
+    <main class="flex-1 p-4 md:p-8 space-y-6">
+      <div id="sharedHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"></div>
+
+      <!-- FILTER & SEARCH BAR -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap gap-1.5 bg-white/80 p-1.5 rounded-2xl border border-slate-200/70">
+          <button onclick="statusFilter='All'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium bg-indigo-600 text-white" data-st="All">All Requests</button>
+          <button onclick="statusFilter='Pending'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Pending">Pending Approval</button>
+          <button onclick="statusFilter='Approved'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Approved">In Use (Approved)</button>
+          <button onclick="statusFilter='Return Pending'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center gap-1" data-st="Return Pending">
+            <span>Return Pending</span>
+            <span id="returnPendingBadge" class="hidden px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px]">0</span>
+          </button>
+          <button onclick="statusFilter='Returned'; renderTable();" class="f-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100" data-st="Returned">Returned</button>
+        </div>
+        <input type="text" id="searchInput" onkeyup="renderTable()" placeholder="Search ID, Teacher, Experiment..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-64" />
+      </div>
+
+      <!-- REQUESTS TABLE -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                <th class="p-3.5">Request ID</th>
+                <th class="p-3.5">Teacher & Experiment</th>
+                <th class="p-3.5">Labs Involved</th>
+                <th class="p-3.5">Usage Schedule</th>
+                <th class="p-3.5">Status</th>
+                <th class="p-3.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="requestsTbody" class="divide-y divide-slate-100 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- APPROVAL MODAL (ITEM-BY-ITEM) -->
+  <div id="approvalModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800">Review & Approve Equipment Request</h3>
+          <p id="modalMeta" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeModal('approvalModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div id="modalItemsContainer" class="mt-4 space-y-3"></div>
+      <div class="mt-4">
+        <label class="block text-xs font-medium text-slate-600 mb-1">Staff Remarks / Instructions</label>
+        <input type="text" id="staffRemarksInput" placeholder="Add notes for the teacher or purchase plan for fresh items..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+      </div>
+      <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
+        <span class="text-[11px] text-slate-400">Approver name and timestamp are logged automatically.</span>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeModal('approvalModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Close</button>
+          <button type="button" onclick="submitApproval()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow">Save Decision</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RETURN & DAMAGE INSPECTION MODAL -->
+  <div id="returnModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="clipboard-check" class="w-5 h-5 text-blue-600"></i> Equipment Return & Condition Inspection
+          </h3>
+          <p id="returnModalMeta" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeModal('returnModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div id="teacherReturnBanner" class="hidden mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950"></div>
+
+      <div id="returnItemsContainer" class="mt-4 space-y-3"></div>
+
+      <div class="mt-4">
+        <label class="block text-xs font-medium text-slate-600 mb-1">Lab Staff Inspection Remarks / Damage Details *</label>
+        <input type="text" id="returnRemarksInput" placeholder="e.g., All items returned clean, or 1 Beaker cracked during titration" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+      </div>
+
+      <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
+        <span class="text-[11px] text-slate-500">Good + Damaged + Lost must equal the Approved Qty for each returnable item.</span>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeModal('returnModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="button" onclick="submitReturnInspection()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow">Confirm Return & Update Stock</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="firebase-core.js"></script>
+  <script>
+    let statusFilter = 'All';
+    let activeDocId = null;
+
+    initIPSPage({
+      activePage: 'approve',
+      title: 'Asset Admin Section',
+      subtitle: 'Approve requisitions (including special fresh items), inspect returns, and log damages',
+      allowedRoles: ['Lab Staff', 'Admin', 'Super Admin'],
+      onReady: () => {
+        renderTable();
+      }
+    });
+
+    function safeItems(r) {
+      return Array.isArray(r && r.items) ? r.items : [];
+    }
+
+    function isRequestAllowedForUser(r, allowedLabs) {
+      if (!r) return false;
+      const role = String((window.IPS.user || {}).role || '');
+      if (['Super Admin', 'Admin', 'Lab Staff'].includes(role)) return true;
+      if (allowedLabs.includes(r.lab)) return true;
+      if (Array.isArray(r.labsInvolved) && r.labsInvolved.some(l => allowedLabs.includes(l))) return true;
+      if (safeItems(r).some(it => allowedLabs.includes(it.lab))) return true;
+      return false;
+    }
+
+    function viewItemSafety(eqDocId) {
+      const eq = (window.IPS.equipments || []).find(e => e.id === eqDocId);
+      if (!eq) return;
+
+      let fileHtml = '';
+      if (eq.safetyFileData) {
+        if (String(eq.safetyFileData).startsWith('data:application/pdf')) {
+          fileHtml = `
+            <div class="mt-3">
+              <iframe src="${eq.safetyFileData}" class="w-full h-80 rounded-xl border"></iframe>
+              <a href="${eq.safetyFileData}" download="${eq.safetyFileName || 'SDS_Document.pdf'}" class="inline-block mt-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium">Download PDF</a>
+            </div>
+          `;
+        } else {
+          fileHtml = `<div class="mt-3"><img src="${eq.safetyFileData}" class="max-h-80 mx-auto rounded-xl border shadow-sm" /></div>`;
+        }
+      }
+
+      if (eq.safetyLink) {
+        fileHtml += `<div class="mt-3"><a href="${eq.safetyLink}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">Open External SDS / Drive Link ↗</a></div>`;
+      }
+
+      Swal.fire({
+        title: `Safety & Hazard Info: ${eq.name || ''} ${eq.formula ? `(${eq.formula})` : ''}`,
+        width: 650,
+        html: `
+          <div class="text-left text-xs space-y-2">
+            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950">
+              <b>Warning / Handling Note:</b><br>
+              ${eq.hazardNote ? String(eq.hazardNote).replace(/\n/g, '<br>') : 'No specific text warning recorded.'}
+            </div>
+            ${fileHtml}
+          </div>
+        `,
+        confirmButtonText: 'Close'
+      });
+    }
+
+    function renderTable() {
+      document.querySelectorAll('.f-btn').forEach(btn => {
+        if (btn.dataset.st === statusFilter) {
+          btn.classList.add('bg-indigo-600', 'text-white');
+          btn.classList.remove('text-slate-600');
+        } else {
+          btn.classList.remove('bg-indigo-600', 'text-white');
+          btn.classList.add('text-slate-600');
+        }
+      });
+
+      const allowedLabs = getUserAllowedLabs(window.IPS.user);
+      const q = String(document.getElementById('searchInput').value || '').toLowerCase();
+      const allReqs = Array.isArray(window.IPS.requests) ? window.IPS.requests : [];
+
+      const retPendingCount = allReqs.filter(r => isRequestAllowedForUser(r, allowedLabs) && r.status === 'Return Pending').length;
+      const badgeEl = document.getElementById('returnPendingBadge');
+      if (badgeEl) {
+        if (retPendingCount > 0) {
+          badgeEl.innerText = retPendingCount;
+          badgeEl.classList.remove('hidden');
+        } else {
+          badgeEl.classList.add('hidden');
+        }
+      }
+
+      const list = allReqs.filter(r => {
+        const labOk = isRequestAllowedForUser(r, allowedLabs);
+        const stOk = statusFilter === 'All'
+          || (statusFilter === 'Approved' ? ['Approved', 'Partial'].includes(r.status) : r.status === statusFilter);
+        const displayId = String(r.reqId || r.id || '').toLowerCase();
+        const tName = String(r.teacherName || '').toLowerCase();
+        const expName = String(r.experiment || '').toLowerCase();
+        const searchOk = !q || displayId.includes(q) || tName.includes(q) || expName.includes(q);
+        return labOk && stOk && searchOk;
+      });
+
+      const badgeMap = {
+        'Pending': 'bg-amber-100 text-amber-700',
+        'Approved': 'bg-emerald-100 text-emerald-700',
+        'Partial': 'bg-blue-100 text-blue-700',
+        'Return Pending': 'bg-orange-100 text-orange-800 border border-orange-300',
+        'Rejected': 'bg-rose-100 text-rose-700',
+        'Cancelled': 'bg-slate-200 text-slate-600',
+        'Returned': 'bg-indigo-100 text-indigo-700'
+      };
+
+      const tbody = document.getElementById('requestsTbody');
+      if (!tbody) return;
+
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400">No requisition records found matching your filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.slice().reverse().map(r => {
+        const itemsArr = safeItems(r);
+        const canInspectReturn = ['Approved', 'Partial', 'Return Pending'].includes(r.status);
+        const canReviewApproval = ['Pending'].includes(r.status);
+        const hasCustom = itemsArr.some(i => i && (i.isCustom || i.isSpecial));
+        const rawDocId = String(r.docId || r.id || '');
+        const displayId = String(r.reqId || rawDocId.slice(0, 8) || 'REQ');
+        const displayDate = String(r.useDate || r.date || '-');
+        const itemLabs = [...new Set(itemsArr.map(i => i && i.lab).filter(Boolean))];
+        const labBadgeText = itemLabs.length > 1 ? `Multi-Lab (${itemLabs.join(', ')})` : (itemLabs[0] || r.lab || 'General');
+
+        return `
+          <tr class="hover:bg-slate-50/70 ${r.status === 'Return Pending' ? 'bg-orange-50/40' : ''}">
+            <td class="p-3.5 font-mono font-bold text-indigo-700">
+              ${displayId}
+              ${hasCustom ? `<div class="mt-0.5"><span class="px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 font-sans text-[9px] font-bold">SPECIAL ITEM</span></div>` : ''}
+            </td>
+            <td class="p-3.5">
+              <div class="font-semibold text-slate-800">${r.teacherName || 'Teacher'}</div>
+              <div class="text-[11px] text-slate-500">${r.experiment || '-'}</div>
+              ${r.teacherReturnNote ? `<div class="text-[11px] text-orange-700 mt-0.5 font-medium">Teacher Note: "${r.teacherReturnNote}"</div>` : ''}
+            </td>
+            <td class="p-3.5"><span class="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">${labBadgeText}</span></td>
+            <td class="p-3.5"><b>${displayDate}</b><br><span class="text-slate-400">${r.startTime || ''} - ${r.endTime || ''}</span></td>
+            <td class="p-3.5"><span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeMap[r.status] || 'bg-slate-100'}">${r.status || 'Pending'}</span></td>
+            <td class="p-3.5 text-right space-x-1.5">
+              ${canInspectReturn ? `
+                <button onclick="openReturnModal('${rawDocId}')" class="px-3 py-1.5 rounded-xl ${r.status === 'Return Pending' ? 'bg-orange-600 hover:bg-orange-700 animate-pulse' : 'bg-blue-600 hover:bg-blue-700'} text-white font-medium">
+                  Inspect Return
+                </button>
+              ` : ''}
+              ${canReviewApproval ? `
+                <button onclick="openApprovalModal('${rawDocId}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-medium">Review</button>
+              ` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ==================== APPROVAL FLOW ====================
+    function openApprovalModal(docId) {
+      activeDocId = docId;
+      const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === docId);
+      if (!req) return;
+      const displayId = String(req.reqId || docId);
+      const displayDate = String(req.useDate || req.date || '-');
+      document.getElementById('modalMeta').innerText = `${displayId} | Teacher: ${req.teacherName || ''} | ${displayDate} (${req.startTime || ''} - ${req.endTime || ''})`;
+      document.getElementById('staffRemarksInput').value = req.staffRemarks || req.notes || '';
+
+      const html = safeItems(req).map((it, idx) => {
+        const isSpecialItem = Boolean(it.isCustom || it.isSpecial);
+        const eq = isSpecialItem ? null : (window.IPS.equipments || []).find(e => e.id === it.eqDocId);
+        const itemLab = it.lab || (eq && eq.lab) || 'General';
+        const reqQty = Number(it.requestedQty || 0);
+
+        if (isSpecialItem) {
+          return `
+            <div class="p-3.5 rounded-xl border border-amber-300 bg-amber-50/70 space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="px-2 py-0.5 rounded bg-amber-200 text-amber-950 text-[10px] font-bold">SPECIAL / NON-STOCK ITEM</span>
+                    <span class="font-bold text-slate-800 text-sm">${it.name || ''}</span>
+                    ${it.spec ? `<span class="text-xs text-slate-600">[${it.spec}]</span>` : ''}
+                  </div>
+                  <div class="text-xs text-slate-600 mt-1">
+                    Requested: <b>${reqQty} ${it.unit || ''}</b> (To be procured/prepared by Lab Staff)
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <select id="act_${idx}" onchange="onActChange(${idx}, ${reqQty})" class="px-2.5 py-1.5 rounded-lg border border-amber-300 text-xs bg-white">
+                    <option value="Approved" selected>Approve (Will Arrange)</option>
+                    <option value="Partial">Partial Approval</option>
+                    <option value="Rejected">Reject / Unavailable</option>
+                  </select>
+                  <input type="number" id="qty_${idx}" min="0" max="${reqQty}" value="${reqQty}" class="w-20 px-2.5 py-1.5 rounded-lg border border-amber-300 text-xs bg-white" />
+                </div>
+              </div>
+              <input type="text" id="alt_${idx}" value="${it.alternativeNote || ''}" placeholder="Procurement note or instructions for teacher..." class="w-full px-3 py-1.5 rounded-lg border border-amber-200 text-xs bg-white" />
+            </div>
+          `;
+        }
+
+        const slotAvail = getAvailableForTimeSlot(it.eqDocId, displayDate, req.startTime, req.endTime, docId);
+        const suggested = Math.min(reqQty, slotAvail);
+        const hasHazard = eq && (eq.hazardNote || eq.safetyFileData || eq.safetyLink);
+        const isCons = eq && isConsumableOrChemical(eq);
+
+        return `
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-bold">📍 ${itemLab}</span>
+                  <span class="font-bold text-slate-800 text-sm">${it.name || ''}</span>
+                  ${eq && eq.formula ? `<span class="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 font-mono text-[10px] font-semibold text-blue-700">${eq.formula}</span>` : ''}
+                  ${it.spec ? `<span class="text-xs text-slate-500">[${it.spec}]</span>` : ''}
+                  <span class="px-2 py-0.5 rounded text-[10px] font-medium ${isCons ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-700'}">
+                    ${isCons ? 'Consumable / Chemical' : 'Returnable Equipment'}
+                  </span>
+                  ${hasHazard ? `<button type="button" onclick="viewItemSafety('${eq.id}')" class="px-2 py-0.5 rounded bg-rose-100 text-rose-700 hover:bg-rose-200 text-[10px] font-semibold">⚠️ View SDS / Warning</button>` : ''}
+                </div>
+                <div class="text-xs text-slate-500 mt-1">
+                  Requested: <b>${reqQty}</b> | Slot Available: <b class="${slotAvail < reqQty ? 'text-rose-600' : 'text-emerald-600'}">${slotAvail}</b>
+                  ${eq && eq.expiryDate ? ` | Exp: <b>${eq.expiryDate}</b>` : ''}
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <select id="act_${idx}" onchange="onActChange(${idx}, ${suggested})" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white">
+                  <option value="Approved" ${slotAvail >= reqQty ? 'selected' : ''}>Approve</option>
+                  <option value="Partial" ${slotAvail > 0 && slotAvail < reqQty ? 'selected' : ''}>Partial Approval</option>
+                  <option value="Rejected" ${slotAvail === 0 ? 'selected' : ''}>Reject (Out of Stock)</option>
+                  <option value="Alternative">Suggest Alternative</option>
+                </select>
+                <input type="number" id="qty_${idx}" min="0" max="${slotAvail}" value="${suggested}" class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white" />
+              </div>
+            </div>
+            <input type="text" id="alt_${idx}" value="${it.alternativeNote || ''}" placeholder="Alternative equipment name or rejection reason (optional)..." class="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white" />
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('modalItemsContainer').innerHTML = html;
+      const modal = document.getElementById('approvalModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function onActChange(idx, suggested) {
+      const val = document.getElementById(`act_${idx}`).value;
+      const qInput = document.getElementById(`qty_${idx}`);
+      qInput.value = (val === 'Rejected' || val === 'Alternative') ? 0 : suggested;
+    }
+
+    async function submitApproval() {
+      const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === activeDocId);
+      if (!req) return;
+      const docKey = req.docId || req.id;
+      const displayId = String(req.reqId || docKey);
+      const displayDate = String(req.useDate || req.date || '-');
+      const items = JSON.parse(JSON.stringify(safeItems(req)));
+      let anyApproved = false;
+      let allApproved = true;
+
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const act = document.getElementById(`act_${i}`).value;
+        const appQty = Number(document.getElementById(`qty_${i}`).value);
+        const altNote = document.getElementById(`alt_${i}`).value.trim();
+
+        it.itemStatus = act;
+        it.status = act;
+        it.approvedQty = appQty;
+        it.alternativeNote = altNote;
+
+        if (it.isCustom || it.isSpecial) {
+          if (appQty > 0) {
+            anyApproved = true;
+            if (appQty < Number(it.requestedQty || 0)) allApproved = false;
+          } else {
+            allApproved = false;
+          }
+          continue;
+        }
+
+        const slotAvail = getAvailableForTimeSlot(it.eqDocId, displayDate, req.startTime, req.endTime, docKey);
+        if (appQty > slotAvail) {
+          return Swal.fire('Overlap Conflict', `Maximum available for ${it.name} in this slot is ${slotAvail}.`, 'error');
+        }
+
+        const eq = (window.IPS.equipments || []).find(e => e.id === it.eqDocId);
+        const isCons = isConsumableOrChemical(eq);
+        let curTotal = eq ? Number(eq.total || 0) : 0;
+        let curAvail = eq ? Number(eq.available || 0) : 0;
+        let curRes = eq ? Number(eq.reserved || 0) : 0;
+
+        if (appQty > 0 && eq) {
+          anyApproved = true;
+          if (appQty < Number(it.requestedQty || 0)) allApproved = false;
+
+          if (isCons) {
+            curTotal -= appQty;
+            curAvail -= appQty;
+            await db.collection('equipments').doc(eq.id).update({ total: curTotal, available: curAvail });
+            await addStockMovement(eq.equipmentId || eq.sku || '', eq.name, eq.lab, 'Stock Out', -appQty, `Issued consumable/chemical for ${displayId}`);
+          } else {
+            curRes += appQty;
+            curAvail = Math.max(0, curAvail - appQty);
+            await db.collection('equipments').doc(eq.id).update({ reserved: curRes, available: curAvail });
+            await addStockMovement(eq.equipmentId || eq.sku || '', eq.name, eq.lab, 'Reserved', -appQty, `Approved reservation for ${displayId}`);
+          }
+        } else {
+          allApproved = false;
+        }
+      }
+
+      const finalStatus = !anyApproved ? 'Rejected' : (allApproved ? 'Approved' : 'Partial');
+      await db.collection('requests').doc(docKey).update({
+        items,
+        status: finalStatus,
+        approvedBy: window.IPS.user.name,
+        approvalDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        staffRemarks: document.getElementById('staffRemarksInput').value.trim()
+      });
+
+      closeModal('approvalModal');
+      renderTable();
+      Swal.fire('Decision Saved', `Request ${displayId} updated to ${finalStatus}.`, 'success');
+    }
+
+    // ==================== RETURN & DAMAGE INSPECTION FLOW ====================
+    function openReturnModal(docId) {
+      activeDocId = docId;
+      const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === docId);
+      if (!req) return;
+      const displayId = String(req.reqId || docId);
+      const displayDate = String(req.useDate || req.date || '-');
+      document.getElementById('returnModalMeta').innerText = `${displayId} | Teacher: ${req.teacherName || ''} | Used on ${displayDate}`;
+      document.getElementById('returnRemarksInput').value = req.teacherReturnNote || '';
+
+      const banner = document.getElementById('teacherReturnBanner');
+      if (req.teacherReturnNote || req.teacherReportedDamage) {
+        banner.classList.remove('hidden');
+        banner.innerHTML = `
+          <b>📢 Teacher Return / Damage Report (${req.returnSubmittedAt || req.returnRequestedAt || 'Submitted'}):</b><br>
+          ${req.teacherReturnNote || 'Teacher notified that items have been returned.'}
+        `;
+      } else {
+        banner.classList.add('hidden');
+      }
+
+      const html = safeItems(req).filter(it => Number(it.approvedQty || 0) > 0).map((it, idx) => {
+        const isSpecialItem = Boolean(it.isCustom || it.isSpecial);
+        const eq = isSpecialItem ? null : (window.IPS.equipments || []).find(e => e.id === it.eqDocId);
+        const itemLab = it.lab || (eq && eq.lab) || 'General';
+        const isCons = isSpecialItem || (eq && isConsumableOrChemical(eq));
+        const approved = Number(it.approvedQty || 0);
+        const teacherDmg = Number(it.reportedDamagedQty || 0);
+        const defaultGood = isCons ? 0 : Math.max(0, approved - teacherDmg);
+
+        if (isCons) {
+          return `
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs">
+              <div>
+                <span class="font-bold text-slate-800">${it.name || ''}</span>
+                <span class="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px]">
+                  ${isSpecialItem ? 'Special / Fresh Item (Non-Stock)' : 'Consumable / Chemical (Used & Deducted)'}
+                </span>
+              </div>
+              <span class="text-slate-500">Issued: <b>${approved} ${it.unit || ''}</b> (No stock return)</span>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-bold mr-1.5">📍 Return to: ${itemLab}</span>
+                <span class="font-bold text-slate-800 text-sm">${it.name || ''}</span>
+                ${it.spec ? `<span class="text-xs text-slate-500 ml-1">[${it.spec}]</span>` : ''}
+                <span class="ml-2 text-xs text-indigo-700 font-semibold">Approved Qty: ${approved}</span>
+              </div>
+              ${teacherDmg > 0 ? `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-700 text-[11px] font-semibold">Teacher reported ${teacherDmg} damaged</span>` : ''}
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 text-xs">
+              <div class="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                <label class="block text-[10px] font-semibold text-emerald-800 mb-1">Good / Intact (+Available)</label>
+                <input type="number" id="ret_good_${idx}" min="0" max="${approved}" value="${defaultGood}" class="w-full px-2.5 py-1 rounded border border-emerald-300 bg-white font-bold text-emerald-700" />
+              </div>
+              <div class="bg-rose-50 p-2 rounded-lg border border-rose-200">
+                <label class="block text-[10px] font-semibold text-rose-800 mb-1">Damaged / Broken (+Damaged)</label>
+                <input type="number" id="ret_dmg_${idx}" min="0" max="${approved}" value="${teacherDmg}" class="w-full px-2.5 py-1 rounded border border-rose-300 bg-white font-bold text-rose-700" />
+              </div>
+              <div class="bg-slate-100 p-2 rounded-lg border border-slate-300">
+                <label class="block text-[10px] font-semibold text-slate-700 mb-1">Lost / Missing (-Total Stock)</label>
+                <input type="number" id="ret_lost_${idx}" min="0" max="${approved}" value="0" class="w-full px-2.5 py-1 rounded border border-slate-300 bg-white font-bold text-slate-700" />
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('returnItemsContainer').innerHTML = html || '<p class="text-xs text-slate-400">No approved items to inspect.</p>';
+      if (window.lucide) lucide.createIcons();
+      const modal = document.getElementById('returnModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    async function submitReturnInspection() {
+      const req = (window.IPS.requests || []).find(r => (r.docId || r.id) === activeDocId);
+      if (!req) return;
+      const docKey = req.docId || req.id;
+      const displayId = String(req.reqId || docKey);
+      const returnRemarks = document.getElementById('returnRemarksInput').value.trim();
+      const approvedItems = safeItems(req).filter(it => Number(it.approvedQty || 0) > 0);
+
+      for (let idx = 0; idx < approvedItems.length; idx++) {
+        const it = approvedItems[idx];
+        if (it.isCustom || it.isSpecial) continue;
+        const eq = (window.IPS.equipments || []).find(e => e.id === it.eqDocId);
+        if (!eq || isConsumableOrChemical(eq)) continue;
+
+        const goodQty = Number(document.getElementById(`ret_good_${idx}`).value || 0);
+        const dmgQty = Number(document.getElementById(`ret_dmg_${idx}`).value || 0);
+        const lostQty = Number(document.getElementById(`ret_lost_${idx}`).value || 0);
+        const approved = Number(it.approvedQty || 0);
+
+        if (goodQty + dmgQty + lostQty !== approved) {
+          return Swal.fire(
+            'Quantity Mismatch',
+            `For <b>${it.name}</b>, Good (${goodQty}) + Damaged (${dmgQty}) + Lost (${lostQty}) must equal Approved Qty (${approved}).`,
+            'warning'
+          );
+        }
+      }
+
+      const updatedItems = JSON.parse(JSON.stringify(safeItems(req)));
+      let approvedIdx = 0;
+
+      for (let i = 0; i < updatedItems.length; i++) {
+        const it = updatedItems[i];
+        if (Number(it.approvedQty || 0) <= 0) continue;
+
+        const eq = (it.isCustom || it.isSpecial) ? null : (window.IPS.equipments || []).find(e => e.id === it.eqDocId);
+        if (eq && !isConsumableOrChemical(eq)) {
+          const goodQty = Number(document.getElementById(`ret_good_${approvedIdx}`).value || 0);
+          const dmgQty = Number(document.getElementById(`ret_dmg_${approvedIdx}`).value || 0);
+          const lostQty = Number(document.getElementById(`ret_lost_${approvedIdx}`).value || 0);
+          const approved = Number(it.approvedQty || 0);
+
+          it.returnedGoodQty = goodQty;
+          it.returnedDamagedQty = dmgQty;
+          it.returnedLostQty = lostQty;
+
+          const newReserved = Math.max(0, Number(eq.reserved || 0) - approved);
+          const newDamaged = Number(eq.damaged || 0) + dmgQty;
+          const newTotal = Math.max(0, Number(eq.total || 0) - lostQty);
+          const newAvailable = Math.min(newTotal - newDamaged, Number(eq.available || 0) + goodQty);
+
+          await db.collection('equipments').doc(eq.id).update({
+            total: newTotal,
+            available: newAvailable,
+            reserved: newReserved,
+            damaged: newDamaged
+          });
+
+          if (goodQty > 0) {
+            await addStockMovement(eq.equipmentId || eq.sku || '', eq.name, eq.lab, 'Returned', goodQty, `Returned intact from ${displayId}`);
+          }
+          if (dmgQty > 0) {
+            await addStockMovement(eq.equipmentId || eq.sku || '', eq.name, eq.lab, 'Damaged', -dmgQty, `Damaged during ${displayId}: ${returnRemarks || 'Reported on return'}`);
+          }
+          if (lostQty > 0) {
+            await addStockMovement(eq.equipmentId || eq.sku || '', eq.name, eq.lab, 'Lost', -lostQty, `Lost during ${displayId}: ${returnRemarks || 'Missing on return'}`);
+          }
+        }
+        approvedIdx++;
+      }
+
+      await db.collection('requests').doc(docKey).update({
+        items: updatedItems,
+        status: 'Returned',
+        returnedByStaff: window.IPS.user.name,
+        returnInspectedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        returnRemarks
+      });
+
+      closeModal('returnModal');
+      renderTable();
+      Swal.fire('Return Completed', 'Equipment condition inspected and stock balances updated.', 'success');
+    }
+
+    function closeModal(id) {
+      const m = document.getElementById(id);
+      if (m) {
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+      }
+    }
+  </script>
+</body>
+</html>
