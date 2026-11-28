@@ -32,15 +32,14 @@
           <select id="labFilter" onchange="renderStockTable()" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium"></select>
           <select id="typeFilter" onchange="renderStockTable()" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium">
             <option value="All">All Categories</option>
-            <option value="Equipment">Returnable Equipment</option>
-            <option value="Consumable">Consumable</option>
-            <option value="Chemical">Chemical</option>
-            <option value="ETC">ETC (Other / General)</option>
           </select>
-          <input type="text" id="searchInput" onkeyup="renderStockTable()" placeholder="Search ID, Name, Location..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-56" />
+          <input type="text" id="searchInput" onkeyup="renderStockTable()" placeholder="Search ID (e.g. FUR-001), Name, Room..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-60" />
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+          <button id="manageCatBtn" onclick="openCategoryModal()" class="hidden px-3.5 py-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-800 text-xs font-semibold hover:bg-purple-100 flex items-center gap-1.5 shadow-sm">
+            <i data-lucide="folder-plus" class="w-4 h-4"></i> Manage Categories
+          </button>
           <button id="auditToggleBtn" onclick="toggleAuditMode()" class="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold hover:bg-amber-100 flex items-center gap-1.5">
             <i data-lucide="clipboard-list" class="w-4 h-4"></i>
             <span id="auditToggleLabel">Stock Audit Mode</span>
@@ -72,7 +71,7 @@
             <thead>
               <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
                 <th class="p-3.5 w-8"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(this.checked)" title="Select all for A-12 label printing" /></th>
-                <th class="p-3.5">ID / Equipment</th>
+                <th class="p-3.5">Asset ID / Item Name</th>
                 <th class="p-3.5">Room, Location & Category</th>
                 <th class="p-3.5 text-center">Total</th>
                 <th class="p-3.5 text-center">Available</th>
@@ -90,44 +89,40 @@
     </main>
   </div>
 
-  <!-- ADD / EDIT EQUIPMENT MODAL -->
+  <!-- ADD / EDIT EQUIPMENT & ASSET MODAL -->
   <div id="eqModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6 shadow-2xl">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-        <h3 id="eqModalTitle" class="text-lg font-bold text-slate-800">Add New Equipment / Chemical</h3>
+        <h3 id="eqModalTitle" class="text-lg font-bold text-slate-800">Add New Asset / Equipment / Chemical</h3>
         <button onclick="closeModal('eqModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       <form id="eqForm" class="mt-4 space-y-3.5">
         <input type="hidden" id="eqDocId" />
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Laboratory / Room *</label>
-            <select id="eqLab" required onchange="onLabSelectChange()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium"></select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Asset / Equipment ID (Auto-Run by Room) *</label>
-            <input type="text" id="eqCode" readonly required class="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/70 font-mono font-bold text-indigo-700 text-xs cursor-not-allowed" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Equipment / Chemical Name *</label>
-            <input type="text" id="eqName" required placeholder="e.g., Compound Microscope" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Storage Location / Cabinet (Optional)</label>
-            <input type="text" id="eqLocation" placeholder="e.g., Cabinet 1, Shelf B-2, Locker A" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-          </div>
-          <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Category Type *</label>
-            <select id="eqType" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white">
-              <option value="Equipment">Returnable Equipment</option>
-              <option value="Consumable">Consumable</option>
-              <option value="Chemical">Chemical</option>
-              <option value="ETC">ETC (Other / General)</option>
-            </select>
+            <select id="eqType" required onchange="onCategoryOrRoomChange()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Room / Department *</label>
+            <select id="eqLab" required onchange="onCategoryOrRoomChange()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium"></select>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Asset ID (Format: [Category]-[Global No.]-[Room Code]) *</label>
+            <input type="text" id="eqCode" readonly required class="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/70 font-mono font-bold text-indigo-700 text-xs cursor-not-allowed" />
+            <p class="text-[10px] text-slate-400 mt-0.5">Permanent core ID (e.g. FUR-001) stays with the item; trailing room code updates automatically upon transfer.</p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Asset / Item Name *</label>
+            <input type="text" id="eqName" required placeholder="e.g., Teacher Desk, Compound Microscope" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Storage Location / Spot (Optional)</label>
+            <input type="text" id="eqLocation" placeholder="e.g., Front Row, Cabinet 1, Shelf B-2" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Unit *</label>
-            <input type="text" id="eqUnit" required placeholder="pcs, units, bottles, sets" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+            <input type="text" id="eqUnit" required placeholder="pcs, units, desks, bottles, sets" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Total Stock *</label>
@@ -135,30 +130,30 @@
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Minimum Stock Alert *</label>
-            <input type="number" id="eqMinStock" min="0" value="5" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+            <input type="number" id="eqMinStock" min="0" value="1" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Chemical Formula (Optional)</label>
-            <input type="text" id="eqFormula" placeholder="e.g., H2SO4, NaCl" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+            <label class="block text-xs font-medium text-slate-600 mb-1">Chemical Formula / Model No. (Optional)</label>
+            <input type="text" id="eqFormula" placeholder="e.g., H2SO4, Dell OptiPlex 7090" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Expiry Date (For Chemicals)</label>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Expiry Date / Warranty End (Optional)</label>
             <input type="date" id="eqExpiry" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
-          <div class="sm:col-span-2">
+          <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Supplier / Brand</label>
             <input type="text" id="eqSupplier" placeholder="Optional" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
         </div>
 
-        <!-- SAFETY / SDS / HAZARD ATTACHMENT SECTION -->
+        <!-- SAFETY / SDS / MANUAL ATTACHMENT SECTION -->
         <div class="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2.5">
           <div class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-            <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600"></i> Safety Handling Warning & SDS Attachment (For Chemicals / Sensitive Equipment)
+            <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600"></i> Handling Note / Manual / SDS Attachment (Optional)
           </div>
           <div>
-            <label class="block text-[11px] font-medium text-slate-600 mb-1">Safety / Handling Warning Note</label>
-            <input type="text" id="eqHazardNote" placeholder="e.g., Corrosive — Wear acid-resistant gloves, goggles, and work under fume hood" class="w-full px-3 py-1.5 rounded-lg border border-amber-200 bg-white text-xs" />
+            <label class="block text-[11px] font-medium text-slate-600 mb-1">Handling / Spec Note</label>
+            <input type="text" id="eqHazardNote" placeholder="e.g., Corrosive — Wear gloves, or Serial No. SN123456" class="w-full px-3 py-1.5 rounded-lg border border-amber-200 bg-white text-xs" />
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
@@ -166,7 +161,7 @@
               <input type="url" id="eqSafetyLink" placeholder="https://drive.google.com/..." class="w-full px-3 py-1.5 rounded-lg border border-amber-200 bg-white text-xs" />
             </div>
             <div>
-              <label class="block text-[11px] font-medium text-slate-600 mb-1">Or Upload SDS / Hazard Image / PDF (&lt; 450 KB)</label>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Or Upload Manual / Image / PDF (&lt; 450 KB)</label>
               <input type="file" id="eqSafetyFile" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:bg-white file:text-amber-800" />
             </div>
           </div>
@@ -181,13 +176,106 @@
     </div>
   </div>
 
+  <!-- TRANSFER ASSET / STOCK MODAL -->
+  <div id="transferModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="arrow-right-left" class="w-5 h-5 text-purple-600"></i> Transfer Asset / Stock
+          </h3>
+          <p id="transferItemSummary" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeModal('transferModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="transferForm" class="mt-4 space-y-3.5">
+        <input type="hidden" id="transferSourceDocId" />
+
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs flex justify-between items-center">
+          <div>
+            <span class="text-slate-500">From Room:</span>
+            <b id="transferFromRoom" class="text-slate-800 ml-1"></b>
+          </div>
+          <div>
+            <span class="text-slate-500">Available to Transfer:</span>
+            <b id="transferMaxQty" class="text-emerald-600 ml-1"></b>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Destination Room *</label>
+            <select id="transferToRoom" required onchange="updateTransferPreview()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-medium"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Quantity to Transfer *</label>
+            <input type="number" id="transferQty" min="1" required oninput="updateTransferPreview()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">New Storage Location / Spot in Destination Room (Optional)</label>
+          <input type="text" id="transferToLocation" placeholder="e.g., Corner Desk, Cabinet 2" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Transfer Reason / Recipient *</label>
+          <input type="text" id="transferReason" required placeholder="e.g., Relocated for new semester, Assigned to Teacher Somchai" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+        </div>
+
+        <div id="transferPreviewBox" class="p-3 rounded-xl bg-indigo-50/80 border border-indigo-200 text-[11px] text-indigo-900 space-y-1"></div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal('transferModal')" class="px-4 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700">Confirm Transfer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MANAGE CATEGORIES MODAL (ADMIN / SUPER ADMIN ONLY) -->
+  <div id="categoryModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg max-h-[88vh] overflow-y-auto p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="folder-cog" class="w-5 h-5 text-purple-600"></i> Manage Asset Categories
+          </h3>
+          <p class="text-xs text-slate-500 mt-0.5">Create categories with 3-letter ID prefixes (Admin & Super Admin)</p>
+        </div>
+        <button onclick="closeModal('categoryModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="categoryForm" class="mt-4 p-3.5 rounded-xl bg-purple-50/70 border border-purple-200 space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div class="sm:col-span-2">
+            <label class="block text-[11px] font-medium text-slate-600 mb-1">Category Name *</label>
+            <input type="text" id="newCatName" required placeholder="e.g., Furniture (Tables & Chairs)" class="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white text-xs" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-600 mb-1">3-Letter Prefix *</label>
+            <input type="text" id="newCatPrefix" required maxlength="4" placeholder="e.g., FUR" class="w-full px-3 py-1.5 rounded-lg border border-purple-200 bg-white text-xs font-mono uppercase font-bold" />
+          </div>
+        </div>
+        <div class="flex justify-end">
+          <button type="submit" class="px-4 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700">+ Add Category</button>
+        </div>
+      </form>
+
+      <div class="mt-4">
+        <div class="text-xs font-bold text-slate-700 mb-2">Active Categories</div>
+        <div id="categoryListContainer" class="space-y-2"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- SERVICE & REPAIR HISTORY MODAL -->
   <div id="historyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100">
         <div>
           <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-            <i data-lucide="history" class="w-5 h-5 text-indigo-600"></i> Equipment Lifetime Service & Stock History
+            <i data-lucide="history" class="w-5 h-5 text-indigo-600"></i> Asset Lifetime Service, Transfer & Stock History
           </h3>
           <p id="historyModalMeta" class="text-xs text-slate-500 mt-0.5"></p>
         </div>
@@ -203,36 +291,87 @@
     let isAuditMode = false;
     let selectedEqIds = new Set();
 
+    // Default built-in categories (merged with custom Firestore 'asset_categories')
+    const DEFAULT_CATEGORIES = [
+      { id: 'def_eq', name: 'Equipment', prefix: 'EQP', isDefault: true },
+      { id: 'def_fur', name: 'Furniture', prefix: 'FUR', isDefault: true },
+      { id: 'def_ict', name: 'IT & AV', prefix: 'ICT', isDefault: true },
+      { id: 'def_con', name: 'Consumable', prefix: 'CON', isDefault: true },
+      { id: 'def_che', name: 'Chemical', prefix: 'CHE', isDefault: true },
+      { id: 'def_etc', name: 'ETC', prefix: 'ETC', isDefault: true }
+    ];
+    let customCategories = [];
+
     initIPSPage({
       activePage: 'stock',
-      title: 'Inventory & Stock Management',
-      subtitle: 'Real-time equipment balances, physical stock audits, A-12 QR labels, and service history',
+      title: 'Asset & Stock Management',
+      subtitle: 'School-wide asset registry, room transfers, physical stock audits, A-12 QR labels, and history',
       allowedRoles: ['Teacher', 'Staff', 'Office Staff', 'Lab Staff', 'Admin', 'Super Admin'],
       onReady: () => {
         const role = String((window.IPS.user || {}).role || '');
         if (['Lab Staff', 'Admin', 'Super Admin'].includes(role)) {
           document.getElementById('addItemBtn').classList.remove('hidden');
         }
+        if (['Admin', 'Super Admin'].includes(role)) {
+          document.getElementById('manageCatBtn').classList.remove('hidden');
+        }
+
+        // Listen to custom asset categories in real time
+        db.collection('asset_categories').onSnapshot(snap => {
+          customCategories = snap.docs.map(d => ({ id: d.id, ...d.data(), isDefault: false }));
+          populateFilters();
+          renderCategoryList();
+          renderStockTable();
+        }, () => {
+          populateFilters();
+          renderStockTable();
+        });
+
         populateFilters();
         renderStockTable();
       }
     });
 
-    function populateFilters() {
-      const allLabs = getAllLabNames();
-      const currentLab = document.getElementById('labFilter').value;
-      document.getElementById('labFilter').innerHTML = `<option value="All">All Rooms (${allLabs.length})</option>` +
-        allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
-      if (currentLab) document.getElementById('labFilter').value = currentLab;
-
-      document.getElementById('eqLab').innerHTML = allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
+    function getAllCategories() {
+      const map = new Map();
+      DEFAULT_CATEGORIES.forEach(c => map.set(c.name.toLowerCase(), c));
+      customCategories.forEach(c => {
+        if (c.name && c.prefix) map.set(c.name.toLowerCase(), c);
+      });
+      return Array.from(map.values());
     }
 
-    // Generate Auto-Run Number based on selected Room (e.g., Biology -> BIO-001, Chemistry -> CHE-001)
-    function generateRoomAssetCode(roomName) {
-      const cleanLetters = String(roomName || 'LAB').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      const prefix = (cleanLetters.slice(0, 3) || 'AST').padEnd(3, 'X');
-      const regex = new RegExp(`^${prefix}-(\\d+)$`, 'i');
+    function getCategoryPrefix(categoryName) {
+      const found = getAllCategories().find(c => c.name.toLowerCase() === String(categoryName || '').toLowerCase());
+      if (found && found.prefix) return found.prefix.toUpperCase();
+      const clean = String(categoryName || 'AST').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      return (clean.slice(0, 3) || 'AST').padEnd(3, 'X');
+    }
+
+    // Extract at least 4-char room code (e.g., "Room 4102" -> "4102", "Artroom" -> "ARTR", "ICT" -> "ICT1")
+    function getRoomSuffixCode(roomName) {
+      const raw = String(roomName || 'ROOM').trim();
+      const digits = raw.match(/\d{4,}/);
+      if (digits) return digits[0];
+      const clean = raw.replace(/^room\s*/i, '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (clean.length >= 4) return clean.slice(0, 6);
+      return clean.padEnd(4, '0');
+    }
+
+    // Extract permanent core ID (e.g. "FUR-001-4102" -> "FUR-001")
+    function getCoreAssetId(fullCode) {
+      const parts = String(fullCode || '').trim().split('-');
+      if (parts.length >= 2 && /^\d+$/.test(parts[1])) {
+        return `${parts[0].toUpperCase()}-${parts[1]}`;
+      }
+      return String(fullCode || '').trim();
+    }
+
+    // Generate Global Running Number by Category + Trailing Room Code (e.g. FUR-001-4102)
+    function generateGlobalCategoryAssetCode(categoryName, roomName) {
+      const catPrefix = getCategoryPrefix(categoryName);
+      const roomCode = getRoomSuffixCode(roomName);
+      const regex = new RegExp(`^${catPrefix}-(\\d+)(?:-.*)?$`, 'i');
 
       let maxNum = 0;
       (window.IPS.equipments || []).forEach(e => {
@@ -244,17 +383,337 @@
         }
       });
 
-      return `${prefix}-${String(maxNum + 1).padStart(3, '0')}`;
+      return `${catPrefix}-${String(maxNum + 1).padStart(3, '0')}-${roomCode}`;
     }
 
-    function onLabSelectChange() {
+    function populateFilters() {
+      const allLabs = getAllLabNames();
+      const currentLab = document.getElementById('labFilter').value;
+      document.getElementById('labFilter').innerHTML = `<option value="All">All Rooms (${allLabs.length})</option>` +
+        allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
+      if (currentLab) document.getElementById('labFilter').value = currentLab;
+
+      const eqLabEl = document.getElementById('eqLab');
+      const prevEqLab = eqLabEl.value;
+      eqLabEl.innerHTML = allLabs.map(l => `<option value="${l}">${l}</option>`).join('');
+      if (prevEqLab && allLabs.includes(prevEqLab)) eqLabEl.value = prevEqLab;
+
+      const cats = getAllCategories();
+      const currentType = document.getElementById('typeFilter').value;
+      document.getElementById('typeFilter').innerHTML = `<option value="All">All Categories (${cats.length})</option>` +
+        cats.map(c => `<option value="${c.name}">${c.name} (${c.prefix})</option>`).join('');
+      if (currentType) document.getElementById('typeFilter').value = currentType;
+
+      const eqTypeEl = document.getElementById('eqType');
+      const prevEqType = eqTypeEl.value;
+      eqTypeEl.innerHTML = cats.map(c => `<option value="${c.name}">${c.name} [${c.prefix}]</option>`).join('');
+      if (prevEqType) eqTypeEl.value = prevEqType;
+    }
+
+    function onCategoryOrRoomChange() {
       const isEditing = Boolean(document.getElementById('eqDocId').value);
+      const selectedCat = document.getElementById('eqType').value;
+      const selectedRoom = document.getElementById('eqLab').value;
+
       if (!isEditing) {
-        const selectedRoom = document.getElementById('eqLab').value;
-        document.getElementById('eqCode').value = generateRoomAssetCode(selectedRoom);
+        document.getElementById('eqCode').value = generateGlobalCategoryAssetCode(selectedCat, selectedRoom);
+      } else {
+        // Keep core number if editing, update trailing room suffix
+        const currentCode = document.getElementById('eqCode').value;
+        const core = getCoreAssetId(currentCode);
+        if (core.includes('-')) {
+          document.getElementById('eqCode').value = `${core}-${getRoomSuffixCode(selectedRoom)}`;
+        }
       }
     }
 
+    function canManageStock() {
+      const role = String((window.IPS.user || {}).role || '');
+      return ['Lab Staff', 'Admin', 'Super Admin'].includes(role);
+    }
+
+    function isAdminOrAbove() {
+      const role = String((window.IPS.user || {}).role || '');
+      return ['Admin', 'Super Admin'].includes(role);
+    }
+
+    // ==================== CATEGORY MANAGEMENT (ADMIN / SUPER ADMIN) ====================
+    function openCategoryModal() {
+      if (!isAdminOrAbove()) {
+        return Swal.fire('Access Denied', 'Only Admin or Super Admin can manage categories.', 'warning');
+      }
+      renderCategoryList();
+      const m = document.getElementById('categoryModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function renderCategoryList() {
+      const container = document.getElementById('categoryListContainer');
+      if (!container) return;
+      const cats = getAllCategories();
+      container.innerHTML = cats.map(c => `
+        <div class="p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-mono font-bold text-[11px]">${c.prefix}</span>
+            <span class="font-semibold text-slate-800">${c.name}</span>
+          </div>
+          ${c.isDefault
+            ? '<span class="text-[10px] text-slate-400">System Default</span>'
+            : `<button type="button" onclick="deleteCustomCategory('${c.id}', '${c.name}')" class="px-2 py-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 text-[10px] font-semibold">Delete</button>`
+          }
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!isAdminOrAbove()) return;
+
+      const name = document.getElementById('newCatName').value.trim();
+      const prefix = document.getElementById('newCatPrefix').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+      if (!name || prefix.length < 2) {
+        return Swal.fire('Invalid Input', 'Please enter a category name and a 2-4 character code prefix.', 'warning');
+      }
+
+      const exists = getAllCategories().some(c => c.name.toLowerCase() === name.toLowerCase() || c.prefix === prefix);
+      if (exists) {
+        return Swal.fire('Duplicate Category', 'This category name or prefix code already exists.', 'warning');
+      }
+
+      await db.collection('asset_categories').add({
+        name,
+        prefix,
+        createdBy: (window.IPS.user || {}).email || '',
+        createdAt: new Date().toISOString()
+      });
+
+      document.getElementById('categoryForm').reset();
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `Added category ${name} (${prefix})`, showConfirmButton: false, timer: 2000 });
+    });
+
+    async function deleteCustomCategory(catId, catName) {
+      if (!isAdminOrAbove()) return;
+      const res = await Swal.fire({
+        title: `Delete Category "${catName}"?`,
+        text: 'Existing items using this category will remain untouched.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'Delete'
+      });
+      if (!res.isConfirmed) return;
+      await db.collection('asset_categories').doc(catId).delete();
+    }
+
+    // ==================== TRANSFER MODAL & TRANSACTION LOGIC ====================
+    function openTransferModal(eqId) {
+      if (!canManageStock()) {
+        return Swal.fire('Permission Required', 'Only Lab Staff, Admin, or Super Admin can transfer items.', 'info');
+      }
+      const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
+      if (!eq) return;
+
+      const avail = Number(eq.available || 0);
+      if (avail <= 0) {
+        return Swal.fire('Unavailable', 'No available units in stock to transfer (check Reserved / In Repair status).', 'warning');
+      }
+
+      document.getElementById('transferForm').reset();
+      document.getElementById('transferSourceDocId').value = eq.id;
+      document.getElementById('transferItemSummary').innerText = `${eq.equipmentId || ''} • ${eq.name}`;
+      document.getElementById('transferFromRoom').innerText = `${eq.lab}${eq.location ? ` (${eq.location})` : ''}`;
+      document.getElementById('transferMaxQty').innerText = `${avail} ${eq.unit || 'pcs'}`;
+
+      const qtyInput = document.getElementById('transferQty');
+      qtyInput.max = avail;
+      qtyInput.value = avail === 1 ? 1 : 1;
+
+      const destRooms = getAllLabNames().filter(r => r !== eq.lab);
+      document.getElementById('transferToRoom').innerHTML = destRooms.map(r => `<option value="${r}">${r}</option>`).join('');
+
+      updateTransferPreview();
+
+      const m = document.getElementById('transferModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function updateTransferPreview() {
+      const eqId = document.getElementById('transferSourceDocId').value;
+      const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
+      if (!eq) return;
+
+      const qty = Number(document.getElementById('transferQty').value || 0);
+      const destRoom = document.getElementById('transferToRoom').value;
+      const destSuffix = getRoomSuffixCode(destRoom);
+      const coreId = getCoreAssetId(eq.equipmentId || '');
+      const isFullMove = (qty === Number(eq.total || 0)) && (qty === Number(eq.available || 0));
+
+      const previewBox = document.getElementById('transferPreviewBox');
+      if (isFullMove) {
+        const updatedCode = coreId.includes('-') ? `${coreId}-${destSuffix}` : (eq.equipmentId || '');
+        previewBox.innerHTML = `
+          <div><b>Full Asset Relocation:</b> Moving all ${qty} ${eq.unit || 'pcs'} to <b>${destRoom}</b>.</div>
+          <div><b>Asset ID Update:</b> <span class="font-mono font-bold">${eq.equipmentId || '-'}</span> → <span class="font-mono font-bold text-indigo-700">${updatedCode}</span> (Permanent ID <b>${coreId}</b> preserved)</div>
+        `;
+      } else {
+        const existingTarget = (window.IPS.equipments || []).find(
+          x => x.lab === destRoom && x.name.toLowerCase() === eq.name.toLowerCase() && (x.type || '') === (eq.type || '')
+        );
+        if (existingTarget) {
+          previewBox.innerHTML = `
+            <div><b>Partial Stock Split:</b> Deducting ${qty} from <b>${eq.lab}</b> and merging into existing stock in <b>${destRoom}</b> (<span class="font-mono font-bold">${existingTarget.equipmentId}</span>).</div>
+          `;
+        } else {
+          const nextCode = generateGlobalCategoryAssetCode(eq.type || 'Equipment', destRoom);
+          previewBox.innerHTML = `
+            <div><b>Partial Stock Split:</b> Deducting ${qty} from <b>${eq.lab}</b> (keeps <span class="font-mono">${eq.equipmentId}</span>) and creating new record in <b>${destRoom}</b> with ID <span class="font-mono font-bold text-indigo-700">${nextCode}</span>.</div>
+          `;
+        }
+      }
+    }
+
+    document.getElementById('transferForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const sourceId = document.getElementById('transferSourceDocId').value;
+      const eq = (window.IPS.equipments || []).find(x => x.id === sourceId);
+      if (!eq) return;
+
+      const qty = Number(document.getElementById('transferQty').value || 0);
+      const destRoom = document.getElementById('transferToRoom').value;
+      const destLocation = document.getElementById('transferToLocation').value.trim();
+      const reason = document.getElementById('transferReason').value.trim();
+
+      if (qty <= 0 || qty > Number(eq.available || 0)) {
+        return Swal.fire('Invalid Quantity', `Please enter a quantity between 1 and ${eq.available}.`, 'warning');
+      }
+
+      const isFullMove = (qty === Number(eq.total || 0)) && (qty === Number(eq.available || 0));
+      const destSuffix = getRoomSuffixCode(destRoom);
+      const coreId = getCoreAssetId(eq.equipmentId || '');
+
+      try {
+        if (isFullMove) {
+          // Move entire asset record to new room, keeping core ID (e.g. FUR-001-4101 -> FUR-001-4102)
+          const oldCode = eq.equipmentId || '';
+          const newCode = coreId.includes('-') ? `${coreId}-${destSuffix}` : oldCode;
+          const oldLab = eq.lab;
+
+          await db.collection('equipments').doc(eq.id).update({
+            lab: destRoom,
+            location: destLocation || eq.location || '',
+            equipmentId: newCode
+          });
+
+          await addStockMovement(
+            newCode,
+            eq.name,
+            destRoom,
+            'Transfer In',
+            qty,
+            `Transferred from ${oldLab} (${oldCode} → ${newCode}): ${reason}`
+          );
+          await addStockMovement(
+            oldCode,
+            eq.name,
+            oldLab,
+            'Transfer Out',
+            -qty,
+            `Transferred to ${destRoom} (${newCode}): ${reason}`
+          );
+
+          closeModal('transferModal');
+          Swal.fire('Transferred', `${eq.name} moved to ${destRoom} (${newCode}).`, 'success');
+        } else {
+          // Split stock between source room and destination room atomically
+          const existingTarget = (window.IPS.equipments || []).find(
+            x => x.lab === destRoom && x.name.toLowerCase() === eq.name.toLowerCase() && (x.type || '') === (eq.type || '')
+          );
+          const newCodeForTarget = existingTarget
+            ? existingTarget.equipmentId
+            : generateGlobalCategoryAssetCode(eq.type || 'Equipment', destRoom);
+
+          await db.runTransaction(async (tx) => {
+            const srcRef = db.collection('equipments').doc(eq.id);
+            const srcSnap = await tx.get(srcRef);
+            if (!srcSnap.exists) throw new Error('Source item not found.');
+
+            const srcData = srcSnap.data();
+            if (Number(srcData.available || 0) < qty) {
+              throw new Error('Insufficient available stock in source room.');
+            }
+
+            tx.update(srcRef, {
+              total: Math.max(0, Number(srcData.total || 0) - qty),
+              available: Math.max(0, Number(srcData.available || 0) - qty)
+            });
+
+            if (existingTarget) {
+              const tgtRef = db.collection('equipments').doc(existingTarget.id);
+              const tgtSnap = await tx.get(tgtRef);
+              const tgtData = tgtSnap.data();
+              tx.update(tgtRef, {
+                total: Number(tgtData.total || 0) + qty,
+                available: Number(tgtData.available || 0) + qty,
+                location: destLocation || tgtData.location || ''
+              });
+            } else {
+              const newRef = db.collection('equipments').doc();
+              tx.set(newRef, {
+                equipmentId: newCodeForTarget,
+                lab: destRoom,
+                name: eq.name,
+                location: destLocation || '',
+                formula: eq.formula || '',
+                type: eq.type || 'Equipment',
+                unit: eq.unit || 'pcs',
+                total: qty,
+                available: qty,
+                reserved: 0,
+                damaged: 0,
+                inRepair: 0,
+                minStock: eq.minStock || 1,
+                expiryDate: eq.expiryDate || '',
+                supplier: eq.supplier || '',
+                hazardNote: eq.hazardNote || '',
+                safetyLink: eq.safetyLink || '',
+                safetyFileName: eq.safetyFileName || '',
+                safetyFileData: eq.safetyFileData || '',
+                status: 'Active'
+              });
+            }
+          });
+
+          await addStockMovement(
+            eq.equipmentId || '',
+            eq.name,
+            eq.lab,
+            'Transfer Out',
+            -qty,
+            `Transferred ${qty} ${eq.unit || 'pcs'} to ${destRoom} (${newCodeForTarget}): ${reason}`
+          );
+          await addStockMovement(
+            newCodeForTarget,
+            eq.name,
+            destRoom,
+            'Transfer In',
+            qty,
+            `Received ${qty} ${eq.unit || 'pcs'} from ${eq.lab} (${eq.equipmentId || ''}): ${reason}`
+          );
+
+          closeModal('transferModal');
+          Swal.fire('Transferred', `Transferred ${qty} ${eq.unit || 'pcs'} of ${eq.name} to ${destRoom}.`, 'success');
+        }
+      } catch (err) {
+        Swal.fire('Transfer Failed', err.message, 'error');
+      }
+    });
+
+    // ==================== FILE & SAFETY VIEWER ====================
     function readFileAsBase64(file) {
       return new Promise((resolve, reject) => {
         if (!file) return resolve(null);
@@ -282,7 +741,7 @@
           fileHtml = `
             <div class="mt-3">
               <iframe src="${eq.safetyFileData}" class="w-full h-80 rounded-xl border"></iframe>
-              <a href="${eq.safetyFileData}" download="${eq.safetyFileName || 'SDS_Document.pdf'}" class="inline-block mt-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium">Download SDS PDF</a>
+              <a href="${eq.safetyFileData}" download="${eq.safetyFileName || 'Document.pdf'}" class="inline-block mt-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium">Download PDF</a>
             </div>
           `;
         } else {
@@ -291,28 +750,23 @@
       }
 
       if (eq.safetyLink) {
-        fileHtml += `<div class="mt-3"><a href="${eq.safetyLink}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">Open External SDS / Drive Link ↗</a></div>`;
+        fileHtml += `<div class="mt-3"><a href="${eq.safetyLink}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">Open External Link ↗</a></div>`;
       }
 
       Swal.fire({
-        title: `Safety & SDS Info: ${eq.name || ''} ${eq.formula ? `(${eq.formula})` : ''}`,
+        title: `Handling / Spec Info: ${eq.name || ''} ${eq.formula ? `(${eq.formula})` : ''}`,
         width: 650,
         html: `
           <div class="text-left text-xs space-y-2">
-            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950">
-              <b>Warning / Handling Note:</b><br>
-              ${eq.hazardNote ? String(eq.hazardNote).replace(/\n/g, '<br>') : 'No specific text warning recorded.'}
+            <div class="p-3 rounded-xl bg-amber-5 border border-amber-200 text-amber-950">
+              <b>Note:</b><br>
+              ${eq.hazardNote ? String(eq.hazardNote).replace(/\n/g, '<br>') : 'No specific note recorded.'}
             </div>
             ${fileHtml}
           </div>
         `,
         confirmButtonText: 'Close'
       });
-    }
-
-    function canManageStock() {
-      const role = String((window.IPS.user || {}).role || '');
-      return ['Lab Staff', 'Admin', 'Super Admin'].includes(role);
     }
 
     function toggleAuditMode() {
@@ -350,11 +804,11 @@
         if (labF !== 'All' && eq.lab !== labF) return false;
         if (typeF !== 'All' && (eq.type || 'Equipment') !== typeF) return false;
         if (q) {
-          const hay = `${eq.equipmentId || ''} ${eq.name || ''} ${eq.formula || ''} ${eq.lab || ''} ${eq.location || ''}`.toLowerCase();
+          const hay = `${eq.equipmentId || ''} ${eq.name || ''} ${eq.formula || ''} ${eq.lab || ''} ${eq.location || ''} ${eq.type || ''}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
-      });
+      }).sort((a, b) => String(a.equipmentId || '').localeCompare(String(b.equipmentId || '')));
     }
 
     function renderStockTable() {
@@ -369,7 +823,7 @@
 
       document.getElementById('stockSummaryCards').innerHTML = `
         <div class="glass-card rounded-2xl p-3.5">
-          <div class="text-[11px] text-slate-500 font-medium">Total SKUs</div>
+          <div class="text-[11px] text-slate-500 font-medium">Total SKUs / Assets</div>
           <div class="text-xl font-bold text-slate-800 mt-0.5">${totalItems}</div>
         </div>
         <div class="glass-card rounded-2xl p-3.5">
@@ -392,7 +846,7 @@
 
       const tbody = document.getElementById('stockTbody');
       if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-slate-400">No inventory items match your filters.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-slate-400">No inventory or asset items match your filters.</td></tr>';
         return;
       }
 
@@ -408,8 +862,8 @@
             </td>
             <td class="p-3.5">
               <div class="flex items-center gap-1.5">
-                <span class="font-mono text-[10px] font-bold text-indigo-600">${eq.equipmentId || eq.id.slice(0, 6)}</span>
-                ${hasSafety ? `<button type="button" onclick="viewItemSafety('${eq.id}')" class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 hover:bg-amber-200 text-[9px] font-bold">⚠️ SDS</button>` : ''}
+                <span class="font-mono text-[11px] font-bold text-indigo-600">${eq.equipmentId || eq.id.slice(0, 6)}</span>
+                ${hasSafety ? `<button type="button" onclick="viewItemSafety('${eq.id}')" class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 hover:bg-amber-200 text-[9px] font-bold">ℹ️ Info</button>` : ''}
               </div>
               <div class="font-bold text-slate-800">${eq.name} ${eq.formula ? `<span class="text-blue-600 font-mono text-[11px]">(${eq.formula})</span>` : ''}</div>
               ${isLow ? `<span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 text-[9px] font-bold">LOW STOCK (Min: ${eq.minStock || 0})</span>` : ''}
@@ -434,8 +888,13 @@
                 </div>
               </td>
             ` : ''}
-            <td class="p-3.5 text-right space-x-1">
-              <button type="button" onclick="openServiceHistoryModal('${eq.id}')" class="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 text-[11px] font-medium" title="View repair & movement history">
+            <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
+              ${manageOk ? `
+                <button type="button" onclick="openTransferModal('${eq.id}')" class="px-2 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 text-[11px] font-semibold" title="Transfer to another room">
+                  Transfer
+                </button>
+              ` : ''}
+              <button type="button" onclick="openServiceHistoryModal('${eq.id}')" class="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 text-[11px] font-medium" title="View repair & transfer history">
                 History ${repairCount > 0 ? `(${repairCount})` : ''}
               </button>
               <button type="button" onclick="printSingleA12Label('${eq.id}')" class="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-[11px] font-medium" title="Print A-12 Sticker 34x79mm">
@@ -508,7 +967,7 @@
         : getFilteredEquipments();
 
       if (items.length === 0) {
-        return Swal.fire('No Items', 'Please select at least one equipment item to print labels.', 'warning');
+        return Swal.fire('No Items', 'Please select at least one item to print labels.', 'warning');
       }
       generateA12PrintWindow(items);
     }
@@ -516,15 +975,17 @@
     function generateA12PrintWindow(items) {
       const win = window.open('', '_blank', 'width=900,height=700');
       const labelsHtml = items.map(eq => {
-        const code = eq.equipmentId || eq.id.slice(0, 8).toUpperCase();
-        const qrData = encodeURIComponent(`IPS|${code}|${eq.name}|${eq.lab}${eq.location ? '|' + eq.location : ''}`);
+        const fullCode = eq.equipmentId || eq.id.slice(0, 8).toUpperCase();
+        const permanentCoreCode = getCoreAssetId(fullCode);
+        // Embed Firestore Doc ID in QR so scanning still works even after room transfers
+        const qrData = encodeURIComponent(`IPS|${eq.id}|${permanentCoreCode}|${eq.name}`);
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${qrData}`;
         return `
           <div class="label-box">
             <img src="${qrUrl}" class="qr-img" alt="QR" />
             <div class="info">
               <div class="school">IPS ASSET SYSTEM</div>
-              <div class="code">${code}</div>
+              <div class="code">${permanentCoreCode}</div>
               <div class="name">${eq.name}</div>
               <div class="room">Room: ${eq.lab}${eq.location ? ` (${eq.location})` : ''}</div>
             </div>
@@ -559,7 +1020,7 @@
             .qr-img { width: 25mm; height: 25mm; flex-shrink: 0; }
             .info { overflow: hidden; line-height: 1.25; }
             .school { font-size: 7pt; font-weight: bold; color: #4f46e5; letter-spacing: 0.4px; }
-            .code { font-size: 11pt; font-weight: 800; font-family: monospace; color: #0f172a; margin: 1px 0; }
+            .code { font-size: 11.5pt; font-weight: 800; font-family: monospace; color: #0f172a; margin: 1px 0; }
             .name { font-size: 8.5pt; font-weight: bold; color: #1e293b; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
             .room { font-size: 7.5pt; color: #475569; margin-top: 2px; }
             @media print {
@@ -581,16 +1042,22 @@
       win.document.close();
     }
 
-    // ==================== 3. SERVICE & REPAIR HISTORY MODAL ====================
+    // ==================== 3. SERVICE, TRANSFER & REPAIR HISTORY MODAL ====================
     function openServiceHistoryModal(eqId) {
       const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
       if (!eq) return;
 
+      const coreId = getCoreAssetId(eq.equipmentId || '');
       document.getElementById('historyModalMeta').innerText = `${eq.equipmentId || ''} | ${eq.name} (${eq.lab}${eq.location ? ' • ' + eq.location : ''})`;
 
       const repairs = (window.IPS.repairs || []).filter(r => r.eqDocId === eq.id || (r.equipmentName === eq.name && r.lab === eq.lab));
       const totalRepairCost = repairs.reduce((s, r) => s + Number(r.cost || 0), 0);
-      const moves = (window.IPS.movements || []).filter(m => m.equipmentName === eq.name && m.lab === eq.lab).slice(-15).reverse();
+
+      // Match movements by either exact lab/name OR core permanent asset ID across transfers
+      const moves = (window.IPS.movements || []).filter(m =>
+        (coreId && String(m.equipmentId || '').startsWith(coreId)) ||
+        (m.equipmentName === eq.name && m.lab === eq.lab)
+      ).slice(-20).reverse();
 
       document.getElementById('historySummaryBox').innerHTML = `
         <div class="grid grid-cols-3 gap-3 text-xs">
@@ -611,7 +1078,7 @@
 
       let html = '<div class="text-xs font-bold text-slate-700 mt-2">Repair Records</div>';
       if (repairs.length === 0) {
-        html += '<div class="p-3 rounded-xl bg-slate-50 text-xs text-slate-400">No repair tickets recorded for this equipment.</div>';
+        html += '<div class="p-3 rounded-xl bg-slate-50 text-xs text-slate-400">No repair tickets recorded for this item.</div>';
       } else {
         html += repairs.map(r => `
           <div class="p-3 rounded-xl border border-slate-200 bg-white text-xs flex justify-between items-center">
@@ -624,14 +1091,14 @@
         `).join('');
       }
 
-      html += '<div class="text-xs font-bold text-slate-700 mt-4">Recent Stock Audit & Movement Log</div>';
+      html += '<div class="text-xs font-bold text-slate-700 mt-4">Transfer, Audit & Stock Movement Log</div>';
       if (moves.length === 0) {
-        html += '<div class="p-3 rounded-xl bg-slate-50 text-xs text-slate-400">No stock movements logged yet.</div>';
+        html += '<div class="p-3 rounded-xl bg-slate-50 text-xs text-slate-400">No movements logged yet.</div>';
       } else {
         html += moves.map(m => `
-          <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-[11px] flex justify-between">
-            <span><b>[${m.action}]</b> ${m.note} <span class="text-slate-400">by ${m.staff}</span></span>
-            <span class="font-mono text-slate-500">${m.date}</span>
+          <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-[11px] flex justify-between gap-2">
+            <span><b>[${m.action}]</b> (${m.lab}) ${m.note} <span class="text-slate-400">by ${m.staff}</span></span>
+            <span class="font-mono text-slate-500 shrink-0">${m.date}</span>
           </div>
         `).join('');
       }
@@ -643,7 +1110,7 @@
       if (window.lucide) lucide.createIcons();
     }
 
-    // ==================== ADD / EDIT EQUIPMENT ====================
+    // ==================== ADD / EDIT EQUIPMENT & ASSET ====================
     function openEquipmentModal(eqId = null) {
       populateFilters();
       document.getElementById('eqForm').reset();
@@ -655,30 +1122,31 @@
       if (eqId) {
         const eq = (window.IPS.equipments || []).find(e => e.id === eqId);
         if (eq) {
-          document.getElementById('eqModalTitle').innerText = 'Edit Equipment / Chemical';
+          document.getElementById('eqModalTitle').innerText = 'Edit Asset / Equipment / Chemical';
+          document.getElementById('eqType').value = eq.type || 'Equipment';
           document.getElementById('eqLab').value = eq.lab;
-          document.getElementById('eqCode').value = eq.equipmentId || generateRoomAssetCode(eq.lab);
+          document.getElementById('eqCode').value = eq.equipmentId || generateGlobalCategoryAssetCode(eq.type || 'Equipment', eq.lab);
           document.getElementById('eqName').value = eq.name || '';
           document.getElementById('eqLocation').value = eq.location || '';
           document.getElementById('eqFormula').value = eq.formula || '';
-          document.getElementById('eqType').value = eq.type || 'Equipment';
           document.getElementById('eqUnit').value = eq.unit || 'pcs';
           document.getElementById('eqTotal').value = eq.total || 0;
-          document.getElementById('eqMinStock').value = eq.minStock || 5;
+          document.getElementById('eqMinStock').value = eq.minStock || 1;
           document.getElementById('eqExpiry').value = eq.expiryDate || '';
           document.getElementById('eqSupplier').value = eq.supplier || '';
           document.getElementById('eqHazardNote').value = eq.hazardNote || '';
           document.getElementById('eqSafetyLink').value = eq.safetyLink || '';
 
           if (eq.safetyFileName) {
-            badgeEl.innerText = `✓ Existing SDS File Attached: ${eq.safetyFileName} (Upload a new file to replace)`;
+            badgeEl.innerText = `✓ Existing File Attached: ${eq.safetyFileName} (Upload a new file to replace)`;
             badgeEl.classList.remove('hidden');
           }
         }
       } else {
-        document.getElementById('eqModalTitle').innerText = 'Add New Equipment / Chemical';
+        document.getElementById('eqModalTitle').innerText = 'Add New Asset / Equipment / Chemical';
+        const defaultCat = document.getElementById('eqType').value;
         const defaultRoom = document.getElementById('eqLab').value;
-        document.getElementById('eqCode').value = generateRoomAssetCode(defaultRoom);
+        document.getElementById('eqCode').value = generateGlobalCategoryAssetCode(defaultCat, defaultRoom);
       }
 
       const m = document.getElementById('eqModal');
@@ -729,11 +1197,11 @@
           payload.damaged = 0;
           payload.inRepair = 0;
           await db.collection('equipments').add(payload);
-          await addStockMovement(payload.equipmentId, payload.name, payload.lab, 'Initial Stock', total, 'Added new item to inventory');
+          await addStockMovement(payload.equipmentId, payload.name, payload.lab, 'Initial Stock', total, 'Added new asset/item to registry');
         }
 
         closeModal('eqModal');
-        Swal.fire('Saved', `Item ${payload.equipmentId} saved to inventory.`, 'success');
+        Swal.fire('Saved', `Item ${payload.equipmentId} saved to registry.`, 'success');
       } catch (err) {
         Swal.fire('Attachment Error', err.message, 'warning');
       }
@@ -741,13 +1209,13 @@
 
     function exportStockCSV() {
       const today = new Date().toISOString().slice(0, 10);
-      const headers = ['Asset ID', 'Name', 'Formula', 'Room', 'Storage Location', 'Category', 'Unit', 'Total', 'Available', 'Reserved', 'Damaged', 'In Repair', 'Min Stock', 'Expiry Date', 'Supplier', 'Safety Note'];
+      const headers = ['Asset ID', 'Core ID', 'Name', 'Formula/Model', 'Room', 'Storage Location', 'Category', 'Unit', 'Total', 'Available', 'Reserved', 'Damaged', 'In Repair', 'Min Stock', 'Expiry Date', 'Supplier', 'Note'];
       const rows = getFilteredEquipments().map(e => [
-        e.equipmentId || '', e.name, e.formula || '', e.lab, e.location || '', e.type || 'Equipment', e.unit || 'pcs',
+        e.equipmentId || '', getCoreAssetId(e.equipmentId || ''), e.name, e.formula || '', e.lab, e.location || '', e.type || 'Equipment', e.unit || 'pcs',
         e.total || 0, e.available || 0, e.reserved || 0, e.damaged || 0, e.inRepair || 0,
         e.minStock || 0, e.expiryDate || '', e.supplier || '', e.hazardNote || ''
       ]);
-      exportDataToCSV(`IPS_Inventory_${today}.csv`, headers, rows);
+      exportDataToCSV(`IPS_Assets_${today}.csv`, headers, rows);
     }
 
     function closeModal(id) {
