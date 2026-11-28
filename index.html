@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IPS Borrowing System | Dashboard & Directory</title>
+  <title>IPS Asset System | Dashboard & Directory</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -23,8 +23,8 @@
   <div id="loginSection" class="min-h-screen flex items-center justify-center p-4">
     <div class="glass-card w-full max-w-md rounded-2xl p-8">
       <div class="text-center mb-6">
-        <img src="IPS.png" alt="IPS Lab Logo" class="w-16 h-16 mx-auto mb-4 object-contain rounded-2xl bg-white p-1.5 shadow-md border border-slate-100" />
-        <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-700 to-purple-700 bg-clip-text text-transparent">IPS Borrowing System</h1>
+        <img src="IPS.png" alt="IPS Logo" class="w-16 h-16 mx-auto mb-4 object-contain rounded-2xl bg-white p-1.5 shadow-md border border-slate-100" />
+        <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-700 to-purple-700 bg-clip-text text-transparent">IPS Asset System</h1>
         <p class="text-sm text-slate-500 mt-1">Asset Equipment Requisition & Inventory Portal</p>
       </div>
 
@@ -56,8 +56,8 @@
           <input type="text" id="regNameInput" required placeholder="e.g., Somsri Science" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">School Email Address</label>
-          <input type="email" id="regEmailInput" required placeholder="name@ips.ac.th" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          <label class="block text-xs font-medium text-slate-600 mb-1">School Email Address (@ips.ac.th only)</label>
+          <input type="email" id="regEmailInput" required pattern=".+@ips\.ac\.th$" title="Please use your @ips.ac.th school email address" placeholder="name@ips.ac.th" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Create Password (min 6 characters)</label>
@@ -76,7 +76,7 @@
     <main class="flex-1 p-4 md:p-8 space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h2 class="text-2xl font-bold text-slate-800">IPS Asset Borrowing Directory</h2>
+          <h2 class="text-2xl font-bold text-slate-800">IPS Asset System Directory</h2>
           <p class="text-xs text-slate-500">Select a module below based on your assigned role permissions</p>
         </div>
       </div>
@@ -84,13 +84,13 @@
       <!-- Module Directory Cards -->
       <div id="directoryCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
 
-      <!-- KPI Summary (Strictly filtered by user's allowed rooms — Secret ICT room hidden from others) -->
+      <!-- KPI Summary (Strictly filtered by user's allowed rooms) -->
       <div id="kpiRow" class="grid grid-cols-2 lg:grid-cols-4 gap-4"></div>
 
       <!-- Analytics Chart & Alerts (Low Stock + Expiry + Repair/MA Alerts) -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="glass-card rounded-2xl p-5 lg:col-span-2">
-          <h4 id="labChartTitle" class="font-bold text-sm text-slate-800 mb-3">Equipment Distribution by Room / Laboratory</h4>
+          <h4 id="labChartTitle" class="font-bold text-sm text-slate-800 mb-3">Asset & Equipment Distribution by Room</h4>
           <div class="h-80"><canvas id="labChart"></canvas></div>
         </div>
 
@@ -148,8 +148,18 @@
     document.getElementById('registerForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = document.getElementById('regNameInput').value.trim();
-      const email = document.getElementById('regEmailInput').value.trim();
+      const email = document.getElementById('regEmailInput').value.trim().toLowerCase();
       const password = document.getElementById('regPasswordInput').value;
+
+      // Enforce @ips.ac.th school email domain before calling Firebase Auth
+      if (!email.endsWith('@ips.ac.th')) {
+        return Swal.fire({
+          icon: 'warning',
+          title: 'ไม่อนุญาตให้สมัครสมาชิก',
+          text: 'กรุณาใช้อีเมลของโรงเรียนที่ลงท้ายด้วย @ips.ac.th เท่านั้น',
+          confirmButtonColor: '#4f46e5'
+        });
+      }
 
       try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
@@ -193,7 +203,7 @@
         document.getElementById('loginSection').classList.add('hidden');
         document.getElementById('dashboardSection').classList.remove('hidden');
 
-        // Strictly filter rooms and assets so Secret / Restricted ICT vaults never leak to unauthorized users
+        // Strictly filter rooms and assets so Secret / Restricted vaults never leak to unauthorized users
         const allowedLabs = getUserAllowedLabs(user);
         const visibleEquipments = (window.IPS.equipments || []).filter(e => allowedLabs.includes(e.lab));
         const visibleRequests = (window.IPS.requests || []).filter(r => allowedLabs.includes(r.lab));
@@ -207,7 +217,7 @@
           { href: 'purchase.html', title: '4. Procurement (Purchase)', desc: 'Create purchase requisitions, track PO status, documents, and incoming stock', icon: 'shopping-cart', color: 'amber', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
           { href: 'repair.html', title: '5. Repair & MA', desc: 'Track corrective equipment repairs (3/7/14d SLA) and MA contract renewals (90/60/30/15/7d)', icon: 'wrench', color: 'cyan', roles: ['Lab Staff', 'Staff', 'Admin', 'Super Admin'] },
           { href: 'report.html', title: '6. Analytics & Reports', desc: 'Generate specialized reports (including Monthly/Yearly) and export to Excel, CSV, or PDF', icon: 'bar-chart-3', color: 'indigo', roles: ['Admin', 'Super Admin'] },
-          { href: 'admin.html', title: '7. User & Rooms Management', desc: 'Create/manage rooms, secret ICT vaults, and assign user roles (RBAC)', icon: 'users', color: 'rose', roles: ['Super Admin'] }
+          { href: 'admin.html', title: '7. User & Rooms Management', desc: 'Create/manage rooms, secret vaults, and assign user roles (RBAC)', icon: 'users', color: 'rose', roles: ['Super Admin'] }
         ];
 
         document.getElementById('directoryCards').innerHTML = cards
@@ -228,7 +238,7 @@
         const pendingReqs = visibleRequests.filter(r => r.status === 'Pending');
 
         document.getElementById('kpiRow').innerHTML = `
-          <div class="glass-card rounded-2xl p-4"><div class="text-xs text-slate-500">Accessible Equipment SKUs</div><div class="text-2xl font-bold mt-1">${visibleEquipments.length} <span class="text-xs font-normal text-slate-400">items</span></div></div>
+          <div class="glass-card rounded-2xl p-4"><div class="text-xs text-slate-500">Accessible Asset SKUs</div><div class="text-2xl font-bold mt-1">${visibleEquipments.length} <span class="text-xs font-normal text-slate-400">items</span></div></div>
           <div class="glass-card rounded-2xl p-4"><div class="text-xs text-slate-500">Pending Requests</div><div class="text-2xl font-bold text-amber-600 mt-1">${pendingReqs.length} <span class="text-xs font-normal text-slate-400">requests</span></div></div>
           <div class="glass-card rounded-2xl p-4"><div class="text-xs text-slate-500">Low Stock Alerts</div><div class="text-2xl font-bold text-rose-600 mt-1">${lowItems.length} <span class="text-xs font-normal text-slate-400">items</span></div></div>
           <div class="glass-card rounded-2xl p-4"><div class="text-xs text-slate-500">Expiring / Expired Items</div><div class="text-2xl font-bold text-amber-700 mt-1">${expiringItems.length} <span class="text-xs font-normal text-slate-400">items</span></div></div>
@@ -297,7 +307,7 @@
               `;
             }).join('');
 
-        document.getElementById('labChartTitle').innerText = `Equipment Distribution by Room / Laboratory (${allowedLabs.length} Accessible Rooms)`;
+        document.getElementById('labChartTitle').innerText = `Asset & Equipment Distribution by Room (${allowedLabs.length} Accessible Rooms)`;
         if (chartObj) chartObj.destroy();
         chartObj = new Chart(document.getElementById('labChart'), {
           type: 'bar',
