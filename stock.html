@@ -33,7 +33,7 @@
           <select id="typeFilter" onchange="renderStockTable()" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium">
             <option value="All">All Categories</option>
           </select>
-          <input type="text" id="searchInput" onkeyup="renderStockTable()" placeholder="Search ID (e.g. FUR-001), Name, Room..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-60" />
+          <input type="text" id="searchInput" onkeyup="renderStockTable()" placeholder="Search ID, Serial No., Name, Room..." class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs w-64" />
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -137,12 +137,16 @@
             <input type="text" id="eqFormula" placeholder="e.g., H2SO4, Dell OptiPlex 7090" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Expiry Date / Warranty End (Optional)</label>
-            <input type="date" id="eqExpiry" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+            <label class="block text-xs font-medium text-slate-600 mb-1">Serial Number (Optional)</label>
+            <input type="text" id="eqSerial" placeholder="e.g., SN-987654321" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono" />
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Supplier / Brand</label>
             <input type="text" id="eqSupplier" placeholder="Optional" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Expiry Date / Warranty End (Optional)</label>
+            <input type="date" id="eqExpiry" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
           </div>
         </div>
 
@@ -153,7 +157,7 @@
           </div>
           <div>
             <label class="block text-[11px] font-medium text-slate-600 mb-1">Handling / Spec Note</label>
-            <input type="text" id="eqHazardNote" placeholder="e.g., Corrosive — Wear gloves, or Serial No. SN123456" class="w-full px-3 py-1.5 rounded-lg border border-amber-200 bg-white text-xs" />
+            <input type="text" id="eqHazardNote" placeholder="e.g., Corrosive — Wear gloves, or asset condition remarks" class="w-full px-3 py-1.5 rounded-lg border border-amber-200 bg-white text-xs" />
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
@@ -529,7 +533,7 @@
 
       const qtyInput = document.getElementById('transferQty');
       qtyInput.max = avail;
-      qtyInput.value = avail === 1 ? 1 : 1;
+      qtyInput.value = 1;
 
       const destRooms = getAllLabNames().filter(r => r !== eq.lab);
       document.getElementById('transferToRoom').innerHTML = destRooms.map(r => `<option value="${r}">${r}</option>`).join('');
@@ -669,6 +673,7 @@
                 name: eq.name,
                 location: destLocation || '',
                 formula: eq.formula || '',
+                serialNumber: eq.serialNumber || '',
                 type: eq.type || 'Equipment',
                 unit: eq.unit || 'pcs',
                 total: qty,
@@ -758,7 +763,8 @@
         width: 650,
         html: `
           <div class="text-left text-xs space-y-2">
-            <div class="p-3 rounded-xl bg-amber-5 border border-amber-200 text-amber-950">
+            ${eq.serialNumber ? `<div class="p-2.5 rounded-xl bg-slate-100 border border-slate-200 font-mono"><b>Serial Number:</b> ${eq.serialNumber}</div>` : ''}
+            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950">
               <b>Note:</b><br>
               ${eq.hazardNote ? String(eq.hazardNote).replace(/\n/g, '<br>') : 'No specific note recorded.'}
             </div>
@@ -804,7 +810,7 @@
         if (labF !== 'All' && eq.lab !== labF) return false;
         if (typeF !== 'All' && (eq.type || 'Equipment') !== typeF) return false;
         if (q) {
-          const hay = `${eq.equipmentId || ''} ${eq.name || ''} ${eq.formula || ''} ${eq.lab || ''} ${eq.location || ''} ${eq.type || ''}`.toLowerCase();
+          const hay = `${eq.equipmentId || ''} ${eq.serialNumber || ''} ${eq.name || ''} ${eq.formula || ''} ${eq.lab || ''} ${eq.location || ''} ${eq.type || ''}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -866,6 +872,7 @@
                 ${hasSafety ? `<button type="button" onclick="viewItemSafety('${eq.id}')" class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 hover:bg-amber-200 text-[9px] font-bold">ℹ️ Info</button>` : ''}
               </div>
               <div class="font-bold text-slate-800">${eq.name} ${eq.formula ? `<span class="text-blue-600 font-mono text-[11px]">(${eq.formula})</span>` : ''}</div>
+              ${eq.serialNumber ? `<div class="text-[10px] font-mono text-slate-500">S/N: ${eq.serialNumber}</div>` : ''}
               ${isLow ? `<span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 text-[9px] font-bold">LOW STOCK (Min: ${eq.minStock || 0})</span>` : ''}
             </td>
             <td class="p-3.5">
@@ -1048,7 +1055,7 @@
       if (!eq) return;
 
       const coreId = getCoreAssetId(eq.equipmentId || '');
-      document.getElementById('historyModalMeta').innerText = `${eq.equipmentId || ''} | ${eq.name} (${eq.lab}${eq.location ? ' • ' + eq.location : ''})`;
+      document.getElementById('historyModalMeta').innerText = `${eq.equipmentId || ''} | ${eq.name} (${eq.lab}${eq.location ? ' • ' + eq.location : ''})${eq.serialNumber ? ' • S/N: ' + eq.serialNumber : ''}`;
 
       const repairs = (window.IPS.repairs || []).filter(r => r.eqDocId === eq.id || (r.equipmentName === eq.name && r.lab === eq.lab));
       const totalRepairCost = repairs.reduce((s, r) => s + Number(r.cost || 0), 0);
@@ -1129,6 +1136,7 @@
           document.getElementById('eqName').value = eq.name || '';
           document.getElementById('eqLocation').value = eq.location || '';
           document.getElementById('eqFormula').value = eq.formula || '';
+          document.getElementById('eqSerial').value = eq.serialNumber || '';
           document.getElementById('eqUnit').value = eq.unit || 'pcs';
           document.getElementById('eqTotal').value = eq.total || 0;
           document.getElementById('eqMinStock').value = eq.minStock || 1;
@@ -1170,6 +1178,7 @@
           name: document.getElementById('eqName').value.trim(),
           location: document.getElementById('eqLocation').value.trim(),
           formula: document.getElementById('eqFormula').value.trim(),
+          serialNumber: document.getElementById('eqSerial').value.trim(),
           type: document.getElementById('eqType').value,
           unit: document.getElementById('eqUnit').value.trim(),
           total,
@@ -1209,9 +1218,9 @@
 
     function exportStockCSV() {
       const today = new Date().toISOString().slice(0, 10);
-      const headers = ['Asset ID', 'Core ID', 'Name', 'Formula/Model', 'Room', 'Storage Location', 'Category', 'Unit', 'Total', 'Available', 'Reserved', 'Damaged', 'In Repair', 'Min Stock', 'Expiry Date', 'Supplier', 'Note'];
+      const headers = ['Asset ID', 'Core ID', 'Name', 'Formula/Model', 'Serial Number', 'Room', 'Storage Location', 'Category', 'Unit', 'Total', 'Available', 'Reserved', 'Damaged', 'In Repair', 'Min Stock', 'Expiry Date', 'Supplier', 'Note'];
       const rows = getFilteredEquipments().map(e => [
-        e.equipmentId || '', getCoreAssetId(e.equipmentId || ''), e.name, e.formula || '', e.lab, e.location || '', e.type || 'Equipment', e.unit || 'pcs',
+        e.equipmentId || '', getCoreAssetId(e.equipmentId || ''), e.name, e.formula || '', e.serialNumber || '', e.lab, e.location || '', e.type || 'Equipment', e.unit || 'pcs',
         e.total || 0, e.available || 0, e.reserved || 0, e.damaged || 0, e.inRepair || 0,
         e.minStock || 0, e.expiryDate || '', e.supplier || '', e.hazardNote || ''
       ]);
