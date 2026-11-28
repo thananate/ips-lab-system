@@ -240,7 +240,7 @@ function renderSharedLayout(activePage, pageTitle, pageSubtitle) {
     { href: 'purchase.html', id: 'purchase', label: 'Procurement (Purchase)', icon: 'shopping-cart', roles: ['Lab Staff', 'Admin', 'Super Admin'] },
     { href: 'repair.html', id: 'repair', label: 'Repair & MA', icon: 'wrench', roles: ['Lab Staff', 'Staff', 'Admin', 'Super Admin'] },
     { href: 'report.html', id: 'report', label: 'Analytics & Reports', icon: 'bar-chart-3', roles: ['Admin', 'Super Admin'] },
-    { href: 'admin.html', id: 'admin', label: 'User & Room Management', icon: 'users', roles: ['Super Admin'] }
+    { href: 'admin.html', id: 'admin', label: 'User & Rooms Management', icon: 'users', roles: ['Super Admin'] }
   ];
 
   // Custom menu ordering specifically for Lab Staff: 1. Stock -> 2. Purchase -> 3. Asset Admin Section -> 4. Repair & MA -> 5. Home
